@@ -41,6 +41,9 @@ async fn main() {
     );
 
     let mut state = AppState::new(pool);
+    // A plain-HTTP API is loopback-only (ADR 0038), where a Secure cookie
+    // would not always be kept.
+    state.secure_cookies = config.tls.is_some();
     if let Some(traffic) = &config.traffic {
         let clickhouse = wetechinetmon_api::clickhouse::ClickHouse::new(traffic.clickhouse.clone())
             .unwrap_or_else(|error| {

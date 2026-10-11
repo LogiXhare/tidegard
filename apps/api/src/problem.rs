@@ -53,6 +53,7 @@ macro_rules! error_codes {
 error_codes! {
     Unauthenticated => ("api.unauthenticated", 401, "Authentication required"),
     Forbidden => ("api.forbidden", 403, "Permission denied"),
+    CsrfRejected => ("api.csrf_rejected", 403, "CSRF check failed"),
     NotFound => ("api.not_found", 404, "Not found"),
     MethodNotAllowed => ("api.method_not_allowed", 405, "Method not allowed"),
     InvalidRequest => ("api.invalid_request", 400, "Invalid request"),

@@ -284,7 +284,19 @@ async fn the_outbox_leases_retries_and_dead_letters_and_retention_purges_only_wh
              ) VALUES
                 ('acme', 'old reviewed', now() - interval '91 days', now() - interval '1 day',
                  'operator', 'op-7'),
-                ('acme', 'old unreviewed', now() - interval '400 days', NULL, NULL, NULL);",
+                ('acme', 'old unreviewed', now() - interval '400 days', NULL, NULL, NULL);
+             INSERT INTO api_tokens (
+                token_id, tenant_id, actor_type, actor_id, role, token_hash, expires_at
+             ) VALUES (
+                '0192f3c4-0000-7000-8000-000000000001', 'acme', 'operator', 'op-7', 'viewer',
+                decode(repeat('11', 32), 'hex'), now() + interval '1 day'
+             );
+             INSERT INTO api_sessions (session_hash, token_id, created_at, last_seen_at, expires_at)
+             VALUES
+                (decode(repeat('aa', 32), 'hex'), '0192f3c4-0000-7000-8000-000000000001',
+                 now() - interval '2 hours', now() - interval '2 hours', now() - interval '1 hour'),
+                (decode(repeat('bb', 32), 'hex'), '0192f3c4-0000-7000-8000-000000000001',
+                 now(), now(), now() + interval '12 hours');",
         )
         .await
         .unwrap();
@@ -304,7 +316,13 @@ async fn the_outbox_leases_retries_and_dead_letters_and_retention_purges_only_wh
             processed_inbox: 0,
             reviewed_dead_letter: 1,
             closed_incidents: 1,
+            expired_sessions: 1,
         }
+    );
+    assert_eq!(
+        scalar(&client, "SELECT count(*) FROM api_sessions", &[]).await,
+        1,
+        "the live session stays"
     );
 
     for (what, sql, expected) in [
