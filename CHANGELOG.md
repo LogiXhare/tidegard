@@ -8,6 +8,23 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Added — Phase 5 incident management
+
+- Incident management, built in six milestones (5A–5F): a tested
+  domain, PostgreSQL persistence (migrations V1–V17), ingestion of
+  detection events through an inbox, the
+  [REST API](apps/api/README.md), and the
+  [`wetechinetmonctl` CLI](apps/cli/README.md). Incidents correlate
+  detections, move through a seven-state lifecycle, and record every
+  change on an append-only timeline and audit trail. Nothing notifies
+  and nothing mitigates: those are Phases 6 and 7.
+- Operations: an [installation guide](docs/installation/incident-management.md),
+  a [runbook](docs/operations/incident-runbook.md), a tested
+  [backup and restore drill](docs/operations/backup-and-restore.md), and
+  measured [capacity numbers](docs/operations/capacity-planning.md).
+- The [Gate 2 assessment](docs/development/phase5-gate2-assessment.md)
+  records what is met and what remains open.
+
 ### Added — Phase 5 incident management planning
 
 - Phase 5 architecture and documentation planning. **No Phase 5 code,
@@ -25,7 +42,8 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
   [testing plan](docs/architecture/incident-testing-plan.md), a 24-entry
   [threat model](docs/security/incident-threat-model.md), a
   [configuration plan](docs/configuration/incident-management-plan.md), an
-  [operations runbook plan](docs/operations/incident-runbook-plan.md), an
+  [operations runbook plan](docs/operations/incident-runbook.md) (since
+  renamed), an
   [API reference plan](docs/api/incident-api-plan.md) with a draft
   OpenAPI, an
   [implementation plan](docs/development/phase5-implementation-plan.md),

@@ -168,18 +168,32 @@ impl Default for PlaceholderIncidentGenerator {
 
 impl IncidentGenerator for PlaceholderIncidentGenerator {
     fn generate(&self) -> Result<IncidentId, IncidentError> {
-        // `fetch_update` with `checked_add` rather than `fetch_add`:
-        // `fetch_add` wraps silently on overflow, which for an identity
-        // generator means repeating a byte-for-byte identical
-        // `IncidentId` — a real collision in `self.incidents`, not a
-        // display artifact. `fetch_update` refuses instead, leaving the
-        // counter untouched, so the next call refuses again rather than
-        // ever handing out a duplicate.
-        let seq = self
-            .counter
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |c| c.checked_add(1))
-            .map_err(|_| IncidentError::CapacityExceeded("incident identity counter exhausted"))?;
+        // A checked increment rather than `fetch_add`: `fetch_add` wraps
+        // silently on overflow, which for an identity generator means
+        // repeating a byte-for-byte identical `IncidentId` — a real
+        // collision in `self.incidents`, not a display artifact. The
+        // checked increment refuses instead, leaving the counter
+        // untouched, so the next call refuses again rather than ever
+        // handing out a duplicate.
+        let seq = checked_increment(&self.counter).ok_or(IncidentError::CapacityExceeded(
+            "incident identity counter exhausted",
+        ))?;
         Ok(IncidentId::from_bytes(mix(self.salt, seq)))
+    }
+}
+
+/// Adds one and returns the previous value, or `None`, leaving the
+/// counter as it was, when it is already at `u64::MAX`. A compare-and-swap
+/// loop: `fetch_update`, which did this, is deprecated on current stable in
+/// favour of `try_update`, which older toolchains lack.
+fn checked_increment(counter: &AtomicU64) -> Option<u64> {
+    let mut current = counter.load(Ordering::Relaxed);
+    loop {
+        let next = current.checked_add(1)?;
+        match counter.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(previous) => return Some(previous),
+            Err(actual) => current = actual,
+        }
     }
 }
 
@@ -205,12 +219,9 @@ impl TestIncidentGenerator {
 
 impl IncidentGenerator for TestIncidentGenerator {
     fn generate(&self) -> Result<IncidentId, IncidentError> {
-        let seq = self
-            .counter
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |c| c.checked_add(1))
-            .map_err(|_| {
-                IncidentError::CapacityExceeded("test incident identity counter exhausted")
-            })?;
+        let seq = checked_increment(&self.counter).ok_or(IncidentError::CapacityExceeded(
+            "test incident identity counter exhausted",
+        ))?;
         let mut bytes = [0u8; 16];
         bytes[8..16].copy_from_slice(&seq.to_be_bytes());
         Ok(IncidentId::from_bytes(bytes))

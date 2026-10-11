@@ -1552,7 +1552,7 @@
         "tags": [
           "incidents"
         ],
-        "summary": "An incident's notes. Bounded by the domain, so never paginated.",
+        "summary": "An incident's notes. Bounded by the domain, so never paginated.\nNotes an edit replaced are left out unless `include_superseded=true`.",
         "operationId": "notes",
         "parameters": [
           {
@@ -1563,11 +1563,20 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "include_superseded",
+            "in": "query",
+            "description": "Also return the notes an edit replaced. Defaults to false",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Every note",
+            "description": "The current notes, or every note with include_superseded",
             "content": {
               "application/json": {
                 "schema": {
@@ -1776,6 +1785,338 @@
           },
           "501": {
             "description": "Customer-visible notes are not available",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/notes/{note_index}/edit": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Replaces your own note with new text. Needs `incident.note.create`,\nand the note must be yours.",
+        "description": "The original stays, marked superseded: `GET .../notes` shows the\nreplacement, and `include_superseded=true` shows both. A note is\nreplaced once; to change the text again, edit the replacement.",
+        "operationId": "edit_note",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "description": "The incident's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "note_index",
+            "in": "path",
+            "description": "The note to replace",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional; 16 to 255 characters",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteEditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The incident with the replacement note added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad id, index, header or body, or an unknown field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks incident.note.create, or the note is someone else's",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such incident in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The note limit is reached, or the key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 64 KiB",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The body is not application/json",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No such note, it was already replaced or redacted, or the text is too long",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/incidents/{incident_id}/notes/{note_index}/redact": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Removes a note's body, keeping the note and the record of who removed\nit and why. Needs `incident.note.redact` (`noc_lead` and above).",
+        "description": "For words that must go, such as a pasted credential. A replaced note\ncan be redacted too. A note is redacted once.",
+        "operationId": "redact_note",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "description": "The incident's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "note_index",
+            "in": "path",
+            "description": "The note to redact",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional; 16 to 255 characters",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteRedactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The incident with the note redacted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad id, index, header or body, or an unknown field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks incident.note.redact",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such incident in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The key was reused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The body is not application/json",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No such note, it is already redacted, or the reason is blank or too long",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4064,6 +4405,19 @@
           }
         }
       },
+      "NoteEditRequest": {
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The replacement text. Untrusted, stored and returned verbatim."
+          }
+        },
+        "additionalProperties": false
+      },
       "NoteList": {
         "type": "object",
         "required": [
@@ -4077,6 +4431,19 @@
             }
           }
         }
+      },
+      "NoteRedactRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Required, up to 500 characters. Recorded on the audit trail."
+          }
+        },
+        "additionalProperties": false
       },
       "NoteRequest": {
         "type": "object",
@@ -4102,7 +4469,8 @@
           "note_index",
           "author",
           "body",
-          "visibility"
+          "visibility",
+          "redacted"
         ],
         "properties": {
           "author": {
@@ -4110,12 +4478,32 @@
           },
           "body": {
             "type": "string",
-            "description": "Untrusted operator text, returned verbatim: escape it on output."
+            "description": "Untrusted operator text, returned verbatim: escape it on output.\nEmpty once the note is redacted."
           },
           "note_index": {
             "type": "integer",
             "format": "int32",
             "description": "Position within the incident's notes."
+          },
+          "redacted": {
+            "type": "boolean",
+            "description": "The body was removed. Who did it, and why, is on the audit trail."
+          },
+          "superseded_by_note_index": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The edit that replaced this note, if any."
+          },
+          "supersedes_note_index": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The note this one replaces, when it is an edit."
           },
           "visibility": {
             "type": "string",

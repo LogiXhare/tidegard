@@ -74,8 +74,8 @@ use crate::error::IncidentError;
 use crate::evidence::EVIDENCE_RETAINED_LIMIT;
 use crate::incident::{Incident, INCIDENT_SCHEMA_VERSION};
 use crate::limits::{
-    DESCRIPTION_MAX_LEN, NOTES_PER_INCIDENT_MAX, NOTE_BODY_MAX_LEN, POLICY_REFS_MAX,
-    TAGS_PER_INCIDENT_MAX, TAG_KEY_MAX_LEN, TAG_VALUE_MAX_LEN, TITLE_MAX_LEN,
+    DESCRIPTION_MAX_LEN, NOTES_PER_INCIDENT_MAX, NOTE_BODY_MAX_LEN, NOTE_REDACTION_REASON_MAX_LEN,
+    POLICY_REFS_MAX, TAGS_PER_INCIDENT_MAX, TAG_KEY_MAX_LEN, TAG_VALUE_MAX_LEN, TITLE_MAX_LEN,
 };
 use crate::number::INCIDENT_NUMBER_MAX_LEN;
 use crate::severity::SeveritySource;
@@ -178,6 +178,36 @@ impl Incident {
                 .all(|(position, note)| note.index as usize == position),
             "notes",
             "indices are not contiguous from zero",
+        )?;
+        require(
+            s.notes
+                .iter()
+                .all(|note| note.supersedes.is_none_or(|earlier| earlier < note.index)),
+            "notes",
+            "a note supersedes itself or a later note",
+        )?;
+        {
+            let mut replaced = std::collections::BTreeSet::new();
+            require(
+                s.notes
+                    .iter()
+                    .filter_map(|note| note.supersedes)
+                    .all(|earlier| replaced.insert(earlier)),
+                "notes",
+                "a note is superseded more than once",
+            )?;
+        }
+        require(
+            s.notes.iter().all(|note| match &note.redaction {
+                None => true,
+                Some(redaction) => {
+                    note.body.is_empty()
+                        && !redaction.reason.trim().is_empty()
+                        && redaction.reason.chars().count() <= NOTE_REDACTION_REASON_MAX_LEN
+                }
+            }),
+            "notes",
+            "a redacted note keeps a body or lacks a bounded reason",
         )?;
         require(
             s.tags.len() <= TAGS_PER_INCIDENT_MAX,
@@ -490,11 +520,13 @@ mod tests {
     fn more_notes_than_the_cap_are_rejected() {
         let mut s = snapshot_of(IncidentState::Open);
         s.notes = (0..=NOTES_PER_INCIDENT_MAX)
-            .map(|index| Note {
-                index: index as u32,
-                body: "n".to_string(),
-                visibility: NoteVisibility::Internal,
-                created_by: s.created_by.clone(),
+            .map(|index| {
+                Note::new(
+                    index as u32,
+                    "n".to_string(),
+                    NoteVisibility::Internal,
+                    s.created_by.clone(),
+                )
             })
             .collect();
         expect_rejected(s, "notes");
@@ -503,12 +535,12 @@ mod tests {
     #[test]
     fn an_oversized_note_body_is_rejected() {
         let mut s = snapshot_of(IncidentState::Open);
-        s.notes = vec![Note {
-            index: 0,
-            body: "n".repeat(NOTE_BODY_MAX_LEN + 1),
-            visibility: NoteVisibility::Internal,
-            created_by: s.created_by.clone(),
-        }];
+        s.notes = vec![Note::new(
+            0,
+            "n".repeat(NOTE_BODY_MAX_LEN + 1),
+            NoteVisibility::Internal,
+            s.created_by.clone(),
+        )];
         expect_rejected(s, "notes");
     }
 
@@ -518,13 +550,81 @@ mod tests {
     #[test]
     fn non_contiguous_note_indices_are_rejected() {
         let mut s = snapshot_of(IncidentState::Open);
-        s.notes = vec![Note {
-            index: 7,
-            body: "n".to_string(),
-            visibility: NoteVisibility::Internal,
-            created_by: s.created_by.clone(),
-        }];
+        s.notes = vec![Note::new(
+            7,
+            "n".to_string(),
+            NoteVisibility::Internal,
+            s.created_by.clone(),
+        )];
         expect_rejected(s, "notes");
+    }
+
+    fn two_notes(s: &IncidentSnapshot) -> Vec<Note> {
+        (0..2)
+            .map(|index| {
+                Note::new(
+                    index,
+                    "n".to_string(),
+                    NoteVisibility::Internal,
+                    s.created_by.clone(),
+                )
+            })
+            .collect()
+    }
+
+    /// An edit names an earlier note, and replaces it once.
+    #[test]
+    fn a_supersession_chain_that_points_forward_or_forks_is_rejected() {
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes[0].supersedes = Some(1);
+        expect_rejected(s, "notes");
+
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes[1].supersedes = Some(1);
+        expect_rejected(s, "notes");
+
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes.push(Note::new(
+            2,
+            "n".to_string(),
+            NoteVisibility::Internal,
+            s.created_by.clone(),
+        ));
+        s.notes[1].supersedes = Some(0);
+        s.notes[2].supersedes = Some(0);
+        expect_rejected(s, "notes");
+
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes[1].supersedes = Some(0);
+        Incident::reconstitute(s).expect("a single edit is a valid chain");
+    }
+
+    #[test]
+    fn a_redacted_note_with_a_body_or_without_a_reason_is_rejected() {
+        let redaction = |reason: &str| crate::incident::NoteRedaction {
+            by: crate::authorization::Actor::System,
+            reason: reason.to_string(),
+        };
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes[0].redaction = Some(redaction("pasted a password"));
+        expect_rejected(s, "notes");
+
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes[0].body.clear();
+        s.notes[0].redaction = Some(redaction(" "));
+        expect_rejected(s, "notes");
+
+        let mut s = snapshot_of(IncidentState::Open);
+        s.notes = two_notes(&s);
+        s.notes[0].body.clear();
+        s.notes[0].redaction = Some(redaction("pasted a password"));
+        Incident::reconstitute(s).expect("a redacted note with a reason is valid");
     }
 
     #[test]

@@ -90,10 +90,32 @@ async fn act(
     }
 }
 
+/// `.../notes/{index}/edit` and `.../redact`, recorded as
+/// `notes/{index}/{action}`.
+async fn act_on_note(
+    State(seen): State<Shared>,
+    UrlPath((_, index, action)): UrlPath<(String, String, String)>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    seen.posts.lock().unwrap().push(Posted {
+        action: format!("notes/{index}/{action}"),
+        key: headers
+            .get("idempotency-key")
+            .map(|v| v.to_str().unwrap().to_string()),
+        body: serde_json::from_slice(&body).unwrap_or(Value::Null),
+    });
+    Json(incident(4, "resolved")).into_response()
+}
+
 async fn serve(seen: Shared) -> String {
     let app = Router::new()
         .route("/api/v1/incidents/{id}", get(read))
         .route("/api/v1/incidents/{id}/{action}", post(act))
+        .route(
+            "/api/v1/incidents/{id}/notes/{index}/{action}",
+            post(act_on_note),
+        )
         .with_state(seen);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
@@ -369,5 +391,50 @@ async fn suppression_and_notes_send_what_the_api_takes() {
         *seen.reads.lock().unwrap(),
         reads,
         "a note reads nothing first"
+    );
+}
+
+#[tokio::test]
+async fn note_edits_and_redactions_send_what_the_api_takes() {
+    let seen = Shared::default();
+    let url = serve(seen.clone()).await;
+    let reads = *seen.reads.lock().unwrap();
+    let edited = cli(
+        &url,
+        &format!("incidents note edit {ID} 2 --message better"),
+        None,
+    )
+    .await;
+    assert_eq!(edited.code, exit::SUCCESS, "{}", edited.err);
+    let edit = &posts(&seen, "notes/2/edit")[0];
+    assert_eq!(edit.body, json!({"body": "better"}), "no version");
+    assert!(edit.key.is_some(), "a retried edit is not applied twice");
+    assert_eq!(
+        *seen.reads.lock().unwrap(),
+        reads,
+        "an edit reads nothing first"
+    );
+
+    let line = format!("incidents note redact {ID} #1 --reason pasted-a-key");
+    let refused = cli(&url, &line, None).await;
+    assert_eq!(refused.code, exit::USAGE, "{}", refused.err);
+    assert!(refused.err.contains("--yes"), "{}", refused.err);
+    let declined = cli(&url, &line, Some("n\n")).await;
+    assert_eq!(declined.code, exit::FAILURE);
+    assert!(
+        declined.err.contains("Redact note #1 on"),
+        "{}",
+        declined.err
+    );
+    assert!(
+        posts(&seen, "notes/1/redact").is_empty(),
+        "nothing was sent"
+    );
+
+    let redacted = cli(&url, &format!("{line} --yes"), None).await;
+    assert_eq!(redacted.code, exit::SUCCESS, "{}", redacted.err);
+    assert_eq!(
+        posts(&seen, "notes/1/redact")[0].body,
+        json!({"reason": "pasted-a-key"})
     );
 }

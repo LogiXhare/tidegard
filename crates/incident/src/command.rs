@@ -2,7 +2,9 @@
 //!
 //! Every command that changes state or a safety-relevant field carries
 //! `expected_version` per ADR 0016; notes and tags do not, since they are
-//! append-only or set-semantic and cannot meaningfully conflict.
+//! append-only or set-semantic and cannot meaningfully conflict. An edit
+//! appends a new note, and a second edit of the same note is refused
+//! because the first one superseded it, so neither needs a version.
 //! Validated payload construction (bounded strings, etc.) happens where
 //! the command is handled, in [`crate::unit_of_work`], not in this enum
 //! — the enum's job is only to name the operation and carry its data.
@@ -73,6 +75,15 @@ pub enum Command {
         body: String,
         visibility: NoteVisibility,
     },
+    /// The author's own note only: a new note replaces it.
+    EditNote {
+        note_index: u32,
+        body: String,
+    },
+    RedactNote {
+        note_index: u32,
+        reason: String,
+    },
     AddTag {
         key: String,
         value: String,
@@ -98,6 +109,8 @@ impl Command {
             Command::ChangeSeverity { .. } => OperatorCommandKind::ChangeSeverity,
             Command::ChangePriority { .. } => OperatorCommandKind::ChangePriority,
             Command::AddNote { .. } => OperatorCommandKind::AddNote,
+            Command::EditNote { .. } => OperatorCommandKind::EditNote,
+            Command::RedactNote { .. } => OperatorCommandKind::RedactNote,
             Command::AddTag { .. } => OperatorCommandKind::AddTag,
             Command::RemoveTag { .. } => OperatorCommandKind::RemoveTag,
         }
@@ -120,7 +133,8 @@ impl Command {
             }
             Command::ChangeSeverity { .. } => Permission::IncidentSeverityChange,
             Command::ChangePriority { .. } => Permission::IncidentPriorityChange,
-            Command::AddNote { .. } => Permission::IncidentNoteCreate,
+            Command::AddNote { .. } | Command::EditNote { .. } => Permission::IncidentNoteCreate,
+            Command::RedactNote { .. } => Permission::IncidentNoteRedact,
             Command::AddTag { .. } | Command::RemoveTag { .. } => Permission::IncidentUpdate,
         }
     }
@@ -130,10 +144,7 @@ impl Command {
     /// Notes and tags do not: notes are append-only, tags are
     /// set-semantic, and neither can meaningfully conflict.
     pub fn requires_expected_version(&self) -> bool {
-        !matches!(
-            self,
-            Command::AddNote { .. } | Command::AddTag { .. } | Command::RemoveTag { .. }
-        )
+        self.expected_version().is_some()
     }
 
     pub fn expected_version(&self) -> Option<u64> {
@@ -164,7 +175,11 @@ impl Command {
             | Command::ChangePriority {
                 expected_version, ..
             } => Some(*expected_version),
-            Command::AddNote { .. } | Command::AddTag { .. } | Command::RemoveTag { .. } => None,
+            Command::AddNote { .. }
+            | Command::EditNote { .. }
+            | Command::RedactNote { .. }
+            | Command::AddTag { .. }
+            | Command::RemoveTag { .. } => None,
         }
     }
 }
@@ -186,6 +201,16 @@ mod tests {
         }
         .requires_expected_version());
         assert!(!Command::RemoveTag { key: "k".into() }.requires_expected_version());
+        assert!(!Command::EditNote {
+            note_index: 0,
+            body: "x".into()
+        }
+        .requires_expected_version());
+        assert!(!Command::RedactNote {
+            note_index: 0,
+            reason: "x".into()
+        }
+        .requires_expected_version());
     }
 
     #[test]

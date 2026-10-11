@@ -28,7 +28,7 @@ use wetechinetmon_incident::authorization::{
 use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident::id::{IncidentId, TestIncidentGenerator};
 use wetechinetmon_incident_postgres::maintenance::{
-    run_maintenance, MaintenancePolicy, MaintenanceReport,
+    run_maintenance, timeline_pressure, MaintenancePolicy, MaintenanceReport,
 };
 use wetechinetmon_incident_postgres::platform::PlatformAuthority;
 use wetechinetmon_incident_postgres::service::IncidentPersistence;
@@ -164,6 +164,17 @@ async fn timers_advance_incidents_on_database_time_and_never_auto_close_critical
     )
     .await;
 
+    // --- The largest active timeline is the pressure gauge's value ---
+    const LARGEST_ACTIVE: &str = "SELECT max(c) FROM (SELECT count(*) AS c FROM incident_timeline \
+         t JOIN incidents i USING (incident_id) WHERE i.state NOT IN ('resolved', 'closed') \
+         GROUP BY incident_id) s";
+    let largest: i64 = client.query_one(LARGEST_ACTIVE, &[]).await.unwrap().get(0);
+    assert!(largest > 0);
+    assert_eq!(
+        timeline_pressure(&platform, &client).await.unwrap(),
+        largest
+    );
+
     // --- Nothing is due yet ---
     assert_eq!(
         run_maintenance(&platform, &service, &mut client, &policy)
@@ -226,4 +237,18 @@ async fn timers_advance_incidents_on_database_time_and_never_auto_close_critical
     assert_eq!(state(&client, major).await, "closed");
     assert_eq!(state(&client, critical).await, "resolved");
     assert_eq!(state(&client, recent).await, "open");
+
+    // Resolved and closed incidents no longer count.
+    let recent_entries: i64 = client
+        .query_one(
+            "SELECT count(*) FROM incident_timeline WHERE incident_id = $1::text::uuid",
+            &[&recent.to_canonical_string()],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(
+        timeline_pressure(&platform, &client).await.unwrap(),
+        recent_entries
+    );
 }

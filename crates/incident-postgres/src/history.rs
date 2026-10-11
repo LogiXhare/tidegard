@@ -139,6 +139,10 @@ pub struct AuditRow {
     pub resource_id: String,
     pub result: &'static str,
     pub reason: Option<String>,
+    /// JSON objects naming the changed field, such as
+    /// `{"severity":"major"}` and `{"severity":"info"}` (T-20).
+    pub before: Option<String>,
+    pub after: Option<String>,
 }
 
 pub fn audit_row(entry: &AuditEntry) -> Result<AuditRow, PersistError> {
@@ -168,6 +172,14 @@ pub fn audit_row(entry: &AuditEntry) -> Result<AuditRow, PersistError> {
         resource_id,
         result,
         reason: entry.reason.clone(),
+        before: entry
+            .change
+            .as_ref()
+            .map(|change| serde_json::json!({ change.field.as_str(): change.before }).to_string()),
+        after: entry
+            .change
+            .as_ref()
+            .map(|change| serde_json::json!({ change.field.as_str(): change.after }).to_string()),
     })
 }
 
@@ -565,5 +577,24 @@ mod tests {
             (row.actor.actor_type.as_str(), row.actor.actor_id),
             ("system", None)
         );
+        assert_eq!((row.before, row.after), (None, None));
+    }
+
+    #[test]
+    fn a_field_change_is_written_as_before_and_after_objects() {
+        let row = audit_row(
+            &AuditEntry::allowed(
+                1,
+                TenantId::new("acme"),
+                Actor::System,
+                Permission::IncidentSeverityChange,
+                some_id(),
+            )
+            .with_change("severity", "major", "info", Some("filtered".into())),
+        )
+        .unwrap();
+        assert_eq!(row.before.as_deref(), Some(r#"{"severity":"major"}"#));
+        assert_eq!(row.after.as_deref(), Some(r#"{"severity":"info"}"#));
+        assert_eq!(row.reason.as_deref(), Some("filtered"));
     }
 }

@@ -128,6 +128,8 @@ fn accepted_body(method: &str, last_segment: &str, soon: &str) -> Option<Option<
         }
         ("post", "priority") => Some(json!({"expected_version": 1, "priority": "P3"})),
         ("post", "notes") => Some(json!({"body": "a note"})),
+        ("post", "edit") => Some(json!({"body": "an edit"})),
+        ("post", "redact") => Some(json!({"reason": "a reason"})),
         ("put", "{key}") => Some(json!({"value": "prod"})),
         _ => return None,
     })
@@ -244,10 +246,12 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
             let method = Method::from_bytes(method_name.to_uppercase().as_bytes()).unwrap();
             let cross_path = template
                 .replace("{incident_id}", &id)
-                .replace("{key}", "env");
+                .replace("{key}", "env")
+                .replace("{note_index}", "0");
             let missing_path = template
                 .replace("{incident_id}", MISSING)
-                .replace("{key}", "env");
+                .replace("{key}", "env")
+                .replace("{note_index}", "0");
             let (status, cross) = send(
                 &app,
                 &method,
