@@ -71,9 +71,19 @@ criteria.
 
 ## FR-5 Incident Management
 
-- FR-5.1 Explicit state machine: Normal → Suspected → Confirmed →
-  AwaitingApproval → MitigationPending → Mitigating → HoldDown → Recovering
-  → Closed / Failed
+- FR-5.1 Explicit state machines, one per domain
+  ([ADR 0014](architecture/decisions/0014-incident-state-machine.md),
+  BQ-6, 2026-08-22):
+  - Detection (Phase 4): Normal → Suspected → Confirmed.
+  - Incident (Phase 5): Open, Acknowledged, Investigating, Monitoring,
+    Recovering, Resolved, Closed. Closed is the only terminal state
+    ([state machine](architecture/incident-state-machine.md)).
+  - Mitigation (Phase 7): AwaitingApproval → MitigationPending →
+    Mitigating → HoldDown, and mitigation failure. These are not incident
+    states.
+
+  As first written, this was a single machine,
+  `Normal → … → Closed / Failed`. ADR 0014 records why it was split.
 - FR-5.2 Persist UUID, tenant, customer, victim, prefix, direction, attack
   category, triggered policy, detection/baseline metrics, threshold,
   exporter, interface, timestamps, mitigation/notification history,

@@ -1,8 +1,8 @@
 # 0016. Optimistic Concurrency and Fingerprinted Idempotency
 
-Status: Proposed
+Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance))
 Date: 2026-08-22
-Deciders: Repository owner (pending review)
+Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
 ## Context
 
@@ -127,13 +127,29 @@ real signal: a sustained rise means either an integration retrying
 incorrectly or two operators repeatedly colliding, and both are worth
 knowing.
 
+## Acceptance
+
+Accepted as implemented in Phase 5, with two differences:
+
+- **There is no in-flight state.** An idempotency record commits in the
+  same transaction as the change it records. A retry therefore finds
+  either no record, because the change did not happen, or the completed
+  one. `incident.request_in_progress` was never needed and is not in the
+  [error registry](../../api/error-codes.md).
+- **The conflict metric does not exist yet.**
+  `wetechinetmon_incident_command_conflicts_total` has not been built,
+  because the API exports no metrics in Phase 5.
+
+Keys are 16–255 characters and are kept for 24 hours, as decided, and
+each record is tenant-scoped.
+
 ## Follow-Up
 
-- [ ] Document `409` handling in the
+- [x] Document `409` handling in the
       [API plan](../incident-api-plan.md) and
       [CLI plan](../incident-cli-plan.md).
-- [ ] Property tests: same key and body returns the same result; same key
-      and different body conflicts —
+- [x] Tests: same key and body returns the same result; same key
+      and different body conflicts (`domain_end_to_end.rs`, the API's `transitions.rs`) —
       [testing plan](../incident-testing-plan.md).
 - [ ] Decide whether idempotency retention should be configurable per
       tenant.
