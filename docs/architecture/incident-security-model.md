@@ -94,6 +94,7 @@ permissions are what the code checks.
 | `incident.closure_policy.override` | Disable critical manual closure for a tenant or policy |
 | `platform.incident.read_all` | Cross-tenant read — platform only |
 | `platform.incident.admin` | Cross-tenant administration — platform only |
+| `incident.notification.record` | Record a notification's outcome on the timeline — the notifier only, never a human role ([ADR 0045](decisions/0045-phase6e-notification-delivery.md)) |
 | `traffic.read` | Read deployment-wide traffic, from the one traffic tenant only ([ADR 0042](decisions/0042-phase6b-traffic-read-api.md)) |
 
 Suggested bundles, deployment-configurable:

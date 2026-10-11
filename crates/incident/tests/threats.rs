@@ -643,3 +643,80 @@ fn every_transition_needs_the_current_version() {
         assert_eq!(uow.get(&id).unwrap().state, IncidentState::Open);
     }
 }
+
+// --- Notification records (ADR 0045) ---
+
+/// Only the notifier records a notification, it changes no field and no
+/// version, and its names are plain.
+#[test]
+fn only_the_notifier_records_notifications_and_the_version_stays() {
+    use wetechinetmon_incident::timeline::NotificationOutcome;
+    let (mut uow, id, version) = opened();
+    let notifier = AuthorizationContext::notifier(TenantId::new("acme"), "notifier-1");
+
+    for refused in [role("noc_lead"), correlator()] {
+        assert_eq!(
+            uow.record_notification_result(
+                &refused,
+                id,
+                "noc-slack",
+                "incident.opened",
+                NotificationOutcome::Delivered
+            ),
+            Err(IncidentError::Unauthorized)
+        );
+    }
+    for (channel, event) in [
+        ("", "incident.opened"),
+        ("noc slack", "incident.opened"),
+        ("noc-slack", "incident.opened\n"),
+        (&"c".repeat(65)[..], "incident.opened"),
+    ] {
+        assert!(matches!(
+            uow.record_notification_result(
+                &notifier,
+                id,
+                channel,
+                event,
+                NotificationOutcome::Delivered
+            ),
+            Err(IncidentError::ValidationError(_))
+        ));
+    }
+    let elsewhere = AuthorizationContext::notifier(TenantId::new("globex"), "notifier-1");
+    assert_eq!(
+        uow.record_notification_result(
+            &elsewhere,
+            id,
+            "noc-slack",
+            "incident.opened",
+            NotificationOutcome::Delivered
+        ),
+        Err(IncidentError::NotFound)
+    );
+
+    uow.record_notification_result(
+        &notifier,
+        id,
+        "noc-slack",
+        "incident.opened",
+        NotificationOutcome::Delivered,
+    )
+    .unwrap();
+    assert_eq!(uow.get(&id).unwrap().version, version, "no version bump");
+    let last = uow.timeline().last().unwrap();
+    assert_eq!(
+        last.payload,
+        TimelinePayload::NotificationResult {
+            channel: "noc-slack".into(),
+            event_type: "incident.opened".into(),
+            outcome: NotificationOutcome::Delivered,
+        }
+    );
+    assert_eq!(
+        last.actor,
+        Actor::ServiceAccount {
+            id: "notifier-1".into()
+        }
+    );
+}

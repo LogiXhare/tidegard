@@ -193,6 +193,22 @@ impl IncidentPersistence {
         .await
     }
 
+    /// The notifier's record of one attempt (ADR 0045).
+    pub async fn record_notification_result(
+        &self,
+        client: &mut Client,
+        auth: &AuthorizationContext,
+        incident_id: IncidentId,
+        channel: &str,
+        event_type: &str,
+        outcome: wetechinetmon_incident::timeline::NotificationOutcome,
+    ) -> Outcome<()> {
+        self.run(client, auth.tenant(), by_id(incident_id), |uow| {
+            uow.record_notification_result(auth, incident_id, channel, event_type, outcome)
+        })
+        .await
+    }
+
     pub async fn enter_recovering(
         &self,
         client: &mut Client,
