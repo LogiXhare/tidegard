@@ -43,4 +43,4 @@ tokio-postgres = "0.7.18" # ADR 0020
 deadpool-postgres = "0.14.1" # ADR 0022
 rustls = "0.23.43" # ADR 0023
 tokio-postgres-rustls = "0.14.0" # ADR 0023
-refinery = { version = "0.9.2", default-features = false, features = ["tokio-postgres"] } # ADR 0024
+refinery = { version = "0.10.0", default-features = false, features = ["tokio-postgres"] } # ADR 0024
