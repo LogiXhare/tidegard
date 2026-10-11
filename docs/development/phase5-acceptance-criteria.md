@@ -125,6 +125,9 @@ probe (§ Gate 1B row 5–10 follow-ups) clears.
 A future gate. Listed now so it is defined before the work starts rather
 than assembled afterwards to match whatever was built.
 
+**Assessed 2026-10-11** against these criteria, unchanged: see the
+[Gate 2 assessment](phase5-gate2-assessment.md).
+
 ### Functional
 
 - Detection events ingest through the outbox, at-least-once, with

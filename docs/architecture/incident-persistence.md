@@ -262,7 +262,7 @@ Fields: `timeline_id`, `incident_id`, `tenant_id`, `occurred_at`,
 
 Entry types: `opened`, `event_linked`, `state_changed`,
 `severity_changed`, `priority_changed`, `assignment_changed`,
-`note_added`, `note_superseded`, `evidence_added`, `recovery_detected`,
+`note_added`, `note_superseded`, `note_redacted` (V17), `evidence_added`, `recovery_detected`,
 `recovery_aborted`, `resolved`, `closed`, `reopened`, `suppressed`,
 `unsuppressed`, `duplicate_ignored`, `late_event_linked`,
 `correlation_decision`, `category_changed`, `limit_reached`,

@@ -374,6 +374,9 @@ fn confirmation(action: &Action, current: Option<&Value>, name: &str) -> Option<
         Action::Suppress { .. } => Some(format!(
             "Suppress {name}{state}? Detections will not alert while it lasts."
         )),
+        Action::NoteRedact { index, .. } => Some(format!(
+            "Redact note #{index} on {name}? Its text is removed for good."
+        )),
         Action::Severity { level, .. } => {
             let from = current.and_then(|incident| incident["severity"].as_str())?;
             let rank = |text: &str| SEVERITIES.iter().position(|s| *s == text);
@@ -456,7 +459,8 @@ fn body(action: &Action, version: Option<u64>, now_micros: i64) -> Result<Value,
         }
         Action::Severity { level, reason } => json!({ "severity": level, "reason": reason }),
         Action::Priority { level } => json!({ "priority": level }),
-        Action::Note { body } => json!({ "body": body }),
+        Action::Note { body } | Action::NoteEdit { body, .. } => json!({ "body": body }),
+        Action::NoteRedact { reason, .. } => json!({ "reason": reason }),
     };
     let object = body.as_object_mut().expect("every body is an object");
     // Optional fields the operator left out are omitted, not sent as null.
@@ -509,7 +513,7 @@ async fn change(
         .and_then(|c| c["incident_number"].as_str())
         .map(output::clean)
         .unwrap_or_else(|| output::clean(&incident.0));
-    let verb = action.path();
+    let verb = action.verb();
     if let Some(question) = confirmation(action, current.as_ref(), &name) {
         if !yes {
             confirm(io, &question, verb)?;

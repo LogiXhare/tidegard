@@ -51,7 +51,8 @@ use crate::evidence::{EvidenceLinkType, EvidenceReference};
 use crate::id::{IncidentGenerator, IncidentId};
 use crate::idempotency::{IdempotencyCheck, IdempotencyKey, RequestFingerprint, StoredOutcome};
 use crate::incident::{
-    validate_note_body, Incident, Note, NoteVisibility, INCIDENT_SCHEMA_VERSION,
+    validate_note_body, validate_redaction_reason, Incident, Note, NoteRedaction, NoteVisibility,
+    INCIDENT_SCHEMA_VERSION,
 };
 use crate::limits::{AFFECTED_TARGETS_MAX, POLICY_REFS_MAX, TAG_KEY_MAX_LEN, TAG_VALUE_MAX_LEN};
 use crate::manual::ManualIncident;
@@ -1433,12 +1434,12 @@ impl IncidentUnitOfWork {
         if let Some(note) = resolution_note {
             let incident = self.store.get_mut(&incident_id).expect("checked above");
             let idx = incident.notes.len() as u32;
-            incident.notes.push(Note {
-                index: idx,
-                body: note,
-                visibility: NoteVisibility::Internal,
-                created_by: auth.actor().clone(),
-            });
+            incident.notes.push(Note::new(
+                idx,
+                note,
+                NoteVisibility::Internal,
+                auth.actor().clone(),
+            ));
         }
         let asq = self.next_audit_sequence();
         self.store.append_audit(AuditEntry::allowed(
@@ -1708,6 +1709,12 @@ impl IncidentUnitOfWork {
             }
             Command::AddNote { body, visibility } => {
                 self.add_note(auth, incident_id, body.clone(), visibility.clone())
+            }
+            Command::EditNote { note_index, body } => {
+                self.edit_note(auth, incident_id, *note_index, body.clone())
+            }
+            Command::RedactNote { note_index, reason } => {
+                self.redact_note(auth, incident_id, *note_index, reason.clone())
             }
             Command::AddTag { key, value } => {
                 self.add_tag(auth, incident_id, key.clone(), value.clone())
@@ -2079,6 +2086,7 @@ impl IncidentUnitOfWork {
         incident.version = new_version;
         incident.last_updated_at = now;
         self.maybe_fail()?;
+        let reason_for_audit = reason.clone();
 
         let ts = self.next_timeline_sequence();
         self.store.append_timeline(TimelineEntry::new(
@@ -2092,13 +2100,21 @@ impl IncidentUnitOfWork {
             },
         ));
         let asq = self.next_audit_sequence();
-        self.store.append_audit(AuditEntry::allowed(
-            asq,
-            auth.tenant().clone(),
-            auth.actor().clone(),
-            Permission::IncidentSeverityChange,
-            incident_id,
-        ));
+        self.store.append_audit(
+            AuditEntry::allowed(
+                asq,
+                auth.tenant().clone(),
+                auth.actor().clone(),
+                Permission::IncidentSeverityChange,
+                incident_id,
+            )
+            .with_change(
+                "severity",
+                from.as_str(),
+                new_severity.as_str(),
+                reason_for_audit,
+            ),
+        );
         let osq = self.next_outbox_sequence();
         self.store.append_outbox(OutboxMessage::new(
             osq,
@@ -2151,13 +2167,16 @@ impl IncidentUnitOfWork {
             },
         ));
         let asq = self.next_audit_sequence();
-        self.store.append_audit(AuditEntry::allowed(
-            asq,
-            auth.tenant().clone(),
-            auth.actor().clone(),
-            Permission::IncidentPriorityChange,
-            incident_id,
-        ));
+        self.store.append_audit(
+            AuditEntry::allowed(
+                asq,
+                auth.tenant().clone(),
+                auth.actor().clone(),
+                Permission::IncidentPriorityChange,
+                incident_id,
+            )
+            .with_change("priority", from.as_str(), new_priority.as_str(), None),
+        );
         let osq = self.next_outbox_sequence();
         self.store.append_outbox(OutboxMessage::new(
             osq,
@@ -2204,12 +2223,9 @@ impl IncidentUnitOfWork {
                     "incident version overflowed u64",
                 ))?;
         let index = incident.notes.len() as u32;
-        incident.notes.push(Note {
-            index,
-            body,
-            visibility,
-            created_by: auth.actor().clone(),
-        });
+        incident
+            .notes
+            .push(Note::new(index, body, visibility, auth.actor().clone()));
         incident.version = new_version;
         incident.last_updated_at = now;
         self.maybe_fail()?;
@@ -2234,6 +2250,152 @@ impl IncidentUnitOfWork {
             .get(&incident_id)
             .expect("incident exists")
             .version)
+    }
+
+    /// Replaces the caller's own note with a new one. The original stays,
+    /// marked superseded, so the record of what was first written survives.
+    fn edit_note(
+        &mut self,
+        auth: &AuthorizationContext,
+        incident_id: IncidentId,
+        note_index: u32,
+        body: String,
+    ) -> Result<u64, IncidentError> {
+        validate_note_body(&body)?;
+        let now = self.decision_time()?;
+        let incident = self
+            .store
+            .get(&incident_id)
+            .ok_or(IncidentError::NotFound)?;
+        let original = incident
+            .notes
+            .get(note_index as usize)
+            .ok_or_else(|| IncidentError::ValidationError(format!("no note {note_index}")))?;
+        if original.created_by != *auth.actor() {
+            // Holding incident.note.create is not enough: an operator may
+            // replace only their own words. Refused like a missing
+            // permission, with the same single denied audit record.
+            let sequence = self.next_audit_sequence();
+            self.store.append_audit(AuditEntry::denied(
+                sequence,
+                auth.tenant().clone(),
+                auth.actor().clone(),
+                Permission::IncidentNoteCreate,
+                AttemptedResource::Incident(incident_id),
+                "only a note's author may edit it",
+            ));
+            return Err(IncidentError::Unauthorized);
+        }
+        if original.redaction.is_some() {
+            return Err(IncidentError::ValidationError(format!(
+                "note {note_index} is redacted"
+            )));
+        }
+        if let Some(later) = incident.note_superseded_by(note_index) {
+            return Err(IncidentError::ValidationError(format!(
+                "note {note_index} was already replaced by note {later}"
+            )));
+        }
+        if incident.notes_at_capacity() {
+            return Err(IncidentError::CapacityExceeded("notes per incident"));
+        }
+        let visibility = original.visibility.clone();
+        let new_version =
+            incident
+                .version
+                .checked_add(1)
+                .ok_or(IncidentError::InternalInvariantViolation(
+                    "incident version overflowed u64",
+                ))?;
+        let incident = self.store.get_mut(&incident_id).expect("checked above");
+        let index = incident.notes.len() as u32;
+        let mut note = Note::new(index, body, visibility, auth.actor().clone());
+        note.supersedes = Some(note_index);
+        incident.notes.push(note);
+        incident.version = new_version;
+        incident.last_updated_at = now;
+        self.maybe_fail()?;
+
+        let ts = self.next_timeline_sequence();
+        self.store.append_timeline(TimelineEntry::new(
+            ts,
+            incident_id,
+            auth.actor().clone(),
+            TimelinePayload::NoteSuperseded {
+                note_index,
+                by_note_index: index,
+            },
+        ));
+        let asq = self.next_audit_sequence();
+        self.store.append_audit(AuditEntry::allowed(
+            asq,
+            auth.tenant().clone(),
+            auth.actor().clone(),
+            Permission::IncidentNoteCreate,
+            incident_id,
+        ));
+        Ok(new_version)
+    }
+
+    /// Removes a note's body for good, keeping the note, who removed it
+    /// and why. A superseded note may be redacted too: the words to
+    /// remove may be in the original.
+    fn redact_note(
+        &mut self,
+        auth: &AuthorizationContext,
+        incident_id: IncidentId,
+        note_index: u32,
+        reason: String,
+    ) -> Result<u64, IncidentError> {
+        validate_redaction_reason(&reason)?;
+        let now = self.decision_time()?;
+        let incident = self
+            .store
+            .get_mut(&incident_id)
+            .ok_or(IncidentError::NotFound)?;
+        let new_version =
+            incident
+                .version
+                .checked_add(1)
+                .ok_or(IncidentError::InternalInvariantViolation(
+                    "incident version overflowed u64",
+                ))?;
+        let note = incident
+            .notes
+            .get_mut(note_index as usize)
+            .ok_or_else(|| IncidentError::ValidationError(format!("no note {note_index}")))?;
+        if note.redaction.is_some() {
+            return Err(IncidentError::ValidationError(format!(
+                "note {note_index} is already redacted"
+            )));
+        }
+        note.body = String::new();
+        note.redaction = Some(NoteRedaction {
+            by: auth.actor().clone(),
+            reason: reason.clone(),
+        });
+        incident.version = new_version;
+        incident.last_updated_at = now;
+        self.maybe_fail()?;
+
+        let ts = self.next_timeline_sequence();
+        self.store.append_timeline(TimelineEntry::new(
+            ts,
+            incident_id,
+            auth.actor().clone(),
+            TimelinePayload::NoteRedacted { note_index },
+        ));
+        let asq = self.next_audit_sequence();
+        let mut entry = AuditEntry::allowed(
+            asq,
+            auth.tenant().clone(),
+            auth.actor().clone(),
+            Permission::IncidentNoteRedact,
+            incident_id,
+        );
+        entry.reason = Some(reason);
+        self.store.append_audit(entry);
+        Ok(new_version)
     }
 
     fn add_tag(

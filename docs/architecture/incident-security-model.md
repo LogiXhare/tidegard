@@ -79,7 +79,8 @@ permissions are what the code checks.
 | `incident.acknowledge` | Acknowledge |
 | `incident.assign` | Assign, reassign, unassign, claim, release |
 | `incident.investigate` | Begin investigation, mark monitoring |
-| `incident.note.create` | Add internal notes |
+| `incident.note.create` | Add internal notes, and edit your own |
+| `incident.note.redact` | Remove any note's body, with a reason |
 | `incident.note.customer_visible` | Mark a note customer-visible — **refused in Phase 5** |
 | `incident.severity.change` | Change severity |
 | `incident.priority.change` | Change priority |
@@ -101,7 +102,7 @@ Suggested bundles, deployment-configurable:
 | `viewer` | read, list |
 | `operator` | viewer + acknowledge, assign, investigate, note.create |
 | `senior_operator` | operator + severity.change, priority.change, resolve, close, reopen, create |
-| `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update |
+| `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact |
 | `platform_admin` | all, including platform permissions |
 
 `incident.closure_policy.override` appears in **no** default bundle, not
@@ -127,6 +128,23 @@ Correspondingly: read-only users may not mutate; `severity.change` is
 separate from `update` so lowering severity is separately grantable and
 separately audited; and lowering severity always requires a reason.
 
+### Editing and redacting notes
+
+Notes are immutable with supersession ([persistence](incident-persistence.md#incident_notes)).
+An edit appends a new note that names the one it replaces; the original
+stays, marked superseded, because what an operator first believed is
+often what a post-mortem needs. Only a note's author may edit it.
+`incident.note.create` is not enough on its own: another operator's
+attempt is refused `403` and audited as a denial.
+
+Redaction is the one change made in place. It exists for words that
+must go, such as a pasted credential or personal data. It empties the
+body and keeps the note, who redacted it, when, and the reason, which is
+required. It needs `incident.note.redact`, held by `noc_lead` and above,
+because it removes another operator's words. A superseded note can be
+redacted too, since the words to remove may be in the original. The
+reason goes to the audit trail, not the timeline, which more people read.
+
 ## Concurrency
 
 Optimistic concurrency on an integer `version`, incremented on every
@@ -143,7 +161,9 @@ Commands requiring `expected_version`: all state transitions, severity,
 priority, assignment, closure, reopen, suppress.
 
 Commands not requiring it: adding a note (append-only, cannot conflict),
-adding a tag (set semantics), and correlator-driven updates, which
+editing or redacting one (a second edit or redaction of the same note is
+refused, so neither can be lost), adding a tag (set semantics), and
+correlator-driven updates, which
 resolve conflicts by retrying the correlation decision rather than by
 overwriting.
 

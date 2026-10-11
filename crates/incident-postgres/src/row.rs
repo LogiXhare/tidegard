@@ -33,7 +33,7 @@ use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
 use wetechinetmon_incident::durable_time::DurableTimestamp;
 use wetechinetmon_incident::evidence::EvidenceLedger;
 use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::incident::{Incident, Note, NoteVisibility, PolicyRef};
+use wetechinetmon_incident::incident::{Incident, Note, NoteRedaction, NoteVisibility, PolicyRef};
 use wetechinetmon_incident::number::IncidentNumber;
 use wetechinetmon_incident::severity::{Priority, SeveritySource};
 use wetechinetmon_incident::snapshot::IncidentSnapshot;
@@ -142,6 +142,43 @@ pub struct NoteRow {
     pub body: String,
     pub visibility: String,
     pub created_by: ActorColumns,
+    /// The `note_index` of the note this one replaces. Stored as
+    /// `supersedes_note_id`, the replaced row's identity.
+    pub supersedes: Option<i32>,
+    pub redaction: Option<NoteRedactionColumns>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NoteRedactionColumns {
+    pub by: ActorColumns,
+    pub reason: String,
+}
+
+impl NoteRedactionColumns {
+    /// Rebuilds a redaction from its nullable columns. `redacted` is
+    /// `redacted_at IS NOT NULL`; the actor type and the reason are set
+    /// exactly when it is.
+    pub fn from_nullable(
+        redacted: bool,
+        by_type: Option<String>,
+        by_id: Option<String>,
+        reason: Option<String>,
+    ) -> Result<Option<Self>, PersistError> {
+        match (redacted, by_type, reason) {
+            (false, None, None) if by_id.is_none() => Ok(None),
+            (true, Some(actor_type), Some(reason)) => Ok(Some(NoteRedactionColumns {
+                by: ActorColumns {
+                    actor_type,
+                    actor_id: by_id,
+                },
+                reason,
+            })),
+            _ => Err(PersistError::corrupt(
+                "redacted_at",
+                "redaction columns are only partly set",
+            )),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -371,6 +408,20 @@ impl IncidentRow {
                     body: note.body.clone(),
                     visibility: visibility_text(&note.visibility).to_string(),
                     created_by: actor_columns(&note.created_by, "notes.created_by")?,
+                    supersedes: note
+                        .supersedes
+                        .map(|earlier| to_i32(earlier, "notes.supersedes"))
+                        .transpose()?,
+                    redaction: note
+                        .redaction
+                        .as_ref()
+                        .map(|redaction| {
+                            Ok::<_, PersistError>(NoteRedactionColumns {
+                                by: actor_columns(&redaction.by, "notes.redaction.by")?,
+                                reason: redaction.reason.clone(),
+                            })
+                        })
+                        .transpose()?,
                 })
             })
             .collect::<Result<Vec<_>, PersistError>>()?;
@@ -503,6 +554,19 @@ impl IncidentRow {
                     body: note.body,
                     visibility: visibility_from(&note.visibility)?,
                     created_by: actor_from(note.created_by, "incident_notes.created_by_type")?,
+                    supersedes: note
+                        .supersedes
+                        .map(|earlier| to_u32(earlier, "supersedes_note_id"))
+                        .transpose()?,
+                    redaction: note
+                        .redaction
+                        .map(|columns| {
+                            Ok::<_, PersistError>(NoteRedaction {
+                                by: actor_from(columns.by, "incident_notes.redacted_by_type")?,
+                                reason: columns.reason,
+                            })
+                        })
+                        .transpose()?,
                 })
             })
             .collect::<Result<Vec<_>, PersistError>>()?;
