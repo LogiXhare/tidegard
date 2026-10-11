@@ -7,8 +7,13 @@ with a session cookie
 ([ADR 0043](../../docs/architecture/decisions/0043-phase6c-browser-sessions.md)).
 
 **Status:** Phase 6D, in progress. Built so far: signing in and out, the
-incident list, and an incident's page with its notes, timeline and
-actions. The NOC overview and the end-to-end tests come next.
+incident list, an incident's page with its notes, timeline and actions,
+and the NOC overview. The end-to-end tests come next.
+
+The overview shows active incidents by severity, and, for the traffic
+tenant only (ADR 0042), traffic over the last hour, the top hosts and
+every exporter, with silent ones called out. It refreshes every 30
+seconds and keeps the last data if the API cannot be reached.
 
 On an incident's page an operator sees only the actions their role
 allows. Each action sends the version they saw, so a change someone else

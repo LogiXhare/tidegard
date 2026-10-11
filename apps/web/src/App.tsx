@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
 import { IncidentDetail } from "./pages/IncidentDetail";
 import { Incidents } from "./pages/Incidents";
+import { Overview } from "./pages/Overview";
 import { SignIn } from "./pages/SignIn";
 import { useSession } from "./session";
 
@@ -18,6 +19,12 @@ export function App() {
     <div className="shell">
       <header className="top">
         <h1>WetechiNetMon NOC</h1>
+        <nav aria-label="Main">
+          <NavLink to="/" end>
+            Overview
+          </NavLink>{" "}
+          <NavLink to="/incidents">Incidents</NavLink>
+        </nav>
         <p className="who">
           <span>{session.actor_id}</span> · <span>{session.role}</span> ·{" "}
           <span>{session.tenant_id}</span>
@@ -28,10 +35,10 @@ export function App() {
       </header>
       <main>
         <Routes>
-          <Route path="/" element={<Navigate to="/incidents" replace />} />
+          <Route path="/" element={<Overview />} />
           <Route path="/incidents" element={<Incidents />} />
           <Route path="/incidents/:incidentId" element={<IncidentDetail />} />
-          <Route path="*" element={<Navigate to="/incidents" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
