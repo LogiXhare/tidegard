@@ -671,6 +671,53 @@ impl IncidentUnitOfWork {
         Ok(())
     }
 
+    /// Records one notification attempt on the incident's timeline
+    /// (ADR 0045). It changes no field and bumps no version, so it never
+    /// costs an operator a version conflict.
+    pub fn record_notification_result(
+        &mut self,
+        auth: &AuthorizationContext,
+        incident_id: IncidentId,
+        channel: &str,
+        event_type: &str,
+        outcome: crate::timeline::NotificationOutcome,
+    ) -> Result<(), IncidentError> {
+        self.check_permission(
+            auth,
+            Permission::IncidentNotificationRecord,
+            AttemptedResource::Unresolved(incident_id.to_string()),
+        )?;
+        let bounded = |text: &str| {
+            !text.is_empty()
+                && text.len() <= crate::timeline::NOTIFICATION_NAME_MAX_LEN
+                && text
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+        };
+        if !bounded(channel) || !bounded(event_type) {
+            return Err(IncidentError::ValidationError(
+                "a channel or event name is empty, too long, or not a plain name".to_string(),
+            ));
+        }
+        let incident = self
+            .store
+            .get(&incident_id)
+            .ok_or(IncidentError::NotFound)?;
+        self.check_tenant(auth, incident)?;
+        let ts = self.next_timeline_sequence();
+        self.store.append_timeline(TimelineEntry::new(
+            ts,
+            incident_id,
+            auth.actor().clone(),
+            TimelinePayload::NotificationResult {
+                channel: channel.to_string(),
+                event_type: event_type.to_string(),
+                outcome,
+            },
+        ));
+        Ok(())
+    }
+
     fn create_incident_internal(
         &mut self,
         auth: &AuthorizationContext,

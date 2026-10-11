@@ -184,7 +184,7 @@ jobs:
           WETECHINETMON_CLICKHOUSE_TEST_PASSWORD: wetechinetmon_test_only
         run: |
           set -euo pipefail
-          cargo test -p wetechinetmon-incident-postgres -p wetechinetmon-incident-manager -p wetechinetmon-collector -p wetechinetmon-api -- --nocapture 2>&1 | tee pg-test.log
+          cargo test -p wetechinetmon-incident-postgres -p wetechinetmon-incident-manager -p wetechinetmon-collector -p wetechinetmon-api -p wetechinetmon-notification -- --nocapture 2>&1 | tee pg-test.log
           if grep -qE "skipping [a-z_]+: WETECHINETMON_[A-Z_]+ (or WETECHINETMON_[A-Z_]+ )?is not set" pg-test.log; then
             echo "A PostgreSQL test skipped even though the service container is up — failing."
             exit 1

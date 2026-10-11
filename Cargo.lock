@@ -2396,6 +2396,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "wetechinetmon-notification"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "deadpool-postgres",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "prometheus",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-postgres",
+ "tokio-rustls",
+ "tracing",
+ "wetechinetmon-common",
+ "wetechinetmon-detector",
+ "wetechinetmon-incident",
+ "wetechinetmon-incident-postgres",
+]
+
+[[package]]
 name = "wetechinetmon-protocol-ipfix"
 version = "0.0.0"
 dependencies = [

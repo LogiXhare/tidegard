@@ -1,0 +1,37 @@
+[package]
+name = "wetechinetmon-notification"
+description = "The notifier: delivers incident outbox events to webhook, Slack, Teams and Telegram, with SSRF and storm controls (ADR 0045)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "wetechinetmon-notifier"
+path = "src/main.rs"
+
+[dependencies]
+wetechinetmon-common = { path = "../common", features = ["metrics-server"] }
+wetechinetmon-incident = { path = "../incident" }
+wetechinetmon-incident-postgres = { path = "../incident-postgres" }
+deadpool-postgres.workspace = true
+tokio-postgres.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+prometheus.workspace = true
+thiserror.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+rustls.workspace = true
+# ADR 0045: the HTTP client the CLI and the API already use. All in Cargo.lock.
+tokio-rustls = "0.26.4"
+hyper = { version = "1.11.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "0.1.20", default-features = false, features = ["tokio"] }
+http-body-util = "0.1.5"
+bytes = "1.12.1"
+
+[dev-dependencies]
+# Local mock channels for the tests: nothing leaves the machine.
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
+wetechinetmon-detector = { path = "../detector" }

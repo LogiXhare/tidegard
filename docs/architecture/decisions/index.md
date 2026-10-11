@@ -86,3 +86,4 @@ yet:
 | [0042](0042-phase6b-traffic-read-api.md) | Phase 6B Traffic Read API | Accepted |
 | [0043](0043-phase6c-browser-sessions.md) | Phase 6C Browser Sessions | Accepted |
 | [0044](0044-phase6d-noc-ui.md) | Phase 6D NOC UI: Build, Serving and Supply Chain | Accepted |
+| [0045](0045-phase6e-notification-delivery.md) | Phase 6E Notification Delivery | Accepted |

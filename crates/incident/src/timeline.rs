@@ -143,7 +143,29 @@ pub enum TimelinePayload {
     TagRemoved {
         key: String,
     },
+    /// One notification attempt (ADR 0045): the channel's configured name,
+    /// the outbox event, and what happened. Changes no field.
+    NotificationResult {
+        channel: String,
+        event_type: String,
+        outcome: NotificationOutcome,
+    },
 }
+
+/// What one notification attempt came to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationOutcome {
+    /// The channel accepted it.
+    Delivered,
+    /// A transient failure; the message will be retried.
+    Failed,
+    /// The channel refused it for good, or the destination was refused.
+    Refused,
+}
+
+/// A channel name or event type longer than this is refused.
+pub const NOTIFICATION_NAME_MAX_LEN: usize = 64;
 
 impl TimelinePayload {
     /// The stable, versioned entry-type tag used for filtering and for
@@ -168,6 +190,7 @@ impl TimelinePayload {
             TimelinePayload::LimitReached { .. } => "limit_reached",
             TimelinePayload::TagAdded { .. } => "tag_added",
             TimelinePayload::TagRemoved { .. } => "tag_removed",
+            TimelinePayload::NotificationResult { .. } => "notification_result",
         }
     }
 }

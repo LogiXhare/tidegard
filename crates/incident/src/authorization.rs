@@ -47,6 +47,9 @@ pub enum Permission {
     IncidentIngest,
     PlatformIncidentReadAll,
     PlatformIncidentAdmin,
+    /// Record a notification's outcome on an incident's timeline
+    /// (ADR 0045). Held only by the notifier, never a human role.
+    IncidentNotificationRecord,
     /// Read deployment-wide traffic (ADR 0042). Traffic carries no tenant
     /// until Phase 8, so the API also requires the caller to be in the
     /// one configured traffic tenant.
@@ -83,6 +86,7 @@ impl Permission {
             PlatformIncidentReadAll => "platform.incident.read_all",
             PlatformIncidentAdmin => "platform.incident.admin",
             TrafficRead => "traffic.read",
+            IncidentNotificationRecord => "incident.notification.record",
         }
     }
 }
@@ -139,6 +143,22 @@ impl AuthorizationContext {
 
     /// The correlator's context for a given tenant: `system:correlator`,
     /// holding only `IncidentIngest`.
+    /// The notifier's context for a tenant (ADR 0045): a service account
+    /// that may record notification outcomes and read incidents, nothing
+    /// else.
+    pub fn notifier(tenant: TenantId, consumer_id: &str) -> Self {
+        AuthorizationContext {
+            tenant,
+            actor: Actor::ServiceAccount {
+                id: consumer_id.to_string(),
+            },
+            granted: vec![
+                Permission::IncidentRead,
+                Permission::IncidentNotificationRecord,
+            ],
+        }
+    }
+
     pub fn correlator(tenant: TenantId) -> Self {
         AuthorizationContext {
             tenant,
