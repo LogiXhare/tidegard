@@ -66,6 +66,8 @@ per this task's own instruction; not a real candidate.
 
 **Option A, conditionally: `refinery` 0.9.2.**
 
+**Update 2026-10-12:** upgraded to 0.10.0 by Dependabot (#84) after Phase 5 closed. The release replaces `async-trait` with native async traits, sorts embedded migrations deterministically, and raises the MSRV to 1.92. It changes no migration format or checksum: the migration smoke test and the backup and restore drill passed on PostgreSQL 15 to 18 with V1–V17 unchanged. The licence is still MIT.
+
 Binding requirements regardless of implementation timing:
 
 - **Forward-only.** No down-migration is treated as safe by default.
