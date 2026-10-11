@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import { IncidentDetail } from "./pages/IncidentDetail";
 import { Incidents } from "./pages/Incidents";
 import { SignIn } from "./pages/SignIn";
 import { useSession } from "./session";
@@ -29,6 +30,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/incidents" replace />} />
           <Route path="/incidents" element={<Incidents />} />
+          <Route path="/incidents/:incidentId" element={<IncidentDetail />} />
           <Route path="*" element={<Navigate to="/incidents" replace />} />
         </Routes>
       </main>

@@ -6,9 +6,14 @@ It talks only to the [REST API](../api/README.md), from the same origin,
 with a session cookie
 ([ADR 0043](../../docs/architecture/decisions/0043-phase6c-browser-sessions.md)).
 
-**Status:** Phase 6D, in progress. Signing in and out and the incident
-list are built. Incident detail, actions, the NOC overview and the
-end-to-end tests come next.
+**Status:** Phase 6D, in progress. Built so far: signing in and out, the
+incident list, and an incident's page with its notes, timeline and
+actions. The NOC overview and the end-to-end tests come next.
+
+On an incident's page an operator sees only the actions their role
+allows. Each action sends the version they saw, so a change someone else
+made first is refused and the page reloads. Closing, reopening, lowering
+severity and redacting a note ask first, as the CLI does.
 
 ## Building and serving
 
