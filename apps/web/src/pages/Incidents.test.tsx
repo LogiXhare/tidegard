@@ -1,6 +1,7 @@
 // T-08 in the UI: hostile text from the API renders as text and never as
 // markup or script.
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setTransport } from "../api";
@@ -49,7 +50,11 @@ describe("the incident list", () => {
         { status: 200 },
       ),
     );
-    const { container } = render(<Incidents />);
+    const { container } = render(
+      <MemoryRouter>
+        <Incidents />
+      </MemoryRouter>,
+    );
     for (const title of HOSTILE) {
       const cells = await screen.findAllByText(title);
       expect(cells.length).toBe(3);
@@ -65,7 +70,11 @@ describe("the incident list", () => {
         { status: 200 },
       ),
     );
-    render(<Incidents />);
+    render(
+      <MemoryRouter>
+        <Incidents />
+      </MemoryRouter>,
+    );
     const severity = await screen.findByText(/critical/);
     expect(severity.textContent).toContain("▲");
   });
