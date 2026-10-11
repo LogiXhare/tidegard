@@ -85,3 +85,4 @@ yet:
 | [0041](0041-phase6a-grafana-dashboards-as-code.md) | Phase 6A Grafana Dashboards as Code | Accepted |
 | [0042](0042-phase6b-traffic-read-api.md) | Phase 6B Traffic Read API | Accepted |
 | [0043](0043-phase6c-browser-sessions.md) | Phase 6C Browser Sessions | Accepted |
+| [0044](0044-phase6d-noc-ui.md) | Phase 6D NOC UI: Build, Serving and Supply Chain | Accepted |

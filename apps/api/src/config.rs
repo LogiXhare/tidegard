@@ -21,6 +21,7 @@ pub const DATABASE_CLIENT_CERT_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_
 pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CLIENT_KEY_FILE";
 pub const POOL_MAX_SIZE_ENV_VAR: &str = "WETECHINETMON_API_POOL_MAX_SIZE";
 pub const TRAFFIC_TENANT_ENV_VAR: &str = "WETECHINETMON_API_TRAFFIC_TENANT";
+pub const WEB_ROOT_ENV_VAR: &str = "WETECHINETMON_API_WEB_ROOT";
 pub const CLICKHOUSE_URL_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_URL";
 pub const CLICKHOUSE_USER_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_USER";
 pub const CLICKHOUSE_PASSWORD_FILE_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE";
@@ -45,6 +46,8 @@ pub struct Config {
     pub pool: PoolPolicy,
     /// Off unless both the traffic tenant and ClickHouse are set.
     pub traffic: Option<TrafficConfig>,
+    /// The built NOC UI (`apps/web/dist`), served from the same origin.
+    pub web_root: Option<PathBuf>,
 }
 
 impl std::fmt::Debug for Config {
@@ -56,6 +59,7 @@ impl std::fmt::Debug for Config {
             .field("database_tls", &self.database_tls)
             .field("pool", &self.pool)
             .field("traffic", &self.traffic)
+            .field("web_root", &self.web_root)
             .finish()
     }
 }
@@ -171,6 +175,7 @@ impl Config {
                 ..default_pool
             },
             traffic,
+            web_root: get(WEB_ROOT_ENV_VAR).map(PathBuf::from),
         })
     }
 }

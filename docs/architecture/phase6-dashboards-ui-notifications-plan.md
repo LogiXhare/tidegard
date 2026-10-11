@@ -130,6 +130,8 @@ from the same origin, so there is no CORS to configure.
 **Exit:** the UI drives the incident lifecycle end to end against a real
 API in CI, and T-08 is Met.
 
+**Progress:** 6D-1 ([ADR 0044](decisions/0044-phase6d-noc-ui.md)) builds the scaffold: sign-in and sign-out, the incident list, the API serving the UI from the same origin with a strict Content-Security-Policy and security headers on every response, the T-08 lint rule with a test of the rule itself, a hostile-text component test, and the **Web UI** CI job (lint, types, tests, build, audit, licences). Incident detail and actions, the NOC overview, and the end-to-end tests follow.
+
 ### 6E — Notifications (v0.8.0)
 
 `crates/notification` becomes the first consumer of the incident outbox

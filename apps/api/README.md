@@ -33,6 +33,7 @@ wetechinetmon-api
 | `WETECHINETMON_API_DATABASE_URL` | required | libpq connection string. Never logged. |
 | `WETECHINETMON_API_DATABASE_CA_FILE` and `..._CLIENT_CERT_FILE` / `..._CLIENT_KEY_FILE` | unset | Database TLS, the same rule as the incident manager. |
 | `WETECHINETMON_API_POOL_MAX_SIZE` | 16 | Most database connections. |
+| `WETECHINETMON_API_WEB_ROOT` | unset | The built NOC UI (`apps/web/dist`), served from the same origin ([ADR 0044](../../docs/architecture/decisions/0044-phase6d-noc-ui.md)). |
 | `WETECHINETMON_API_TRAFFIC_TENANT` | unset | The one tenant whose callers may read deployment-wide traffic ([ADR 0042](../../docs/architecture/decisions/0042-phase6b-traffic-read-api.md)). Set it with the ClickHouse URL, or neither. |
 | `WETECHINETMON_API_CLICKHOUSE_URL` | unset | `https://host:port`, or `http://` to a loopback host only. |
 | `WETECHINETMON_API_CLICKHOUSE_USER` | `default` | Give the API a ClickHouse user that can only `SELECT`. |

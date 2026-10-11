@@ -41,6 +41,14 @@ async fn main() {
     );
 
     let mut state = AppState::new(pool);
+    if let Some(root) = &config.web_root {
+        let web = wetechinetmon_api::web::WebRoot::new(root).unwrap_or_else(|error| {
+            tracing::error!(error = %error, "the NOC UI cannot be served");
+            std::process::exit(1);
+        });
+        tracing::info!(web_root = %root.display(), "serving the NOC UI");
+        state = state.with_web(web);
+    }
     // A plain-HTTP API is loopback-only (ADR 0038), where a Secure cookie
     // would not always be kept.
     state.secure_cookies = config.tls.is_some();

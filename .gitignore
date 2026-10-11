@@ -1,6 +1,9 @@
 # Node (docs/validation tooling, and later apps/web)
 node_modules/
 package-lock.json
+# The NOC UI's lockfile is the supply-chain record and must be
+# committed (ADR 0044).
+!apps/web/package-lock.json
 npm-debug.log*
 
 # MkDocs build output
