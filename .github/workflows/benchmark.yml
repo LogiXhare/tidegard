@@ -1,0 +1,75 @@
+# The incident persistence benchmark (Phase 5F).
+#
+# Runs crates/incident-postgres/tests/benchmark.rs against an ephemeral
+# PostgreSQL and writes the results, with the machine they came from, to
+# the job summary. docs/operations/capacity-planning.md publishes a run's
+# numbers with a link to it.
+#
+# Unlike the validate workflow's PostgreSQL job, the data directory is NOT
+# on a tmpfs: commits pay for a real fsync to the runner's disk, as they
+# would in a deployment. Settings are the image's defaults.
+#
+# On demand, and on pull requests that change the benchmark itself so a
+# broken harness is caught before anyone needs it.
+
+name: Benchmark
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main]
+    paths:
+      - crates/incident-postgres/tests/benchmark.rs
+      - .github/workflows/benchmark.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  incident-persistence:
+    name: Incident persistence (PostgreSQL 17)
+    runs-on: ubuntu-latest
+    # ADR 0025 recommends 17. The credential is the same throwaway one the
+    # validate workflow uses; nothing here is a secret.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wetechinetmon_test
+          POSTGRES_PASSWORD: wetechinetmon_test_only
+          POSTGRES_DB: wetechinetmon_incident_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The machine
+        run: |
+          {
+            echo "## Machine"
+            echo
+            echo "- Runner: \`$RUNNER_OS\` \`$(uname -r)\`, $(nproc) CPUs"
+            echo "- CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+            echo "- Memory: $(free -g | awk '/Mem:/ {print $2}') GiB"
+            echo "- PostgreSQL: \`postgres:17-alpine\` service container, default settings, data on the runner's disk"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build (release)
+        run: cargo test --release -p wetechinetmon-incident-postgres --test benchmark --no-run
+      - name: Benchmark
+        env:
+          WETECHINETMON_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+        run: |
+          set -euo pipefail
+          cargo test --release -p wetechinetmon-incident-postgres --test benchmark \
+            -- --ignored --exact benchmark_incident_persistence --nocapture 2>&1 | tee bench.log
+          grep -q "test benchmark_incident_persistence ... ok" bench.log
