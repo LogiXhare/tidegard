@@ -94,12 +94,13 @@ permissions are what the code checks.
 | `incident.closure_policy.override` | Disable critical manual closure for a tenant or policy |
 | `platform.incident.read_all` | Cross-tenant read — platform only |
 | `platform.incident.admin` | Cross-tenant administration — platform only |
+| `traffic.read` | Read deployment-wide traffic, from the one traffic tenant only ([ADR 0042](decisions/0042-phase6b-traffic-read-api.md)) |
 
 Suggested bundles, deployment-configurable:
 
 | Role | Permissions |
 |---|---|
-| `viewer` | read, list |
+| `viewer` | read, list, traffic.read |
 | `operator` | viewer + acknowledge, assign, investigate, note.create |
 | `senior_operator` | operator + severity.change, priority.change, resolve, close, reopen, create |
 | `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact |

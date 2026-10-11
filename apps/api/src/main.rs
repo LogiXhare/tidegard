@@ -40,8 +40,25 @@ async fn main() {
         "starting wetechinetmon-api"
     );
 
-    let app = router(AppState::new(pool))
-        .into_make_service_with_connect_info::<wetechinetmon_api::server::PeerAddr>();
+    let mut state = AppState::new(pool);
+    if let Some(traffic) = &config.traffic {
+        let clickhouse = wetechinetmon_api::clickhouse::ClickHouse::new(traffic.clickhouse.clone())
+            .unwrap_or_else(|error| {
+                tracing::error!(error = %error, "traffic cannot be served");
+                std::process::exit(1);
+            });
+        tracing::info!(
+            tenant = %traffic.tenant,
+            clickhouse_host = %traffic.clickhouse.host,
+            "serving traffic to one tenant"
+        );
+        state = state.with_traffic(wetechinetmon_api::traffic::TrafficSource {
+            tenant: wetechinetmon_incident::correlation::TenantId::new(&traffic.tenant),
+            clickhouse,
+        });
+    }
+    let app =
+        router(state).into_make_service_with_connect_info::<wetechinetmon_api::server::PeerAddr>();
     let served = match listener {
         Bound::Plain(tcp) => {
             axum::serve(tcp, app)

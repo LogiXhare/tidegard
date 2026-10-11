@@ -20,6 +20,19 @@ pub const DATABASE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CA_FILE";
 pub const DATABASE_CLIENT_CERT_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CLIENT_CERT_FILE";
 pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CLIENT_KEY_FILE";
 pub const POOL_MAX_SIZE_ENV_VAR: &str = "WETECHINETMON_API_POOL_MAX_SIZE";
+pub const TRAFFIC_TENANT_ENV_VAR: &str = "WETECHINETMON_API_TRAFFIC_TENANT";
+pub const CLICKHOUSE_URL_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_URL";
+pub const CLICKHOUSE_USER_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_USER";
+pub const CLICKHOUSE_PASSWORD_FILE_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE";
+pub const CLICKHOUSE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_CA_FILE";
+const DEFAULT_CLICKHOUSE_USER: &str = "default";
+
+/// Traffic for the one traffic tenant (ADR 0042).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TrafficConfig {
+    pub tenant: String,
+    pub clickhouse: crate::clickhouse::Endpoint,
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Config {
@@ -30,6 +43,8 @@ pub struct Config {
     pub database_url: String,
     pub database_tls: Option<DatabaseTlsFiles>,
     pub pool: PoolPolicy,
+    /// Off unless both the traffic tenant and ClickHouse are set.
+    pub traffic: Option<TrafficConfig>,
 }
 
 impl std::fmt::Debug for Config {
@@ -40,6 +55,7 @@ impl std::fmt::Debug for Config {
             .field("database_url", &"<redacted>")
             .field("database_tls", &self.database_tls)
             .field("pool", &self.pool)
+            .field("traffic", &self.traffic)
             .finish()
     }
 }
@@ -114,6 +130,37 @@ impl Config {
                 }
             },
         };
+        let traffic = match (get(TRAFFIC_TENANT_ENV_VAR), get(CLICKHOUSE_URL_ENV_VAR)) {
+            (None, None) => None,
+            (Some(tenant), Some(url)) => {
+                let (scheme, host, port) =
+                    crate::clickhouse::parse_url(url.trim()).map_err(|_| {
+                        ConfigError::InvalidValue {
+                            var: CLICKHOUSE_URL_ENV_VAR,
+                            value: url.clone(),
+                            expected: "http://host:port or https://host:port",
+                        }
+                    })?;
+                Some(TrafficConfig {
+                    tenant: tenant.trim().to_string(),
+                    clickhouse: crate::clickhouse::Endpoint {
+                        scheme,
+                        host,
+                        port,
+                        user: get(CLICKHOUSE_USER_ENV_VAR)
+                            .map(|user| user.trim().to_string())
+                            .unwrap_or_else(|| DEFAULT_CLICKHOUSE_USER.to_string()),
+                        password_file: get(CLICKHOUSE_PASSWORD_FILE_ENV_VAR).map(PathBuf::from),
+                        ca_file: get(CLICKHOUSE_CA_FILE_ENV_VAR).map(PathBuf::from),
+                    },
+                })
+            }
+            _ => {
+                return Err(ConfigError::Incomplete {
+                    detail: "the traffic tenant and the ClickHouse URL must be set together",
+                })
+            }
+        };
         Ok(Config {
             bind,
             tls,
@@ -123,6 +170,7 @@ impl Config {
                 max_size,
                 ..default_pool
             },
+            traffic,
         })
     }
 }
@@ -171,6 +219,39 @@ mod tests {
         .unwrap();
         assert_eq!(with_tls.bind.port(), 8443);
         assert!(with_tls.tls.is_some());
+    }
+
+    #[test]
+    fn traffic_needs_both_its_tenant_and_clickhouse() {
+        assert_eq!(config(&[URL]).unwrap().traffic, None);
+        assert!(matches!(
+            config(&[URL, (TRAFFIC_TENANT_ENV_VAR, "acme")]),
+            Err(ConfigError::Incomplete { .. })
+        ));
+        assert!(matches!(
+            config(&[URL, (CLICKHOUSE_URL_ENV_VAR, "http://127.0.0.1:8123")]),
+            Err(ConfigError::Incomplete { .. })
+        ));
+        assert!(matches!(
+            config(&[
+                URL,
+                (TRAFFIC_TENANT_ENV_VAR, "acme"),
+                (CLICKHOUSE_URL_ENV_VAR, "http://user:pw@ch:8123")
+            ]),
+            Err(ConfigError::InvalidValue { .. })
+        ));
+        let traffic = config(&[
+            URL,
+            (TRAFFIC_TENANT_ENV_VAR, "acme"),
+            (CLICKHOUSE_URL_ENV_VAR, "https://ch.example.net:8443"),
+            (CLICKHOUSE_CA_FILE_ENV_VAR, "/etc/ch-ca.pem"),
+        ])
+        .unwrap()
+        .traffic
+        .unwrap();
+        assert_eq!(traffic.tenant, "acme");
+        assert_eq!(traffic.clickhouse.user, "default");
+        assert_eq!(traffic.clickhouse.port, 8443);
     }
 
     #[test]

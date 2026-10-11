@@ -33,6 +33,11 @@ wetechinetmon-api
 | `WETECHINETMON_API_DATABASE_URL` | required | libpq connection string. Never logged. |
 | `WETECHINETMON_API_DATABASE_CA_FILE` and `..._CLIENT_CERT_FILE` / `..._CLIENT_KEY_FILE` | unset | Database TLS, the same rule as the incident manager. |
 | `WETECHINETMON_API_POOL_MAX_SIZE` | 16 | Most database connections. |
+| `WETECHINETMON_API_TRAFFIC_TENANT` | unset | The one tenant whose callers may read deployment-wide traffic ([ADR 0042](../../docs/architecture/decisions/0042-phase6b-traffic-read-api.md)). Set it with the ClickHouse URL, or neither. |
+| `WETECHINETMON_API_CLICKHOUSE_URL` | unset | `https://host:port`, or `http://` to a loopback host only. |
+| `WETECHINETMON_API_CLICKHOUSE_USER` | `default` | Give the API a ClickHouse user that can only `SELECT`. |
+| `WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE` | unset | A file holding the password. Never logged. |
+| `WETECHINETMON_API_CLICKHOUSE_CA_FILE` | unset | The CA bundle for `https://`. Required for it. |
 | `RUST_LOG` | `info` | Log filter; logs are JSON. |
 
 `GET /healthz` is liveness: it answers while the process runs.
@@ -71,10 +76,15 @@ answers. Neither needs a token.
 | `POST` | `/api/v1/incidents/{id}/unassign` | `incident.assign` | 60/min per actor |
 | `POST` | `/api/v1/incidents/{id}/severity` | `incident.severity.change` | 60/min per actor |
 | `POST` | `/api/v1/incidents/{id}/priority` | `incident.priority.change` | 60/min per actor |
+| `GET` | `/api/v1/traffic/summary` | `traffic.read`, traffic tenant only | 120/min per actor |
+| `GET` | `/api/v1/traffic/top` | `traffic.read`, traffic tenant only | 120/min per actor |
+| `GET` | `/api/v1/exporters` | `traffic.read`, traffic tenant only | 120/min per actor |
 
 Every transition `POST` needs an `Idempotency-Key` header (16 to 255 characters) and `expected_version` in its JSON body. A retry with the same key and body replays the first outcome; a stale version is `409 incident.version_conflict`. Each answers with the incident as it now is. Adding a note needs neither: notes are append-only, and a key, when given, still makes a retry replay. It answers `201` with the incident. Editing your own note (`201`) or redacting one (`200`) needs neither as well: a note is replaced once and redacted once, so a repeat is `422`. The original of an edited note stays; `GET .../notes` hides it unless `include_superseded=true`. Opening an incident by hand needs an `Idempotency-Key` and answers `201` with a `Location` ([ADR 0039](../../docs/architecture/decisions/0039-phase5d-manual-incidents.md)). An export is one JSON document (`format: wetechinetmon.incident-export`) holding the incident, timeline, notes, detections and, for a caller with `incident.audit.read`, the audit trail. Each history is capped at 5000 entries, and `truncated` reports any cut. Every export writes an audit entry before anything is read. Tags are set with `PUT` and removed with `DELETE`, which are idempotent by definition: no version, and the key is optional.
 
 The full contract is the generated [OpenAPI document](../../docs/api/openapi.json). Another tenant's incident is `404 incident.not_found`, indistinguishable from a missing one.
+
+Traffic is deployment-wide until Phase 8 brings prefix ownership, so only the configured traffic tenant reaches the traffic endpoints; every other tenant gets `404 api.not_found`. The API reads ClickHouse read-only, with server-side query parameters, a 10-second limit and a row limit. A range is at most 30 days, and a summary has at most 500 points. ClickHouse being down answers `503` and leaves incidents working.
 
 ## API tokens
 

@@ -47,6 +47,10 @@ pub enum Permission {
     IncidentIngest,
     PlatformIncidentReadAll,
     PlatformIncidentAdmin,
+    /// Read deployment-wide traffic (ADR 0042). Traffic carries no tenant
+    /// until Phase 8, so the API also requires the caller to be in the
+    /// one configured traffic tenant.
+    TrafficRead,
 }
 
 impl Permission {
@@ -78,6 +82,7 @@ impl Permission {
             IncidentIngest => "incident.ingest",
             PlatformIncidentReadAll => "platform.incident.read_all",
             PlatformIncidentAdmin => "platform.incident.admin",
+            TrafficRead => "traffic.read",
         }
     }
 }
@@ -172,7 +177,7 @@ pub struct FixedBundleResolver;
 impl PermissionResolver for FixedBundleResolver {
     fn permissions_for(&self, role: &str) -> Vec<Permission> {
         use Permission::*;
-        let viewer = vec![IncidentRead, IncidentList];
+        let viewer = vec![IncidentRead, IncidentList, TrafficRead];
         let operator = {
             let mut v = viewer.clone();
             v.extend([

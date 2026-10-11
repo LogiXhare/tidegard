@@ -12,6 +12,7 @@
 
 pub mod auth;
 pub mod body;
+pub mod clickhouse;
 pub mod config;
 pub mod create;
 pub mod export;
@@ -25,6 +26,7 @@ pub mod request_id;
 pub mod server;
 pub mod time;
 pub mod token_admin;
+pub mod traffic;
 pub mod transitions;
 pub mod whoami;
 
@@ -61,6 +63,8 @@ pub struct AppState {
     pub limits: Arc<incidents::Limits>,
     /// The command path: the same unit of work the incident manager runs.
     pub incidents: Arc<IncidentPersistence>,
+    /// Deployment-wide traffic, when configured (ADR 0042).
+    pub traffic: Option<Arc<traffic::TrafficSource>>,
 }
 
 impl AppState {
@@ -74,8 +78,15 @@ impl AppState {
                 Arc::new(UuidV7IncidentGenerator::new()),
                 Arc::new(SystemClock),
             )),
+            traffic: None,
             pool,
         }
+    }
+
+    /// Lets the traffic tenant read traffic from `source` (ADR 0042).
+    pub fn with_traffic(mut self, source: traffic::TrafficSource) -> Self {
+        self.traffic = Some(Arc::new(source));
+        self
     }
 }
 
@@ -109,6 +120,9 @@ pub fn router(state: AppState) -> Router {
             get(history::detections),
         )
         .route("/incidents/{incident_id}/audit", get(history::audit))
+        .route("/traffic/summary", get(traffic::summary))
+        .route("/traffic/top", get(traffic::top))
+        .route("/exporters", get(traffic::exporters))
         .route(
             "/incidents/{incident_id}/acknowledge",
             post(transitions::acknowledge),

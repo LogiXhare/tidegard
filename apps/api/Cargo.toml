@@ -32,6 +32,12 @@ sha2 = "0.11"
 # Cargo.lock through the PostgreSQL TLS connector (ADR 0023).
 rustls.workspace = true
 tokio-rustls = "0.26.4"
+# ADR 0042: ClickHouse over its HTTP interface, with the client the CLI
+# already uses (ADR 0040). All already in Cargo.lock.
+hyper = { version = "1.11.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "0.1.20", default-features = false, features = ["tokio"] }
+http-body-util = "0.1.5"
+bytes = "1.12.1"
 # Workspace crates and existing workspace dependencies.
 wetechinetmon-common = { path = "../../crates/common" }
 wetechinetmon-incident = { path = "../../crates/incident" }
@@ -54,3 +60,5 @@ tower = { version = "0.5.3", features = ["util"] }
 proptest.workspace = true
 # tests/threats.rs captures log output to prove no note body is logged (T-23).
 tracing-subscriber.workspace = true
+# tests/traffic.rs seeds a real ClickHouse with the collector's schema.
+wetechinetmon-storage = { path = "../../crates/storage" }

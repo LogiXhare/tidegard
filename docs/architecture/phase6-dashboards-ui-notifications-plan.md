@@ -87,6 +87,8 @@ is risk **R21**.
 **Exit:** each endpoint is in the OpenAPI document, the tenant-isolation
 suite covers it, and a query's cost is bounded by its time range.
 
+**Progress:** 6B-1 ([ADR 0042](decisions/0042-phase6b-traffic-read-api.md)) adds `traffic.read`, the configured traffic tenant, a read-only ClickHouse client over its HTTP interface, and three endpoints: traffic summary, top talkers and exporters. They are tested against a real ClickHouse in CI, and the tenant-isolation suite covers them.
+
 ### 6C — Browser sessions (BQ-10)
 
 `POST /api/v1/session` takes an API token once and answers with a
