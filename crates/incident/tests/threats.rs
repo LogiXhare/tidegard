@@ -17,7 +17,7 @@ use wetechinetmon_detector::{
 use wetechinetmon_incident::assignment::Assignee;
 use wetechinetmon_incident::audit::{AttemptedResource, AuditOutcome, FieldChange};
 use wetechinetmon_incident::authorization::{
-    Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
+    Actor, AuthorizationContext, FixedBundleResolver, Permission, PermissionResolver,
 };
 use wetechinetmon_incident::closure::ClosureReason;
 use wetechinetmon_incident::command::Command;
@@ -170,6 +170,14 @@ fn every_command(version: u64) -> Vec<Command> {
             body: "note".into(),
             visibility: NoteVisibility::Internal,
         },
+        Command::EditNote {
+            note_index: 0,
+            body: "edited".into(),
+        },
+        Command::RedactNote {
+            note_index: 0,
+            reason: "pasted a credential".into(),
+        },
         Command::AddTag {
             key: "env".into(),
             value: "prod".into(),
@@ -224,7 +232,7 @@ fn every_command_is_allowed_exactly_by_its_permission_for_every_role() {
             checked += 1;
         }
     }
-    assert_eq!(checked, 5 * 15);
+    assert_eq!(checked, 5 * 17);
     // T-01 in one line: the ingestion credential holds no operator permission.
     for command in every_command(1) {
         assert!(
@@ -232,6 +240,193 @@ fn every_command_is_allowed_exactly_by_its_permission_for_every_role() {
             "{command:?}"
         );
     }
+}
+
+// --- Notes: edits supersede, redaction is recorded (FU-63) ---
+
+fn add_note(uow: &mut IncidentUnitOfWork, id: IncidentId, who: &str, body: &str) {
+    uow.handle_command(
+        &role(who),
+        id,
+        Command::AddNote {
+            body: body.into(),
+            visibility: NoteVisibility::Internal,
+        },
+        None,
+    )
+    .unwrap();
+}
+
+fn edit(
+    uow: &mut IncidentUnitOfWork,
+    id: IncidentId,
+    who: &str,
+    note_index: u32,
+) -> Result<u64, IncidentError> {
+    uow.handle_command(
+        &role(who),
+        id,
+        Command::EditNote {
+            note_index,
+            body: format!("edit of {note_index}"),
+        },
+        None,
+    )
+}
+
+fn redact(
+    uow: &mut IncidentUnitOfWork,
+    id: IncidentId,
+    who: &str,
+    note_index: u32,
+    reason: &str,
+) -> Result<u64, IncidentError> {
+    uow.handle_command(
+        &role(who),
+        id,
+        Command::RedactNote {
+            note_index,
+            reason: reason.into(),
+        },
+        None,
+    )
+}
+
+/// An edit appends; the original stays, so what was first written
+/// survives. A note is replaced once, and the replacement can be edited.
+#[test]
+fn an_edit_appends_a_new_note_and_keeps_the_original() {
+    let (mut uow, id, _) = opened();
+    add_note(&mut uow, id, "operator", "upstream says spoofed");
+    let before = uow.get(&id).unwrap().version;
+
+    assert_eq!(edit(&mut uow, id, "operator", 0), Ok(before + 1));
+    let incident = uow.get(&id).unwrap();
+    assert_eq!(incident.notes.len(), 2);
+    assert_eq!(incident.notes[0].body, "upstream says spoofed");
+    assert_eq!(incident.notes[1].body, "edit of 0");
+    assert_eq!(incident.notes[1].supersedes, Some(0));
+    assert_eq!(incident.notes[1].visibility, NoteVisibility::Internal);
+    assert_eq!(incident.note_superseded_by(0), Some(1));
+    assert_eq!(
+        uow.timeline().last().unwrap().payload,
+        TimelinePayload::NoteSuperseded {
+            note_index: 0,
+            by_note_index: 1
+        }
+    );
+    let audited = uow.audit().last().unwrap();
+    assert_eq!(
+        (audited.outcome, audited.permission),
+        (AuditOutcome::Allowed, Permission::IncidentNoteCreate)
+    );
+
+    assert!(matches!(
+        edit(&mut uow, id, "operator", 0),
+        Err(IncidentError::ValidationError(_))
+    ));
+    assert!(matches!(
+        edit(&mut uow, id, "operator", 9),
+        Err(IncidentError::ValidationError(_))
+    ));
+    assert_eq!(edit(&mut uow, id, "operator", 1), Ok(before + 2));
+    assert_eq!(uow.get(&id).unwrap().notes[2].supersedes, Some(1));
+}
+
+/// Holding `incident.note.create` is not enough to replace someone
+/// else's words: the attempt is refused, changes nothing, and is audited.
+#[test]
+fn only_the_author_may_edit_a_note() {
+    let (mut uow, id, _) = opened();
+    add_note(&mut uow, id, "operator", "mine");
+    let before = uow.get(&id).unwrap().version;
+    for other in ["senior_operator", "noc_lead"] {
+        assert_eq!(
+            edit(&mut uow, id, other, 0),
+            Err(IncidentError::Unauthorized)
+        );
+        let audited = uow.audit().last().unwrap();
+        assert_eq!(audited.outcome, AuditOutcome::Denied);
+        assert_eq!(audited.permission, Permission::IncidentNoteCreate);
+        assert_eq!(audited.resource, AttemptedResource::Incident(id));
+    }
+    assert_eq!(uow.get(&id).unwrap().version, before);
+    assert_eq!(uow.get(&id).unwrap().notes.len(), 1);
+}
+
+/// Redaction removes the words and keeps the record: who, why, and that
+/// the note existed. The reason is on the audit trail, not the timeline,
+/// and the removed words are nowhere.
+#[test]
+fn redaction_needs_its_permission_and_a_reason_and_keeps_the_record() {
+    let (mut uow, id, _) = opened();
+    add_note(&mut uow, id, "operator", "router password is hunter2");
+    edit(&mut uow, id, "operator", 0).unwrap();
+    let before = uow.get(&id).unwrap().version;
+
+    // The author cannot redact; only noc_lead and above hold the permission.
+    for lacking in ["operator", "senior_operator"] {
+        assert_eq!(
+            redact(&mut uow, id, lacking, 0, "credential"),
+            Err(IncidentError::Unauthorized)
+        );
+    }
+    assert!(matches!(
+        redact(&mut uow, id, "noc_lead", 0, "  "),
+        Err(IncidentError::ValidationError(_))
+    ));
+    assert!(matches!(
+        redact(&mut uow, id, "noc_lead", 0, &"r".repeat(501)),
+        Err(IncidentError::ValidationError(_))
+    ));
+    assert!(matches!(
+        redact(&mut uow, id, "noc_lead", 7, "credential"),
+        Err(IncidentError::ValidationError(_))
+    ));
+    assert_eq!(uow.get(&id).unwrap().version, before);
+
+    // A superseded note can be redacted: the words are in the original.
+    assert_eq!(
+        redact(&mut uow, id, "noc_lead", 0, "pasted a credential"),
+        Ok(before + 1)
+    );
+    let note = &uow.get(&id).unwrap().notes[0];
+    assert_eq!(note.body, "");
+    let redaction = note.redaction.as_ref().unwrap();
+    assert_eq!(
+        redaction.by,
+        Actor::Operator {
+            id: "u-noc_lead".into()
+        }
+    );
+    assert_eq!(redaction.reason, "pasted a credential");
+    assert_eq!(
+        uow.timeline().last().unwrap().payload,
+        TimelinePayload::NoteRedacted { note_index: 0 }
+    );
+    let audited = uow.audit().last().unwrap();
+    assert_eq!(audited.outcome, AuditOutcome::Allowed);
+    assert_eq!(audited.permission, Permission::IncidentNoteRedact);
+    assert_eq!(audited.reason.as_deref(), Some("pasted a credential"));
+    let everything = format!(
+        "{:?}{:?}{:?}",
+        uow.get(&id).unwrap(),
+        uow.timeline(),
+        uow.audit()
+    );
+    assert!(!everything.contains("hunter2"));
+
+    // Once only, and a redacted note cannot be edited back.
+    assert!(matches!(
+        redact(&mut uow, id, "noc_lead", 0, "again"),
+        Err(IncidentError::ValidationError(_))
+    ));
+    add_note(&mut uow, id, "operator", "second");
+    redact(&mut uow, id, "noc_lead", 2, "wrong incident").unwrap();
+    assert!(matches!(
+        edit(&mut uow, id, "operator", 2),
+        Err(IncidentError::ValidationError(_))
+    ));
 }
 
 // --- T-03 Correlation-key collision ---
@@ -426,7 +621,11 @@ fn every_transition_needs_the_current_version() {
         if !command.requires_expected_version() {
             assert!(matches!(
                 command,
-                Command::AddNote { .. } | Command::AddTag { .. } | Command::RemoveTag { .. }
+                Command::AddNote { .. }
+                    | Command::EditNote { .. }
+                    | Command::RedactNote { .. }
+                    | Command::AddTag { .. }
+                    | Command::RemoveTag { .. }
             ));
             continue;
         }

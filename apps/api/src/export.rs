@@ -26,7 +26,7 @@ use wetechinetmon_incident_postgres::queries;
 use wetechinetmon_incident_postgres::row::IncidentRow;
 
 use crate::auth::Principal;
-use crate::history::{actor, AuditEntryView, DetectionView, NoteView, TimelineEntryView};
+use crate::history::{note_views, AuditEntryView, DetectionView, NoteView, TimelineEntryView};
 use crate::incidents::{actor_text, limit, parse_id, IncidentView};
 use crate::problem::Problem;
 use crate::time::rfc3339;
@@ -121,16 +121,8 @@ pub async fn export(
             .map_err(|error| Problem::from(&error))?
             .map_err(|error| Problem::from(&error))?;
         let row = IncidentRow::from_incident(&bundle.incident).map_err(|e| Problem::from(&e))?;
-        let notes = row
-            .notes
-            .into_iter()
-            .map(|note| NoteView {
-                note_index: note.note_index,
-                author: actor(&note.created_by.actor_type, note.created_by.actor_id),
-                body: note.body,
-                visibility: note.visibility,
-            })
-            .collect();
+        // The whole chain: an export is the record, edits included.
+        let notes = note_views(row.notes, true);
         let exported_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |elapsed| {

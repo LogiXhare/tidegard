@@ -52,6 +52,8 @@ answers. Neither needs a token.
 | `GET` | `/api/v1/incidents/{id}/timeline` | `incident.read` | 120/min per actor |
 | `GET` | `/api/v1/incidents/{id}/notes` | `incident.read` | 120/min per actor |
 | `POST` | `/api/v1/incidents/{id}/notes` | `incident.note.create` | 60/min per actor |
+| `POST` | `/api/v1/incidents/{id}/notes/{index}/edit` | `incident.note.create`, own note only | 60/min per actor |
+| `POST` | `/api/v1/incidents/{id}/notes/{index}/redact` | `incident.note.redact` | 60/min per actor |
 | `POST` | `/api/v1/incidents/{id}/export` | `incident.export` | 10/min per actor |
 | `PUT` | `/api/v1/incidents/{id}/tags/{key}` | `incident.update` | 60/min per actor |
 | `DELETE` | `/api/v1/incidents/{id}/tags/{key}` | `incident.update` | 60/min per actor |
@@ -70,7 +72,7 @@ answers. Neither needs a token.
 | `POST` | `/api/v1/incidents/{id}/severity` | `incident.severity.change` | 60/min per actor |
 | `POST` | `/api/v1/incidents/{id}/priority` | `incident.priority.change` | 60/min per actor |
 
-Every transition `POST` needs an `Idempotency-Key` header (16 to 255 characters) and `expected_version` in its JSON body. A retry with the same key and body replays the first outcome; a stale version is `409 incident.version_conflict`. Each answers with the incident as it now is. Adding a note needs neither: notes are append-only, and a key, when given, still makes a retry replay. It answers `201` with the incident. Opening an incident by hand needs an `Idempotency-Key` and answers `201` with a `Location` ([ADR 0039](../../docs/architecture/decisions/0039-phase5d-manual-incidents.md)). An export is one JSON document (`format: wetechinetmon.incident-export`) holding the incident, timeline, notes, detections and, for a caller with `incident.audit.read`, the audit trail. Each history is capped at 5000 entries, and `truncated` reports any cut. Every export writes an audit entry before anything is read. Tags are set with `PUT` and removed with `DELETE`, which are idempotent by definition: no version, and the key is optional.
+Every transition `POST` needs an `Idempotency-Key` header (16 to 255 characters) and `expected_version` in its JSON body. A retry with the same key and body replays the first outcome; a stale version is `409 incident.version_conflict`. Each answers with the incident as it now is. Adding a note needs neither: notes are append-only, and a key, when given, still makes a retry replay. It answers `201` with the incident. Editing your own note (`201`) or redacting one (`200`) needs neither as well: a note is replaced once and redacted once, so a repeat is `422`. The original of an edited note stays; `GET .../notes` hides it unless `include_superseded=true`. Opening an incident by hand needs an `Idempotency-Key` and answers `201` with a `Location` ([ADR 0039](../../docs/architecture/decisions/0039-phase5d-manual-incidents.md)). An export is one JSON document (`format: wetechinetmon.incident-export`) holding the incident, timeline, notes, detections and, for a caller with `incident.audit.read`, the audit trail. Each history is capped at 5000 entries, and `truncated` reports any cut. Every export writes an audit entry before anything is read. Tags are set with `PUT` and removed with `DELETE`, which are idempotent by definition: no version, and the key is optional.
 
 The full contract is the generated [OpenAPI document](../../docs/api/openapi.json). Another tenant's incident is `404 incident.not_found`, indistinguishable from a missing one.
 
