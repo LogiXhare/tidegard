@@ -1,6 +1,7 @@
 // The incident list: the NOC's first view. Titles, targets and assignees
 // are untrusted text, and React renders them only as text (T-08).
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { ApiError, listIncidents } from "../api";
 import type { IncidentSummary } from "../api";
@@ -86,7 +87,11 @@ export function Incidents() {
           <tbody>
             {items.map((incident) => (
               <tr key={incident.incident_id}>
-                <td className="mono">{incident.incident_number}</td>
+                <td className="mono">
+                  <Link to={`/incidents/${encodeURIComponent(incident.incident_id)}`}>
+                    {incident.incident_number}
+                  </Link>
+                </td>
                 <td>
                   <Severity value={incident.severity} />
                 </td>
