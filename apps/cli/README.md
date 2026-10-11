@@ -72,6 +72,8 @@ incidents suppress INCIDENT (--until TIME | --for 2h) --reason TEXT   (confirms)
 incidents severity set INCIDENT LEVEL [--reason TEXT]    (confirms when lowering)
 incidents priority set INCIDENT LEVEL
 incidents note add INCIDENT --message TEXT
+incidents note edit INCIDENT INDEX --message TEXT      (your own note)
+incidents note redact INCIDENT INDEX --reason TEXT     (confirms)
 incidents claim INCIDENT                    (assign to yourself)
 incidents tag set INCIDENT KEY VALUE
 incidents tag remove INCIDENT KEY
@@ -86,7 +88,7 @@ incidents open --title T --severity S --target-scope host|prefix|slash24|hostgro
 - **The version is read first.** A change sends the version it read, so if someone else changed the incident in between, the API refuses with `409`. `--expected-version N` pins the version instead of reading it.
 - **A `409` is never re-issued.** It exits `4` and shows the current version and state. Someone else changed the incident, so you decide again.
 - **One `Idempotency-Key` per command, reused on every retry.** A change that timed out and was retried is replayed by the server, never applied twice.
-- **Some changes ask first:** closing, reopening, suppressing, and lowering severity. `--yes` answers in advance. With no terminal and no `--yes` the command is an error and sends nothing. Missing confirmation is never taken as a yes.
+- **Some changes ask first:** closing, reopening, suppressing, lowering severity, and redacting a note. `--yes` answers in advance. With no terminal and no `--yes` the command is an error and sends nothing. Missing confirmation is never taken as a yes.
 
 `INCIDENT` is the incident's id or its number, such as `WNM-2026-000123`.
 A number is looked up in your tenant.

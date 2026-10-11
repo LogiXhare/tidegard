@@ -291,8 +291,24 @@ pub fn notes(list: &Value) -> String {
     }
     let mut out = String::new();
     for note in items {
+        let mut marks = String::new();
+        if !note["supersedes_note_index"].is_null() {
+            marks.push_str(&format!(
+                ", edits #{}",
+                field(note, "supersedes_note_index")
+            ));
+        }
+        if !note["superseded_by_note_index"].is_null() {
+            marks.push_str(&format!(
+                ", replaced by #{}",
+                field(note, "superseded_by_note_index")
+            ));
+        }
+        if note["redacted"] == true {
+            marks.push_str(", redacted");
+        }
         out.push_str(&format!(
-            "#{} by {} ({})\n",
+            "#{} by {} ({}{marks})\n",
             field(note, "note_index"),
             field(note, "author"),
             field(note, "visibility")
