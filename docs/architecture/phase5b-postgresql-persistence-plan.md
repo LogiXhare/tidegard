@@ -48,7 +48,7 @@ rows 32–37. Summary:
 | Async runtime | Tokio (already a workspace dependency), adapters only | Accepted | [0021](decisions/0021-phase5b-async-runtime-boundary.md) |
 | Connection pool | `deadpool-postgres` 0.14.1 | Conditionally Accepted | [0022](decisions/0022-phase5b-connection-pool.md) |
 | TLS | `rustls` 0.23.43 + `tokio-postgres-rustls` 0.14.0 | Conditionally Accepted | [0023](decisions/0023-phase5b-postgresql-tls.md) |
-| Migrations | `refinery` 0.9.2 | Conditionally Accepted | [0024](decisions/0024-phase5b-migration-framework.md) |
+| Migrations | `refinery` 0.9.2, now 0.10.0 | Conditionally Accepted | [0024](decisions/0024-phase5b-migration-framework.md) |
 
 **Zero of these six crates has been added to any `Cargo.toml`.** Every
 "Conditionally Accepted" status is gated on the **Phase 5B-1 dependency
