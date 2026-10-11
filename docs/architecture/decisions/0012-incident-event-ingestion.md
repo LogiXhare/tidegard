@@ -1,6 +1,6 @@
 # 0012. Detection-Event Ingestion: Transactional Outbox, At-Least-Once
 
-Status: **Accepted** — 2026-10-05, as amended by ADR 0031 and ADR 0035 (see [Acceptance](#acceptance--2026-10-05))
+Status: **Accepted** — 2026-10-05, as amended by ADR 0031 and ADR 0035 (see [Acceptance](#acceptance))
 Date: 2026-08-22
 Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
@@ -150,7 +150,7 @@ implied by [ADR 0015](0015-incident-operational-storage.md) — see BQ-7.
 **Operational.** Two new alerts: outbox depth, and dead-letter count
 above zero.
 
-## Acceptance — 2026-10-05
+## Acceptance
 
 The decision stands: at-least-once delivery, effectively-once processing,
 and `UNIQUE (tenant_id, dedup_key)` as the duplicate answer. Later ADRs

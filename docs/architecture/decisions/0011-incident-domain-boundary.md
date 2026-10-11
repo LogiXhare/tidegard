@@ -1,6 +1,6 @@
 # 0011. The Incident Domain Is Separate From the Detection Domain
 
-Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance--2026-10-05))
+Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance))
 Date: 2026-08-22
 Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
@@ -121,7 +121,7 @@ storage and HTTP dependencies that Phase 5 will need are a separate
 decision — see **BQ-7** and
 [ADR 0015](0015-incident-operational-storage.md).
 
-## Acceptance — 2026-10-05
+## Acceptance
 
 Accepted as implemented in Phase 5:
 

@@ -1,6 +1,6 @@
 # 0017. The Community/Enterprise Seam Is an Extension Point, Not a Limitation
 
-Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance--2026-10-05))
+Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance))
 Date: 2026-08-22
 Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
@@ -111,7 +111,7 @@ an extension point and not a lever.
 [commercial-boundaries.md](../../commercial-boundaries.md). Enterprise
 implementations live outside this repository.
 
-## Acceptance — 2026-10-05
+## Acceptance
 
 The principle is accepted unchanged:
 

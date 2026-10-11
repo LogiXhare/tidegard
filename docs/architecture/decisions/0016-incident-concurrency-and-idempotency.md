@@ -1,6 +1,6 @@
 # 0016. Optimistic Concurrency and Fingerprinted Idempotency
 
-Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance--2026-10-05))
+Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance))
 Date: 2026-08-22
 Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
@@ -127,7 +127,7 @@ real signal: a sustained rise means either an integration retrying
 incorrectly or two operators repeatedly colliding, and both are worth
 knowing.
 
-## Acceptance — 2026-10-05
+## Acceptance
 
 Accepted as implemented in Phase 5, with two differences:
 
