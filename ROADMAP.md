@@ -23,7 +23,7 @@ documentation. See [docs/acceptance-criteria.md](docs/acceptance-criteria.md).
 | v0.4.0 | Phase 3 (cont.): ClickHouse and Prometheus metrics | ✅ Complete |
 | v0.5.0 | Phase 4: Static detection engine | ✅ Complete |
 | v0.6.0 | Phase 5: Incident lifecycle | ✅ Complete (2026-10-11) |
-| v0.7.0 | Phase 6: Grafana and native UI | Not started |
+| v0.7.0 | Phase 6: Grafana and native UI | Planned (2026-10-11) |
 | v0.8.0 | Phase 6 (cont.): Notification integrations | Not started |
 | v0.9.0 | Phase 7: BGP mitigation lab | Not started |
 | v1.0.0 | Phase 10: Production-ready single-tenant release | Not started |

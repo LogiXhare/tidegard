@@ -1,15 +1,15 @@
 # Blocking Questions
 
-Status: Phase 5 planning — **all five Phase 5 questions resolved**
-2026-08-22. No Phase 5 decision remains outstanding.
-Last updated: 2026-08-22
+Status: Phase 6 planning — **BQ-2 and BQ-10 to BQ-12 resolved**
+2026-10-11. No Phase 6 decision remains outstanding.
+Last updated: 2026-10-11
 
 ## Decision summary
 
 | # | Question | Status | Blocks |
 |---|---|---|---|
 | BQ-1 | Project licence | Resolved — Apache-2.0 | — |
-| BQ-2 | Grafana bundling | Open | Phase 6 |
+| BQ-2 | Grafana bundling | **Resolved 2026-10-11** — external only | — |
 | BQ-3 | Reference hardware and traffic rates | Open | Benchmarking |
 | BQ-4 | Phase 8 before or after v1.0.0 | Open | Phase 7 scheduling |
 | BQ-5 | Incident identity (UUID vs ADR 0009) | **Resolved 2026-08-22** — UUIDv7, conditional | Was 5A |
@@ -17,6 +17,9 @@ Last updated: 2026-08-22
 | BQ-7 | PostgreSQL and HTTP dependencies | **Resolved 2026-08-22** — approved architecturally | Was 5B |
 | BQ-8 | Manual closure for critical incidents | **Resolved 2026-08-22** — required by default | — |
 | BQ-9 | Default reopen window | **Resolved 2026-08-22** — 15 min, inclusive | — |
+| BQ-10 | How the web UI signs in before OIDC | **Resolved 2026-10-11** — API token exchanged for a session | — |
+| BQ-11 | Web UI stack | **Resolved 2026-10-11** — React, TypeScript, Vite | — |
+| BQ-12 | Phase 6 scope and order | **Resolved 2026-10-11** — dashboards, UI, notifications; no InfluxDB | — |
 
 These are the only questions treated as genuinely blocking for Phase 1+
 architecture and legal posture. Per master prompt §31, minor questions are
@@ -59,6 +62,11 @@ WetechiNetMon's own source availability. Phase 0's working assumption
 dashboard JSON/provisioning, never a modified Grafana binary." This needs
 explicit confirmation before Phase 6 packaging work begins, since it
 constrains how the web app and Grafana integration are packaged together.
+
+**Resolved 2026-10-11: external only.** WetechiNetMon ships original
+dashboard JSON and provisioning files, and never bundles or modifies a
+Grafana binary. The operator runs their own Grafana. See the
+[Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md).
 
 ## BQ-3: What are the actual reference/target hardware and traffic-rate expectations?
 
@@ -358,3 +366,30 @@ choice (NATS vs. Redpanda vs. Kafka), Recharts vs. ECharts, and specific
 dependency version pins are **not** blocking questions — they are ADR-level
 engineering decisions to be resolved in the phase that needs them, per
 master prompt §31 ("do not ask minor questions").
+
+## BQ-10: How does the web UI sign in before Phase 8 brings OIDC?
+
+The API authenticates bearer tokens. A browser should not hold one, and
+local passwords would add a credential store, lockout and reset flows
+that Phase 8's OIDC and Entra ID work will supersede.
+
+**Resolved 2026-10-11.** An operator signs in once with an existing API
+token, and the API answers with a session cookie: `HttpOnly`, `Secure`
+and `SameSite=Strict`, stored only as a hash, with idle and absolute
+expiry, and ended when the token is revoked. State-changing requests
+also need a CSRF header. Local accounts and OIDC remain Phase 8.
+
+## BQ-11: What is the web UI built with?
+
+**Resolved 2026-10-11.** React, TypeScript and Vite, as `apps/web`
+has recorded since Phase 1. React escapes output by default, which is
+the first control against T-08. The npm supply chain is managed with a
+committed lockfile, `npm ci`, `npm audit` and a licence check (R22).
+
+## BQ-12: What does Phase 6 cover, and in what order?
+
+**Resolved 2026-10-11.** Grafana dashboards first, then the read APIs,
+sessions and the UI (v0.7.0), then notifications by email, Teams,
+Slack, Telegram and webhook (v0.8.0). InfluxDB dashboards are dropped:
+nothing in WetechiNetMon writes to InfluxDB, and FR-11.2 makes it
+optional.

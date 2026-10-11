@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: Phases 0–5 complete; Phase 6 planning next
+Status: Phases 0–5 complete; Phase 6 planned, 6A next
 Last updated: 2026-10-11
 
 This roadmap mirrors the phased delivery model and versioning plan in the
@@ -136,6 +136,17 @@ than configured — see
 
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
+
+## Phase 6: Dashboards, NOC UI and Notifications — Planned
+
+Planned on 2026-10-11, with the owner's decisions on BQ-2 and BQ-10 to
+BQ-12. Six milestones: Grafana dashboards as code (6A), read APIs for
+the UI (6B), browser sessions (6C), the React NOC UI (6D), notifications
+(6E) and hardening (6F). Dashboards and the UI are v0.7.0;
+notifications are v0.8.0. Nothing mitigates, and nothing is sent from
+CI. See the
+[Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md)
+and its [acceptance criteria](development/phase6-acceptance-criteria.md).
 
 ## Phase 5: Incident Management — Complete
 

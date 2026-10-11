@@ -1,7 +1,7 @@
 # Risk Register
 
-Status: Phase 5F, R16–R18 reassessed against the implementation
-Last updated: 2026-10-05
+Status: Phase 6 planning, R21–R24 added
+Last updated: 2026-10-11
 
 Scale: Likelihood (L) and Impact (I) rated Low/Medium/High. This register
 is reviewed and updated at the end of every phase per the master prompt's
@@ -29,6 +29,10 @@ phase-summary requirement.
 | R18 | Evidence attachment has no designed access model, because binary evidence storage is out of Phase 5 scope | L | M | Phase 5 stores evidence *references* only, tenant-scoped and authorized on dereference. Binary storage must not ship before its access model is designed (T-22, FU-23). **Reassessed 2026-10-05 (5F): unchanged.** The detection references and the export are tenant-scoped, and another tenant gets `404` for both. Binary evidence is still undesigned. |
 | R19 | Clock skew between a Phase 5B application instance and PostgreSQL, or between multiple database replicas, could corrupt a reopen or duplicate-incident decision if timestamps were trusted naively | L | H | Durable-time contract ([ADR 0031](architecture/decisions/0031-phase5b-durable-time.md)) never clamps silently, never reopens, never creates a duplicate on an unreliable comparison — returns a structured error instead. Residual: recurring skew degrades availability, not correctness (T-25) |
 | R20 | Phase 5B-0's repository/unit-of-work seam extraction touches `wetechinetmon-incident` code that two Opus 5 adversarial reviews already certified (0 Blocker, 0 High as of the 2026-08-24 merge), so a careless refactor could reintroduce a fixed defect | M | H | Milestone 5B-0 is deliberately dependency-free and SQL-free, so its own correctness is provable by the existing 531 tests remaining green before any persistence code exists ([ADR 0029](architecture/decisions/0029-phase5b-repository-and-unit-of-work-seam.md)); the in-memory adapter becomes the seam's own reference implementation rather than being replaced outright |
+| R21 | Traffic data in ClickHouse carries no tenant until Phase 8 brings prefix ownership, so a UI or API reading it cannot be tenant-scoped | M | H | Phase 6 exposes traffic only under a deployment-wide permission kept out of the tenant-scoped role bundles, and the tenant-isolation suite covers it. Documented as single-tenant until Phase 8 ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6B) |
+| R22 | The web UI brings an npm dependency tree far larger than the Rust workspace's | M | M | Committed lockfile, `npm ci`, `npm audit` and a licence check in CI, pinned versions, and a strict Content-Security-Policy ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6D) |
+| R23 | Webhook notifications enable server-side request forgery and data exfiltration | M | H | A destination allowlist; private and link-local ranges refused unless allowed explicitly; redirects not followed ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6E) |
+| R24 | A large attack or a flapping detection floods operators with notifications | M | M | Deduplication and a per-channel rate limit, both tested ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6E) |
 
 ## Review Trigger
 
