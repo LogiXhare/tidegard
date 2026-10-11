@@ -29,6 +29,7 @@ pub mod time;
 pub mod token_admin;
 pub mod traffic;
 pub mod transitions;
+pub mod web;
 pub mod whoami;
 
 use axum::extract::State;
@@ -69,6 +70,8 @@ pub struct AppState {
     /// Session cookies carry `Secure` (ADR 0043). Only a plain-HTTP API,
     /// which is loopback-only, turns it off.
     pub secure_cookies: bool,
+    /// The built NOC UI, when configured (ADR 0044).
+    pub web: Option<Arc<web::WebRoot>>,
 }
 
 impl AppState {
@@ -85,8 +88,15 @@ impl AppState {
             )),
             traffic: None,
             secure_cookies: true,
+            web: None,
             pool,
         }
+    }
+
+    /// Serves the built NOC UI from `root` (ADR 0044).
+    pub fn with_web(mut self, root: web::WebRoot) -> Self {
+        self.web = Some(Arc::new(root));
+        self
     }
 
     /// Lets the traffic tenant read traffic from `source` (ADR 0042).
@@ -193,10 +203,15 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))
         .nest("/api/v1", api)
-        .fallback(not_found)
+        // The UI's pages and assets, or the usual 404 problem (ADR 0044).
+        .fallback(web::fallback)
         .method_not_allowed_fallback(method_not_allowed)
         .layer(axum::extract::DefaultBodyLimit::max(BODY_LIMIT_BYTES))
         .layer(axum::middleware::from_fn(request_id::middleware))
+        .layer(axum::middleware::from_fn_with_state(
+            Arc::new(state.secure_cookies),
+            web::security_headers,
+        ))
         .with_state(state)
 }
 
@@ -244,10 +259,6 @@ pub async fn readyz(State(state): State<AppState>) -> Response {
                 .into_response()
         }
     }
-}
-
-async fn not_found() -> Problem {
-    Problem::new(ErrorCode::NotFound)
 }
 
 async fn method_not_allowed() -> Problem {

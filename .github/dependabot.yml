@@ -1,8 +1,7 @@
 # Dependabot configuration for wetechi-netmon
 #
 # Only ecosystems with a real manifest file in the repository are
-# configured. As Phase 6 (web app) and later container builds land, add:
-#   - package-ecosystem: "npm"       directory: "/apps/web" (Phase 6+)
+# configured. When container builds land, add:
 #   - package-ecosystem: "docker"    directory: "/"        (once Dockerfiles exist)
 # Each addition must have a corresponding entry validated in
 # docs/dependency-license-matrix.md before being merged.
@@ -46,3 +45,22 @@ updates:
     # New crates always need a docs/dependency-license-matrix.md row
     # first — this only updates *versions* of already-approved crates,
     # it does not add new dependencies on its own.
+
+  # The NOC UI (ADR 0044). Versions are exact in package.json; the web job
+  # runs npm audit and the licence check on every update.
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

@@ -21,6 +21,7 @@ name: Validate
 #              per supported version (ADR 0025), for crates/incident-postgres
 #   grafana  — Rust plus throwaway ClickHouse, Prometheus and Grafana
 #              containers, to run every dashboard query for real (ADR 0041)
+#   web      — Node, for the NOC UI in apps/web (ADR 0044)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -291,6 +292,38 @@ jobs:
         run: |
           docker logs grafana 2>&1 | tail -n 100
           docker logs clickhouse 2>&1 | tail -n 50
+
+  web:
+    name: Web UI (lint, types, tests, build, audit, licences)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      # Exactly the lockfile, and no install scripts (R22, ADR 0044).
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: Lint (includes the T-08 untrusted-HTML rule)
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: The page has no inline script or style (the CSP forbids them)
+        run: |
+          if grep -qiE '<script>|<script [^>]*>[^<]|<style|style=' dist/index.html; then
+            echo "dist/index.html holds inline code"; exit 1
+          fi
+      - name: Known vulnerabilities
+        run: npm audit --audit-level=high
+      - name: Licences
+        run: npm run licences
 
   docs:
     name: Docs (Markdown, YAML, links, MkDocs)
