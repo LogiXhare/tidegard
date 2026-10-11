@@ -52,6 +52,16 @@ updates:
     directory: "/apps/web"
     schedule:
       interval: "weekly"
+    # A release must be two weeks old before it is proposed: most
+    # malicious npm releases are found and pulled within days (R22).
+    # Security updates are not delayed by this.
+    cooldown:
+      default-days: 14
+    ignore:
+      # typescript-eslint supports TypeScript below 6.1 only; a major
+      # TypeScript bump waits until it does.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "javascript"
