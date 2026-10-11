@@ -37,6 +37,7 @@ All metrics are `wetechinetmon_incident_*`, from the incident manager.
 | `maintenance_incident_failures_total` | Flat |
 | `job_runs_total{job, result="failed"}` | Flat for `stats`, `maintenance` and `retention` |
 | `outbox_pending` | **Rises in Phase 5, and that is expected** (see [Outbox](#outbox)) |
+| `timeline_pressure` | Far below 50,000, the per-incident timeline limit |
 
 Suggested Prometheus alerts:
 
@@ -57,6 +58,21 @@ groups:
       - alert: IncidentManagerDown
         expr: up{job="wetechinetmon-incident-manager"} == 0
         for: 2m
+      - alert: IncidentTimelinePressure
+        expr: wetechinetmon_incident_timeline_pressure > 40000
+        for: 15m
+```
+
+The timeline is never truncated, so nothing stops an incident at 50,000
+entries. One that gets near it is almost always a detection flapping
+against its threshold: find the incident with the longest timeline,
+and fix the policy's hysteresis or suppress the incident while you do.
+
+```sql
+SELECT i.incident_number, count(*) AS entries
+FROM incidents i JOIN incident_timeline t USING (incident_id)
+WHERE i.state NOT IN ('resolved', 'closed')
+GROUP BY i.incident_number ORDER BY entries DESC LIMIT 5;
 ```
 
 The 1,000-event backlog threshold is a starting point. Tune it to your

@@ -176,9 +176,10 @@ defines what will actually be measured at Milestone 5B-5.
 - **Row-count growth is unbounded by design** for `incidents` (retained
   indefinitely while open, 24 months after close),
   `incident_detection_events` (one row per linked event), and
-  `incident_timeline`/`incident_audit` (append-only, no cap in Phase 5B —
-  `TIMELINE_ENTRY_LIMIT` remains an unenforced constant, see
-  [FU-32](../development/follow-ups.md)). Real growth depends entirely on
+  `incident_timeline`/`incident_audit` (append-only and never truncated;
+  an active incident nearing `TIMELINE_ENTRY_LIMIT` raises the
+  `timeline_pressure` alert in the
+  [runbook](incident-runbook.md) instead). Real growth depends entirely on
   attack volume and tenant count, neither of which this planning pass
   has a production figure for.
 - **Connection-pool sizing** (`max_size`, `create_timeout`,

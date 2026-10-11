@@ -47,6 +47,8 @@ pub struct ManagerMetrics {
     pub outbox_pending: IntGauge,
     /// Unreviewed dead letters, from the inbox and the outbox alike.
     pub dead_letter_pending: IntGauge,
+    /// The most timeline entries on any active incident (FU-32).
+    pub timeline_pressure: IntGauge,
     /// Inbox events by what the worker did with them.
     pub inbox_events_total: IntCounterVec,
     /// Worker batches, `ok` or `failed` (a database error).
@@ -94,6 +96,10 @@ impl ManagerMetrics {
                 "dead_letter_pending",
                 "Dead letters not yet reviewed, from the inbox and the outbox.",
             )?,
+            timeline_pressure: gauge(
+                "timeline_pressure",
+                "The most timeline entries on any active incident. The limit is 50000, and the timeline is never truncated.",
+            )?,
             inbox_events_total: counter_vec(
                 "inbox_events_total",
                 "Inbox events the correlation worker handled, by result.",
@@ -132,6 +138,7 @@ impl ManagerMetrics {
         registry.register(Box::new(metrics.inbox_pending.clone()))?;
         registry.register(Box::new(metrics.outbox_pending.clone()))?;
         registry.register(Box::new(metrics.dead_letter_pending.clone()))?;
+        registry.register(Box::new(metrics.timeline_pressure.clone()))?;
         registry.register(Box::new(metrics.inbox_events_total.clone()))?;
         registry.register(Box::new(metrics.inbox_batches_total.clone()))?;
         registry.register(Box::new(metrics.clock_skew_total.clone()))?;
@@ -165,7 +172,8 @@ impl ManagerMetrics {
             .inc();
     }
 
-    pub fn record_stats(&self, inbox: &InboxStats, outbox: &OutboxStats) {
+    pub fn record_stats(&self, inbox: &InboxStats, outbox: &OutboxStats, timeline_pressure: i64) {
+        self.timeline_pressure.set(timeline_pressure);
         self.inbox_pending.set(inbox.pending + inbox.retrying);
         self.outbox_pending.set(outbox.pending + outbox.retrying);
         // The inbox copies what it dead-letters into `incident_dead_letter`,
@@ -253,6 +261,7 @@ mod tests {
                 retrying: 5,
                 unreviewed_dead_letter: 6,
             },
+            7,
         );
         metrics.record_maintenance(&MaintenanceReport {
             entered_recovering: 1,
@@ -278,7 +287,7 @@ mod tests {
     #[test]
     fn every_label_is_on_the_allowlist() {
         let families = exercised().gather();
-        assert_eq!(families.len(), 10, "every metric is registered and touched");
+        assert_eq!(families.len(), 11, "every metric is registered and touched");
         for family in &families {
             assert!(family.name().starts_with(PREFIX), "{}", family.name());
             for metric in family.get_metric() {
@@ -337,7 +346,9 @@ mod tests {
                 retrying: 2,
                 unreviewed_dead_letter: 3,
             },
+            41_000,
         );
+        assert_eq!(metrics.timeline_pressure.get(), 41_000);
         assert_eq!(metrics.inbox_pending.get(), 8);
         assert_eq!(metrics.outbox_pending.get(), 3);
         assert_eq!(metrics.dead_letter_pending.get(), 3);

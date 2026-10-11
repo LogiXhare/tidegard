@@ -34,7 +34,9 @@ use wetechinetmon_incident::clock::SystemClock;
 use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
 use wetechinetmon_incident_postgres::inbox::{inbox_stats, InboxPolicy, InboxWorker, WorkerReport};
-use wetechinetmon_incident_postgres::maintenance::{run_maintenance, MaintenancePolicy};
+use wetechinetmon_incident_postgres::maintenance::{
+    run_maintenance, timeline_pressure, MaintenancePolicy,
+};
 use wetechinetmon_incident_postgres::outbox::outbox_stats;
 use wetechinetmon_incident_postgres::platform::PlatformAuthority;
 use wetechinetmon_incident_postgres::pool::acquire;
@@ -261,16 +263,17 @@ async fn refresh_stats(context: &Context) -> bool {
         let client = acquire(&context.pool).await?;
         let inbox = inbox_stats(&context.authority, &**client).await?;
         let outbox = outbox_stats(&context.authority, &**client).await?;
-        Ok::<_, wetechinetmon_incident_postgres::error::PersistError>((inbox, outbox))
+        let pressure = timeline_pressure(&context.authority, &**client).await?;
+        Ok::<_, wetechinetmon_incident_postgres::error::PersistError>((inbox, outbox, pressure))
     }
     .await;
     match result {
-        Ok((inbox, outbox)) => {
-            context.metrics.record_stats(&inbox, &outbox);
+        Ok((inbox, outbox, pressure)) => {
+            context.metrics.record_stats(&inbox, &outbox, pressure);
             true
         }
         Err(error) => {
-            tracing::warn!(error = %error, "inbox and outbox depth could not be read");
+            tracing::warn!(error = %error, "the incident statistics could not be read");
             false
         }
     }
