@@ -238,6 +238,9 @@ jobs:
       - name: Start Grafana with the shipped dashboards
         run: |
           set -euo pipefail
+          # The background installer would otherwise update bundled plugins
+          # after start, unregistering each for a moment mid-test: only the
+          # pinned ClickHouse plugin is installed, and nothing auto-updates.
           # CI's own datasources: plain HTTP inside this job's private
           # network. The shipped example uses TLS.
           mkdir -p ci-datasources
@@ -265,6 +268,8 @@ jobs:
           docker run -d --name grafana --network wnm -p 127.0.0.1:3000:3000 \
             -e GF_SECURITY_ADMIN_PASSWORD="${GRAFANA_AUTH#admin:}" \
             -e GF_PLUGINS_PREINSTALL_SYNC=grafana-clickhouse-datasource@4.21.3 \
+            -e GF_PLUGINS_PREINSTALL=grafana-clickhouse-datasource@4.21.3 \
+            -e GF_PLUGINS_PREINSTALL_AUTO_UPDATE=false \
             -e CLICKHOUSE_USER -e CLICKHOUSE_PASSWORD \
             -v "$PWD/ci-datasources:/etc/grafana/provisioning/datasources:ro" \
             -v "$PWD/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro" \
