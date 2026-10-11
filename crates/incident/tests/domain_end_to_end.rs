@@ -30,7 +30,9 @@ use wetechinetmon_incident::idempotency::IdempotencyKey;
 use wetechinetmon_incident::incident::NoteVisibility;
 use wetechinetmon_incident::number::InMemoryNumberAllocator;
 use wetechinetmon_incident::state::IncidentState;
-use wetechinetmon_incident::timeline::OperatorCommandKind;
+use wetechinetmon_incident::timeline::{
+    AutomaticCause, OperatorCommandKind, TimelinePayload, TransitionCause,
+};
 use wetechinetmon_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
 
 /// Delegates to a shared, externally-advanceable [`TestClock`] so a test
@@ -1691,4 +1693,159 @@ fn late_news_about_a_resolved_incident_links_and_never_reopens() {
     assert_eq!(reopened.outcome_kind, IngestOutcomeKind::Reopened);
     assert_eq!(uow.get(&id).unwrap().state, IncidentState::Open);
     assert_eq!(uow.incident_count(), 1);
+}
+
+/// Gate 2: the five ways a detection can end are recorded distinctly, so
+/// an operator can tell "the attack stopped" from "we stopped hearing
+/// about it" (ADR 0014). The cause is on the timeline entry, which the API
+/// returns as stored, under these exact names.
+#[test]
+fn the_five_end_reasons_are_recorded_distinctly() {
+    let correlator = AuthorizationContext::correlator(TenantId::new("acme"));
+    let addr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 43));
+    let started = || {
+        event(
+            "det-end",
+            0,
+            EventKind::Started,
+            "acme",
+            addr,
+            MetricKind::Bps,
+            9_000_000,
+            1_000_000,
+        )
+    };
+    let recovering_cause = |uow: &IncidentUnitOfWork| {
+        uow.timeline()
+            .iter()
+            .rev()
+            .find_map(|entry| match &entry.payload {
+                TimelinePayload::StateChanged {
+                    to: IncidentState::Recovering,
+                    cause: TransitionCause::Automatic(cause),
+                    ..
+                } => Some(*cause),
+                _ => None,
+            })
+            .expect("the incident entered Recovering")
+    };
+
+    let mut seen = Vec::new();
+    for (detector_reason, expected, name) in [
+        (
+            TransitionReason::ClearSustained,
+            AutomaticCause::TrafficCleared,
+            "traffic_cleared",
+        ),
+        (
+            TransitionReason::Stale,
+            AutomaticCause::DetectorStale,
+            "detector_stale",
+        ),
+        (
+            TransitionReason::PolicyWithdrawn,
+            AutomaticCause::PolicyWithdrawn,
+            "policy_withdrawn",
+        ),
+        (
+            TransitionReason::ManualReset,
+            AutomaticCause::DetectorReset,
+            "detector_reset",
+        ),
+    ] {
+        let (mut uow, _) = uow_with_shared_clock();
+        let id = uow
+            .ingest_detection_event(&correlator, &started())
+            .unwrap()
+            .incident_id
+            .unwrap();
+        let mut ended = event(
+            "det-end",
+            1,
+            EventKind::Ended,
+            "acme",
+            addr,
+            MetricKind::Bps,
+            0,
+            1_000_000,
+        );
+        ended.reason = detector_reason;
+        uow.ingest_detection_event(&correlator, &ended).unwrap();
+        assert_eq!(uow.get(&id).unwrap().state, IncidentState::Recovering);
+        let cause = recovering_cause(&uow);
+        assert_eq!(cause, expected);
+        assert_eq!(serde_json::to_value(cause).unwrap(), name);
+        seen.push(cause);
+    }
+
+    // The fifth: the detector went quiet without saying the detection ended.
+    let (mut uow, clock) = uow_with_shared_clock();
+    let id = uow
+        .ingest_detection_event(&correlator, &started())
+        .unwrap()
+        .incident_id
+        .unwrap();
+    clock.advance(Duration::from_secs(301));
+    assert!(uow
+        .enter_recovering_if_silent(&correlator, id, Duration::from_secs(300))
+        .unwrap());
+    let cause = recovering_cause(&uow);
+    assert_eq!(cause, AutomaticCause::DetectorSilent);
+    assert_eq!(serde_json::to_value(cause).unwrap(), "detector_silent");
+    seen.push(cause);
+
+    seen.sort_by_key(|cause| format!("{cause:?}"));
+    seen.dedup();
+    assert_eq!(seen.len(), 5, "five distinct causes");
+}
+
+/// Gate 2: a detector restart mid-attack yields one incident, not two. A
+/// restarted detector forgets its state and opens a new detection, with a
+/// new detection id and its sequence back at zero (ADR 0009). The target
+/// is still under attack, so the incident it already has takes the event.
+#[test]
+fn a_detector_restart_mid_attack_yields_one_incident() {
+    let (mut uow, _) = uow_with_shared_clock();
+    let correlator = AuthorizationContext::correlator(TenantId::new("acme"));
+    let addr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 44));
+    let before = |sequence, kind| {
+        event(
+            "det-before-restart",
+            sequence,
+            kind,
+            "acme",
+            addr,
+            MetricKind::Bps,
+            9_000_000,
+            1_000_000,
+        )
+    };
+    let id = uow
+        .ingest_detection_event(&correlator, &before(0, EventKind::Started))
+        .unwrap()
+        .incident_id
+        .unwrap();
+    uow.ingest_detection_event(&correlator, &before(1, EventKind::Updated))
+        .unwrap();
+
+    // The detector restarts and detects the same attack afresh.
+    let after_restart = event(
+        "det-after-restart",
+        0,
+        EventKind::Started,
+        "acme",
+        addr,
+        MetricKind::Bps,
+        9_500_000,
+        1_000_000,
+    );
+    let result = uow
+        .ingest_detection_event(&correlator, &after_restart)
+        .unwrap();
+    assert_eq!(
+        (result.outcome_kind, result.incident_id),
+        (IngestOutcomeKind::Updated, Some(id))
+    );
+    assert_eq!(uow.incident_count(), 1);
+    assert_eq!(uow.get(&id).unwrap().state, IncidentState::Open);
 }
