@@ -274,6 +274,16 @@ jobs:
             sleep 1
           done
           curl -sf "$GRAFANA_URL/api/health"
+          # /api/health answers before the datasource plugins register, so
+          # wait until each datasource passes its own health check.
+          for uid in wnm-prometheus wnm-clickhouse; do
+            for _ in $(seq 120); do
+              curl -sf --user "$GRAFANA_AUTH" "$GRAFANA_URL/api/datasources/uid/$uid/health" >/dev/null && break
+              sleep 1
+            done
+            curl -sS --fail-with-body --user "$GRAFANA_AUTH" "$GRAFANA_URL/api/datasources/uid/$uid/health"
+            echo
+          done
       - name: Run every panel query
         run: scripts/grafana-dashboard-live-check.sh grafana/dashboards
       - name: Container logs on failure
