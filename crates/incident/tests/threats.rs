@@ -15,7 +15,7 @@ use wetechinetmon_detector::{
     ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
 };
 use wetechinetmon_incident::assignment::Assignee;
-use wetechinetmon_incident::audit::{AttemptedResource, AuditOutcome};
+use wetechinetmon_incident::audit::{AttemptedResource, AuditOutcome, FieldChange};
 use wetechinetmon_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
@@ -346,10 +346,9 @@ fn a_suppressed_incident_still_accumulates_events() {
 
 // --- T-20 Unauthorized severity reduction ---
 
-/// Lowering needs a reason; every change records who, from and to. The
-/// values are on the timeline entry, which is append-only and carries
-/// the actor; the audit entry records the permission used (FU-59 covers
-/// before and after on the audit row itself).
+/// Lowering needs a reason; every change records who, from and to, both
+/// on the timeline entry and on the audit entry (FU-59), so the audit
+/// trail alone is the control the threat model asks for.
 #[test]
 fn lowering_severity_needs_a_reason_and_records_both_values() {
     let (mut uow, id, version) = opened();
@@ -406,6 +405,15 @@ fn lowering_severity_needs_a_reason_and_records_both_values() {
     let audited = uow.audit().last().unwrap();
     assert_eq!(audited.outcome, AuditOutcome::Allowed);
     assert_eq!(audited.resource, AttemptedResource::Incident(id));
+    assert_eq!(
+        audited.change,
+        Some(FieldChange {
+            field: "severity".into(),
+            before: "major".into(),
+            after: "info".into(),
+        })
+    );
+    assert_eq!(audited.reason.as_deref(), Some("upstream filtered it"));
 }
 
 // --- T-13 Optimistic-lock bypass (domain half) ---

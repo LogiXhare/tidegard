@@ -43,6 +43,15 @@ pub enum AuditOutcome {
     Denied,
 }
 
+/// A field an audited command changed, with its value before and after,
+/// so the audit trail alone shows what was done (T-20).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FieldChange {
+    pub field: String,
+    pub before: String,
+    pub after: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditEntry {
     pub schema_version: u32,
@@ -53,6 +62,9 @@ pub struct AuditEntry {
     pub resource: AttemptedResource,
     pub outcome: AuditOutcome,
     pub reason: Option<String>,
+    /// Set for commands that change one field, such as severity.
+    #[serde(default)]
+    pub change: Option<FieldChange>,
 }
 
 impl AuditEntry {
@@ -72,6 +84,7 @@ impl AuditEntry {
             resource: AttemptedResource::Incident(resource),
             outcome: AuditOutcome::Allowed,
             reason: None,
+            change: None,
         }
     }
 
@@ -92,7 +105,26 @@ impl AuditEntry {
             resource,
             outcome: AuditOutcome::Denied,
             reason: Some(reason.into()),
+            change: None,
         }
+    }
+
+    /// Records the field this allowed command changed, and why, if the
+    /// command gave a reason.
+    pub fn with_change(
+        mut self,
+        field: &str,
+        before: &str,
+        after: &str,
+        reason: Option<String>,
+    ) -> Self {
+        self.change = Some(FieldChange {
+            field: field.to_string(),
+            before: before.to_string(),
+            after: after.to_string(),
+        });
+        self.reason = reason;
+        self
     }
 
     pub fn is_denied(&self) -> bool {

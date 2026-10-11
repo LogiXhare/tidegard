@@ -57,7 +57,7 @@ jobs must show the test as `ok`, and it must not have skipped.
 | T-17 Clock manipulation | Met | `crates/incident-postgres/tests/clock_skew.rs`; `crates/incident-postgres/tests/maintenance_timers.rs` `timers_advance_incidents_on_database_time_and_never_auto_close_critical`; `crates/incident/src/durable_time.rs` and `reconstitute.rs` (timestamps that run backward are refused) |
 | T-18 Stale event reopening | Met, as implemented | `crates/incident/tests/domain_end_to_end.rs` `late_news_about_a_resolved_incident_links_and_never_reopens`; `crates/incident-postgres/tests/clock_skew.rs`. Late is decided by detection identity, not timestamps (see the threat model). |
 | T-19 Unauthorized suppression | Met | `crates/incident/tests/threats.rs` `a_suppressed_incident_still_accumulates_events` (it still links and counts; only `noc_lead` may suppress); `apps/api/tests/transitions.rs` (an expiry in the past or more than 30 days away is `422`; `expires_at` is required by the request schema) |
-| T-20 Unauthorized severity reduction | Partial | `crates/incident/tests/threats.rs` `lowering_severity_needs_a_reason_and_records_both_values`; `apps/api/tests/transitions.rs`. The reason is required, and the timeline entry records the actor, from, to and reason. The audit row records the permission, but not before and after (FU-59). |
+| T-20 Unauthorized severity reduction | Met | `crates/incident/tests/threats.rs` `lowering_severity_needs_a_reason_and_records_both_values`; `apps/api/tests/transitions.rs` (the audit endpoint shows `before`, `after` and the reason for a severity change, and both values for a priority change). The reason is required when lowering. Fixed by FU-59. |
 | T-21 Cross-tenant assignment | Partial | `apps/api/tests/threats.rs` (naming another tenant's user as assignee grants that user nothing; their token still gets `404`). There is no user directory in Phase 5, so an assignee id cannot be validated against one (FU-60). |
 | T-22 Sensitive evidence leakage | Met | `apps/api/tests/tenant_isolation.rs` (`detections` and `export` are `404` across tenants); residual risk R18 (evidence storage is undesigned) |
 | T-23 Log leakage | Met | `apps/api/tests/threats.rs` (no note body, reason or token appears in any log line at `INFO` or above during the run) |
@@ -72,10 +72,12 @@ jobs must show the test as `ok`, and it must not have skipped.
 
 | Status | Count |
 |---|---|
-| Met | 24 |
+| Met | 25 |
 | Met, as implemented | 2 (T-03, T-18) |
-| Partial | 2 (T-20 → FU-59, T-21 → FU-60) |
+| Partial | 1 (T-21 → FU-60) |
 | Deferred | 1 (T-08 → Phase 6, R17) |
 
-Two of the 29 threats are partial, so the Gate 2 criterion "every threat
-has a passing test" is not fully met yet. Both gaps have a recorded fix.
+One of the 29 threats is partial, so the Gate 2 criterion "every threat
+has a passing test" is not fully met. T-21 needs a user directory, which
+arrives with Phase 8. Being named as assignee grants nothing, and a test
+proves it.

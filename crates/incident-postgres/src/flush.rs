@@ -38,8 +38,8 @@ INSERT INTO incident_timeline (
 const INSERT_AUDIT: &str = "\
 INSERT INTO incident_audit (
     tenant_id, schema_version, actor_type, actor_id, action,
-    resource_type, resource_id, result, reason
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)";
+    resource_type, resource_id, result, reason, before, after
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text::jsonb, $11::text::jsonb)";
 
 const INSERT_OUTBOX: &str = "\
 INSERT INTO incident_outbox (
@@ -167,6 +167,8 @@ pub async fn flush(
                     &row.resource_id,
                     &row.result,
                     &row.reason,
+                    &row.before,
+                    &row.after,
                 ],
             )
             .await?;

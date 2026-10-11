@@ -433,6 +433,34 @@ async fn transitions_are_idempotent_versioned_and_tenant_scoped() {
     assert_eq!(body["priority"], "P4");
     version += 1;
 
+    // T-20: the audit trail alone shows each change, with both values.
+    let (status, audit) = send(
+        &app,
+        Request::get(format!("{base}/audit?limit=200"))
+            .header(header::AUTHORIZATION, format!("Bearer {lead}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{audit}");
+    let allowed = |action: &str| {
+        audit["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["action"] == action && entry["result"] == "allowed")
+            .cloned()
+            .unwrap_or_else(|| panic!("no allowed {action} entry: {audit}"))
+    };
+    let severity = allowed("incident_severity_change");
+    assert_eq!(severity["after"], json!({"severity": "minor"}));
+    assert!(severity["before"]["severity"].is_string(), "{severity}");
+    assert_ne!(severity["before"], severity["after"]);
+    assert_eq!(severity["reason"], "host stable");
+    let priority = allowed("incident_priority_change");
+    assert_eq!(priority["after"], json!({"priority": "P4"}));
+    assert!(priority["before"]["priority"].is_string(), "{priority}");
+
     let (status, body) = step(
         "investigate",
         &operator,
