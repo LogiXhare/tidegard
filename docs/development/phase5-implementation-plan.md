@@ -1,9 +1,10 @@
 # Phase 5 Implementation Plan
 
-Status: **Milestone 5A merged** (PR #16, merge commit `2cd116d`,
-2026-08-24). **Milestone 5B: Stage A/B planning complete** (2026-08-24,
-this document's 5B section below), implementation not started. Part of
-the [Phase 5 plan](../architecture/phase5-incident-management-plan.md).
+Status: **Milestones 5A to 5F complete** (2026-10-11). Gate 2 is
+assessed in the [Gate 2 assessment](phase5-gate2-assessment.md), which
+names what remains open. Each milestone's progress is recorded in its
+section below. Part of the
+[Phase 5 plan](../architecture/phase5-incident-management-plan.md).
 
 Six milestones, each independently reviewable and independently
 mergeable, each ending green. The ordering has one governing property:
@@ -453,6 +454,30 @@ all 24 threats; final full validation.
 
 **Exit:** every threat has a passing test; benchmarks measured and
 published; restore tested rather than assumed; acceptance criteria met.
+
+**Progress:** complete on 2026-10-11.
+
+- **Security review:** every threat in the model is mapped to its tests
+  in the [threat tests](../security/incident-threat-tests.md). Five
+  findings were fixed: late news reopening resolved incidents (T-18), a
+  NUL causing a `500` (T-07), the audit row lacking before and after
+  (T-20, FU-59), raw NUL bytes in source, and an event claiming an
+  executed action being linked rather than quarantined.
+- **The safety property, tested:** `dependency_closure.rs` holds the
+  detector and the incident domain to a reviewed crate allowlist (FU-9).
+- **Backup and restore:** a [drill](../operations/backup-and-restore.md)
+  dumps, restores and verifies on every pull request, on PostgreSQL 15
+  to 18.
+- **Benchmarks:** measured and published in
+  [capacity planning](../operations/capacity-planning.md#incident-persistence-measured).
+- **Documentation:** ADRs 0011–0017 accepted as implemented; the
+  [runbook](../operations/incident-runbook.md) promoted from its plan;
+  an [installation guide](../installation/incident-management.md).
+- **Notes with supersession and redaction** (FU-63), which Gate 2 names
+  and the schema had planned but nothing used.
+- **CI:** the History job enforces the secret scan and DCO again, with
+  the free gitleaks binary, after months of failing on every pull
+  request.
 
 ## Dependency graph
 
