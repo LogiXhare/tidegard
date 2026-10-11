@@ -5,8 +5,10 @@
 //! - The detector's and the incident domain's normal-dependency closures
 //!   must stay inside a reviewed allowlist. A new crate fails this test
 //!   until someone reviews it and adds it here.
-//! - No crate anywhere in the workspace may be a routing, device-access,
-//!   packet, mail or chat crate.
+//! - No crate anywhere in the workspace may be a routing, device-access or
+//!   packet crate.
+//! - Mail and chat crates are allowed in the notifier alone (Phase 6E,
+//!   ADR 0045), and nothing else in the workspace may depend on it.
 //!
 //! The graph comes from `cargo tree`, which reads `Cargo.lock`. Only the
 //! host platform's dependencies appear, so the allowlist also holds the
@@ -59,14 +61,19 @@ const ALLOWED: &[&str] = &[
     "zmij",
 ];
 
-/// Name fragments no crate in the workspace may carry in this release:
-/// routing and device control (Phase 7 decides those), packet I/O, and
-/// mail or chat delivery (Phase 6).
-const FORBIDDEN: &[&str] = &[
-    "bgp", "netconf", "snmp", "ssh", "telnet", "pnet", "netlink", "nftables", "iptables", "smtp",
-    "lettre", "mail", "sendgrid", "twilio", "telegram", "teloxide", "slack", "discord", "serenity",
-    "webhook",
+/// Name fragments no crate in the workspace may carry: routing and device
+/// control (Phase 7 decides those) and packet I/O.
+const NEVER: &[&str] = &[
+    "bgp", "netconf", "snmp", "ssh", "telnet", "pnet", "netlink", "nftables", "iptables",
 ];
+
+/// Mail and chat delivery: the notifier's business, nobody else's.
+const DELIVERY: &[&str] = &[
+    "smtp", "lettre", "mail", "sendgrid", "twilio", "telegram", "teloxide", "slack", "discord",
+    "serenity", "webhook",
+];
+
+const NOTIFIER: &str = "wetechinetmon-notification";
 
 /// The crate names in the normal-dependency closure that `args` selects.
 fn closure(args: &[&str]) -> BTreeSet<String> {
@@ -115,17 +122,37 @@ fn the_incident_domain_depends_only_on_reviewed_crates() {
     assert_allowed("wetechinetmon-incident");
 }
 
-#[test]
-fn no_crate_in_the_workspace_can_route_reach_a_device_or_deliver_a_message() {
-    let workspace = closure(&["--workspace"]);
-    let forbidden: Vec<&String> = workspace
+fn carrying<'a>(names: &'a BTreeSet<String>, fragments: &[&str]) -> Vec<&'a String> {
+    names
         .iter()
-        .filter(|name| FORBIDDEN.iter().any(|fragment| name.contains(fragment)))
-        .collect();
+        .filter(|name| fragments.iter().any(|fragment| name.contains(fragment)))
+        .collect()
+}
+
+#[test]
+fn no_crate_in_the_workspace_can_route_or_reach_a_device() {
+    let workspace = closure(&["--workspace"]);
+    let forbidden = carrying(&workspace, NEVER);
     assert!(
         forbidden.is_empty(),
-        "the workspace depends on {forbidden:?}; Phase 5 must not act on traffic or notify"
+        "the workspace depends on {forbidden:?}; nothing may act on traffic before Phase 7"
     );
     // The check is only meaningful if it saw the whole graph.
     assert!(workspace.contains("tokio-postgres") && workspace.contains("hyper"));
+}
+
+#[test]
+fn only_the_notifier_can_deliver_a_message() {
+    let others = closure(&["--workspace", "--exclude", NOTIFIER]);
+    let forbidden = carrying(&others, DELIVERY);
+    assert!(
+        forbidden.is_empty(),
+        "{forbidden:?} is outside the notifier; only it may deliver messages (ADR 0045)"
+    );
+    assert!(
+        !others.contains(NOTIFIER),
+        "another workspace crate depends on the notifier"
+    );
+    // And the notifier really is where delivery lives.
+    assert!(closure(&["--package", NOTIFIER]).contains("lettre"));
 }

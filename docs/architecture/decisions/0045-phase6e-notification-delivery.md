@@ -93,8 +93,31 @@ HMAC-SHA-256 over the timestamp and the body (`X-WNM-Timestamp`,
 
 The HTTP channels use the hyper client and `tokio-rustls` already in the
 tree (ADR 0040). HMAC is the RFC 2104 construction over `sha2`, tested
-against RFC 4231's vectors. Email is 6E-2, and its SMTP client is that
-milestone's dependency decision.
+against RFC 4231's vectors.
+
+### Email (6E-2): `lettre`
+
+SMTP is a protocol whose mistakes are header injection and silent
+downgrade, so it uses a maintained library rather than a hand-written
+client: `lettre` 0.11.23 (MIT), with only `builder`, `smtp-transport`,
+`tokio1-rustls` and `aws-lc-rs`. It adds seven crates, all permissive.
+
+- The relay is vetted like every destination, and the connection goes to
+  the checked address. TLS verifies the relay's own name against the
+  configured CA bundle alone (`CertificateStore::None`). `webpki-roots`
+  is compiled in only because `lettre` requires a root-store feature; it
+  is never used.
+- **STARTTLS is required by default** (`Tls::Required`), so a relay that
+  cannot upgrade is refused rather than used in plain text. Implicit TLS
+  on port 465 is the alternative. Plain SMTP needs `allow_private`.
+- Headers are built and encoded by `lettre`: a title cannot add a header
+  or a recipient, which a test checks.
+- An SMTP 5xx is permanent; a 4xx or a connection failure is retried.
+
+The dependency closure test changes with it. Routing and device-access
+crates stay forbidden everywhere. Mail and chat crates are allowed only in
+the notifier's own closure, and no other crate may depend on the
+notifier.
 
 ## Consequences
 
