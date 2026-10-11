@@ -14,6 +14,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
+use prometheus::core::Collector;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, Opts, Registry};
 use wetechinetmon_classifier::{ClassificationResult, PrefixRegistry};
 use wetechinetmon_common::NormalizedFlow;
@@ -115,21 +116,7 @@ impl DetectionPrometheusMetrics {
             "Open detections force-closed because their snapshots stopped arriving.",
         )?;
 
-        registry.register(Box::new(snapshots_evaluated_total.clone()))?;
-        registry.register(Box::new(snapshots_unmatched_total.clone()))?;
-        registry.register(Box::new(snapshots_ignored_total.clone()))?;
-        registry.register(Box::new(transitions_total.clone()))?;
-        registry.register(Box::new(suppressed_total.clone()))?;
-        registry.register(Box::new(events_total.clone()))?;
-        registry.register(Box::new(events_published_total.clone()))?;
-        registry.register(Box::new(events_failed_total.clone()))?;
-        registry.register(Box::new(metrics_skipped_total.clone()))?;
-        registry.register(Box::new(scopes_in_state.clone()))?;
-        registry.register(Box::new(tracked_scopes.clone()))?;
-        registry.register(Box::new(state_table_full_total.clone()))?;
-        registry.register(Box::new(detections_stale_total.clone()))?;
-
-        Ok(DetectionPrometheusMetrics {
+        let metrics = DetectionPrometheusMetrics {
             snapshots_evaluated_total,
             snapshots_unmatched_total,
             snapshots_ignored_total,
@@ -143,7 +130,11 @@ impl DetectionPrometheusMetrics {
             tracked_scopes,
             state_table_full_total,
             detections_stale_total,
-        })
+        };
+        for collector in metrics.collectors() {
+            registry.register(collector)?;
+        }
+        Ok(metrics)
     }
 }
 
@@ -391,6 +382,43 @@ pub fn load_policy_file(path: &str) -> Result<CompiledPolicies, String> {
 /// window closes within a second of its actual end rather than up to one
 /// tick late.
 pub const TICK_INTERVAL: Duration = Duration::from_secs(1);
+
+impl DetectionPrometheusMetrics {
+    /// Every metric this owns. `new` registers exactly these and
+    /// `metric_names` reads them, so `/metrics` and the Grafana dashboard
+    /// check (ADR 0041) cannot disagree about what exists.
+    fn collectors(&self) -> Vec<Box<dyn Collector>> {
+        vec![
+            Box::new(self.snapshots_evaluated_total.clone()),
+            Box::new(self.snapshots_unmatched_total.clone()),
+            Box::new(self.snapshots_ignored_total.clone()),
+            Box::new(self.transitions_total.clone()),
+            Box::new(self.suppressed_total.clone()),
+            Box::new(self.events_total.clone()),
+            Box::new(self.events_published_total.clone()),
+            Box::new(self.events_failed_total.clone()),
+            Box::new(self.metrics_skipped_total.clone()),
+            Box::new(self.scopes_in_state.clone()),
+            Box::new(self.tracked_scopes.clone()),
+            Box::new(self.state_table_full_total.clone()),
+            Box::new(self.detections_stale_total.clone()),
+        ]
+    }
+
+    /// The fully qualified name of every metric this owns.
+    pub fn metric_names(&self) -> Vec<String> {
+        self.collectors()
+            .iter()
+            .flat_map(|collector| {
+                collector
+                    .desc()
+                    .into_iter()
+                    .map(|desc| desc.fq_name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+}
 
 #[cfg(test)]
 mod tests {

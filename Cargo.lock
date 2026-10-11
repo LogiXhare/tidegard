@@ -2314,6 +2314,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wetechinetmon-dashboard-check"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "wetechinetmon-collector",
+ "wetechinetmon-incident-manager",
+ "wetechinetmon-storage",
+]
+
+[[package]]
 name = "wetechinetmon-detector"
 version = "0.0.0"
 dependencies = [

@@ -1,0 +1,852 @@
+{
+  "id": null,
+  "uid": "wnm-traffic",
+  "title": "WetechiNetMon — Traffic",
+  "description": "Traffic seen by the collector, from the ClickHouse analytics tables. Deployment-wide: the traffic tables carry no tenant until Phase 8.",
+  "tags": [
+    "wetechinetmon"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "wetechinetmon"
+      ],
+      "asDropdown": true,
+      "title": "WetechiNetMon",
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "ds_clickhouse",
+        "label": "ClickHouse",
+        "query": "grafana-clickhouse-datasource",
+        "current": {},
+        "hide": 0,
+        "refresh": 1,
+        "regex": "",
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Traffic by family",
+      "description": "Bits per second of all traffic the collector saw, IPv4 and IPv6.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "interval": "15s",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT time, family, sum(v) AS bps FROM (\n  SELECT $__timeInterval(timestamp) AS time, 'IPv4' AS family, sum(bytes) * 8 / $__interval_s AS v\n  FROM wetechinetmon_total_ipv4_traffic WHERE $__timeFilter(timestamp) GROUP BY time\n  UNION ALL\n  SELECT $__timeInterval(timestamp) AS time, 'IPv6' AS family, sum(bytes) * 8 / $__interval_s AS v\n  FROM wetechinetmon_total_ipv6_traffic WHERE $__timeFilter(timestamp) GROUP BY time\n) GROUP BY time, family ORDER BY time"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Packets by family",
+      "description": "Packets per second of all traffic the collector saw.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "interval": "15s",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT time, family, sum(v) AS pps FROM (\n  SELECT $__timeInterval(timestamp) AS time, 'IPv4' AS family, sum(packets) * 1 / $__interval_s AS v\n  FROM wetechinetmon_total_ipv4_traffic WHERE $__timeFilter(timestamp) GROUP BY time\n  UNION ALL\n  SELECT $__timeInterval(timestamp) AS time, 'IPv6' AS family, sum(packets) * 1 / $__interval_s AS v\n  FROM wetechinetmon_total_ipv6_traffic WHERE $__timeFilter(timestamp) GROUP BY time\n) GROUP BY time, family ORDER BY time"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Protocol mix",
+      "description": "Bits per second by IP protocol, IPv4.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "interval": "15s",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time,\n  sum(tcp_bytes) * 8 / $__interval_s AS tcp,\n  sum(udp_bytes) * 8 / $__interval_s AS udp,\n  sum(icmp_bytes) * 8 / $__interval_s AS icmp,\n  (sum(bytes) - sum(tcp_bytes) - sum(udp_bytes) - sum(icmp_bytes)) * 8 / $__interval_s AS other\nFROM wetechinetmon_total_ipv4_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY time ORDER BY time"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Attack indicators",
+      "description": "TCP SYN, fragmented and dropped packets per second, IPv4. A rising line is worth a look even when total traffic is flat.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "interval": "15s",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time,\n  sum(tcp_syn_packets) / $__interval_s AS tcp_syn,\n  sum(fragmented_packets) / $__interval_s AS fragmented,\n  sum(dropped_packets) / $__interval_s AS dropped\nFROM wetechinetmon_total_ipv4_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY time ORDER BY time"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Top talkers",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Top hosts",
+      "description": "The 20 addresses with the most bytes in the time range.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "packets"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT address AS host, sum(bytes) AS bytes, sum(packets) AS packets, sum(flows) AS flows\nFROM wetechinetmon_host_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY host\nORDER BY bytes DESC\nLIMIT 20"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Top networks",
+      "description": "The 20 configured networks with the most bytes.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "packets"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT concat(address, '/', toString(prefix_len)) AS network, sum(bytes) AS bytes, sum(packets) AS packets, sum(flows) AS flows\nFROM wetechinetmon_network_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY network\nORDER BY bytes DESC\nLIMIT 20"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Top /24 networks",
+      "description": "The 20 /24 networks with the most bytes.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "packets"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT address AS network, sum(bytes) AS bytes, sum(packets) AS packets, sum(flows) AS flows\nFROM wetechinetmon_slash24_network_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY network\nORDER BY bytes DESC\nLIMIT 20"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top hostgroups",
+      "description": "The 20 hostgroups with the most bytes.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "packets"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT hostgroup AS hostgroup, sum(bytes) AS bytes, sum(packets) AS packets, sum(flows) AS flows\nFROM wetechinetmon_hostgroup_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY hostgroup\nORDER BY bytes DESC\nLIMIT 20"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Top ASNs",
+      "description": "The 20 autonomous systems with the most bytes.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "packets"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT asn AS asn, sum(bytes) AS bytes, sum(packets) AS packets, sum(flows) AS flows\nFROM wetechinetmon_asn_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY asn\nORDER BY bytes DESC\nLIMIT 20"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Top interfaces",
+      "description": "The 20 exporter interfaces with the most bytes, by direction.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "packets"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "queryType": "table",
+          "rawSql": "SELECT concat(exporter, ' if', toString(interface_index), ' ', toString(direction)) AS interface, sum(bytes) AS bytes, sum(packets) AS packets, sum(flows) AS flows\nFROM wetechinetmon_interface_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY interface\nORDER BY bytes DESC\nLIMIT 20"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      }
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Exporters",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Traffic by exporter",
+      "description": "Bits per second reported by each exporter.",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${ds_clickhouse}"
+      },
+      "interval": "15s",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${ds_clickhouse}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "queryType": "timeseries",
+          "rawSql": "SELECT $__timeInterval(timestamp) AS time, exporter, sum(bytes) * 8 / $__interval_s AS bps\nFROM wetechinetmon_exporter_traffic\nWHERE $__timeFilter(timestamp)\nGROUP BY time, exporter ORDER BY time"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      }
+    }
+  ]
+}

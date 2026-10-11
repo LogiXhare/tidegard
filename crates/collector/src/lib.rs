@@ -23,6 +23,22 @@ pub mod metrics;
 pub mod normalize;
 pub mod pipeline;
 
+/// The name of every metric the collector's `/metrics` endpoint can
+/// export, Vec metrics included before they have a label value. The
+/// Grafana dashboard check (ADR 0041) refuses a panel that queries
+/// anything else.
+pub fn metric_names() -> Vec<String> {
+    let (metrics, registry) = metrics::Metrics::new().expect("a fresh registry has no collisions");
+    let mut names = metrics.metric_names();
+    names.extend(
+        detection::DetectionPrometheusMetrics::new(&registry)
+            .expect("a fresh registry has no collisions")
+            .metric_names(),
+    );
+    names.extend(incident_inbox::metric_names());
+    names
+}
+
 /// Kept at its old path; the endpoint now lives in `wetechinetmon-common`.
 pub use wetechinetmon_common::metrics_server;
 
@@ -611,6 +627,23 @@ fn process_datagram(
 mod tests {
     use super::*;
     use wetechinetmon_classifier::PrefixConfigEntry;
+
+    /// Every metric is named once, under the product prefix, and the
+    /// three groups (collector, detector, incident inbox) are all there.
+    #[test]
+    fn metric_names_are_unique_and_prefixed() {
+        let names = metric_names();
+        let unique: std::collections::BTreeSet<_> = names.iter().collect();
+        assert_eq!(unique.len(), names.len(), "{names:?}");
+        assert!(names.iter().all(|name| name.starts_with("wetechinetmon_")));
+        for name in [
+            "wetechinetmon_collector_flow_datagrams_received_total",
+            "wetechinetmon_detector_scopes_in_state",
+            "wetechinetmon_collector_incident_inbox_queued",
+        ] {
+            assert!(names.iter().any(|n| n == name), "{name}");
+        }
+    }
 
     fn addr() -> std::net::SocketAddr {
         "127.0.0.1:1".parse().unwrap()

@@ -1,0 +1,15 @@
+[package]
+name = "wetechinetmon-dashboard-check"
+description = "Static checks for the Grafana dashboards: every panel queries a metric or table that exists (ADR 0041)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json = "1"
+wetechinetmon-storage = { path = "../../crates/storage" }
+
+[dev-dependencies]
+wetechinetmon-collector = { path = "../../crates/collector" }
+wetechinetmon-incident-manager = { path = "../../crates/incident-manager" }

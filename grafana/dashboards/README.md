@@ -1,14 +1,26 @@
 # Grafana Dashboards
 
-**Status:** Reserved — not yet implemented.
+Original dashboards for WetechiNetMon, designed for this project (see
+the [clean-room boundary](../../docs/clean-room-boundary.md)).
 
-**Planned for:** Phase 6 (see [../../docs/roadmap.md](../../docs/roadmap.md)).
+| File | UID | Datasources | Shows |
+|---|---|---|---|
+| `traffic.json` | `wnm-traffic` | ClickHouse | Traffic, protocol mix, attack indicators, top talkers, exporters |
+| `collector.json` | `wnm-collector` | Prometheus | Decoding, classification, aggregation, ClickHouse export, inbox writes |
+| `detection.json` | `wnm-detection` | Prometheus, ClickHouse | Scopes by state, transitions, events, and the latest detection events |
+| `incidents.json` | `wnm-incidents` | Prometheus | The incident manager's inbox, outbox, dead letters, timers and retention |
 
-Original Grafana dashboard JSON (not derived from any proprietary product). See docs/clean-room-boundary.md.
+Each datasource is a dashboard variable, so the JSON works in any
+Grafana; load it with the [provisioning files](../provisioning/). The
+traffic data has no tenant until Phase 8, so these dashboards are
+deployment-wide.
 
-This directory is intentionally a placeholder as of Phase 1
-(repository and documentation foundation). No production code has been
-added here yet, per `prompts/CLAUDE_MASTER_PROMPT.md`. Do not implement
-functionality in this directory ahead of its scheduled phase without an
-explicit decision recorded in `docs/roadmap.md` and, where applicable, an
-architecture decision record under `docs/architecture/decisions/`.
+**Every change is checked** ([ADR 0041](../../docs/architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)):
+
+- `cargo test -p wetechinetmon-dashboard-check` refuses a panel that
+  queries a metric no module registers or a table the schema does not
+  create, a hard-coded datasource, or a bad UID.
+- The CI job **Grafana dashboards** loads them into a real Grafana with
+  real ClickHouse and Prometheus, and runs every panel's query.
+
+UIDs never change: operators bookmark them.

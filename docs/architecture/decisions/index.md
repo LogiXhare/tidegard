@@ -82,3 +82,4 @@ yet:
 | [0038](0038-phase5d-api-boundary.md) | Phase 5D API Boundary: TLS, Identity, Authorization, Rate Limits, Errors | Accepted |
 | [0039](0039-phase5d-manual-incidents.md) | Phase 5D Manual Incidents | Accepted |
 | [0040](0040-phase5e-cli-client.md) | Phase 5E CLI Client | Accepted |
+| [0041](0041-phase6a-grafana-dashboards-as-code.md) | Phase 6A Grafana Dashboards as Code | Accepted |

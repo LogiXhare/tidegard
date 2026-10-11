@@ -1,0 +1,30 @@
+# Example datasources for the WetechiNetMon dashboards. Every dashboard
+# selects its datasource through a variable, so these UIDs and names are
+# suggestions, not requirements.
+#
+# Values come from the environment Grafana runs in. Use TLS to anything
+# that is not on the same host, and keep the ClickHouse password in a
+# secret store, never in this file.
+apiVersion: 1
+
+datasources:
+  - name: WetechiNetMon Prometheus
+    uid: wnm-prometheus
+    type: prometheus
+    access: proxy
+    url: $WNM_PROMETHEUS_URL
+    jsonData:
+      httpMethod: POST
+
+  - name: WetechiNetMon ClickHouse
+    uid: wnm-clickhouse
+    type: grafana-clickhouse-datasource
+    jsonData:
+      host: $WNM_CLICKHOUSE_HOST
+      port: 8443
+      protocol: http
+      secure: true
+      username: $WNM_CLICKHOUSE_USER
+      defaultDatabase: default
+    secureJsonData:
+      password: $WNM_CLICKHOUSE_PASSWORD
