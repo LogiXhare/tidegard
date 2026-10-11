@@ -103,12 +103,27 @@ async fn traffic_is_read_from_clickhouse_for_the_traffic_tenant_only() {
             .await
             .unwrap();
     }
-    // Ten minutes ago, aligned to a step boundary so one bucket holds it.
+    // Ten minutes ago, aligned to a step boundary so one bucket holds both
+    // families. Computed once here: two now() calls can straddle a boundary.
+    let bucket = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        - 600;
+    let bucket = bucket - bucket % 10;
     for statement in [
-        "INSERT INTO wetechinetmon_total_ipv4_traffic (timestamp, bytes, packets, flows) \
-         VALUES (toStartOfInterval(now() - 600, INTERVAL 10 SECOND), 1000000, 2000, 10)",
-        "INSERT INTO wetechinetmon_total_ipv6_traffic (timestamp, bytes, packets, flows) \
-         VALUES (toStartOfInterval(now() - 600, INTERVAL 10 SECOND), 500000, 1000, 5)",
+        format!(
+            "INSERT INTO wetechinetmon_total_ipv4_traffic (timestamp, bytes, packets, flows) \
+             VALUES (toDateTime({bucket}), 1000000, 2000, 10)"
+        ),
+        format!(
+            "INSERT INTO wetechinetmon_total_ipv6_traffic (timestamp, bytes, packets, flows) \
+             VALUES (toDateTime({bucket}), 500000, 1000, 5)"
+        ),
+    ] {
+        writer.query(&statement).execute().await.unwrap();
+    }
+    for statement in [
         "INSERT INTO wetechinetmon_host_traffic (timestamp, address, family, bytes, packets, flows) VALUES \
          (now() - 300, '203.0.113.10', 4, 900, 9, 1), \
          (now() - 300, '203.0.113.20', 4, 700, 7, 1), \
