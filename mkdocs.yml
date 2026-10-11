@@ -101,7 +101,9 @@ nav:
       - Roadmap: roadmap.md
       - Risk Register: risk-register.md
       - Blocking Questions: blocking-questions.md
-  - Installation: installation/index.md
+  - Installation:
+      - Overview: installation/index.md
+      - Incident Management: installation/incident-management.md
   - Configuration:
       - Overview: configuration/index.md
       - Local Prefixes: configuration/prefixes.md
@@ -118,7 +120,7 @@ nav:
       - Detection Monitoring: operations/detection-monitoring.md
       - Capacity Planning: operations/capacity-planning.md
       - Backup and Restore: operations/backup-and-restore.md
-      - Incident Runbook (plan): operations/incident-runbook-plan.md
+      - Incident Runbook: operations/incident-runbook.md
   - API Reference:
       - Overview: api/index.md
       - Incident API Plan: api/incident-api-plan.md

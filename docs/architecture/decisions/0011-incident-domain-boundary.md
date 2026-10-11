@@ -1,8 +1,8 @@
 # 0011. The Incident Domain Is Separate From the Detection Domain
 
-Status: Proposed
+Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance))
 Date: 2026-08-22
-Deciders: Repository owner (pending review)
+Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
 ## Context
 
@@ -121,11 +121,26 @@ storage and HTTP dependencies that Phase 5 will need are a separate
 decision — see **BQ-7** and
 [ADR 0015](0015-incident-operational-storage.md).
 
+## Acceptance
+
+Accepted as implemented in Phase 5:
+
+- `wetechinetmon-incident` is its own crate and consumes the detector's
+  `DetectionEvent` only. The detector does not depend on it.
+- The safety property is checked, not asserted.
+  `crates/incident/tests/dependency_closure.rs` holds the detector's and
+  the incident domain's dependency closures to a reviewed allowlist, and
+  refuses any routing, device-access, packet, mail or chat crate anywhere
+  in the workspace.
+- No transition notifies or mitigates. The API reports
+  `mitigation_status` and `notification_status` as `none`, and an
+  event that claims an executed action is quarantined.
+
 ## Follow-Up
 
-- [ ] Owner resolves **BQ-6**: FR-5.1 places mitigation states in the
+- [x] Owner resolves **BQ-6**: FR-5.1 places mitigation states in the
       incident state machine, which this boundary defers to Phase 7.
-- [ ] Add a dependency-policy check covering the incident crate when
+- [x] Add a dependency-policy check covering the incident crate when
       **FU-9** is implemented for the detector — one mechanism should
-      cover both.
-- [ ] Link from [risk-register.md](../../risk-register.md) R16.
+      cover both. Done 2026-10-05: one test covers both.
+- [x] Link from [risk-register.md](../../risk-register.md) R16.
