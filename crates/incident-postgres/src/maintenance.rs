@@ -92,6 +92,32 @@ WHERE state = 'resolved'
 ORDER BY resolved_at
 LIMIT $2";
 
+/// Each active incident's timeline is counted through the V4
+/// `(incident_id, occurred_at, timeline_id)` index, so the cost follows the
+/// active incidents' own entries, never the whole table.
+const TIMELINE_PRESSURE: &str = "\
+SELECT coalesce(max(entries), 0) AS pressure FROM (
+    SELECT (SELECT count(*) FROM incident_timeline t WHERE t.incident_id = i.incident_id)
+        AS entries
+    FROM incidents i
+    WHERE i.state NOT IN ('resolved', 'closed')
+) counted";
+
+/// The most timeline entries on any active incident, for the
+/// `timeline_pressure` gauge. The timeline is never truncated: an incident
+/// nearing `TIMELINE_ENTRY_LIMIT` (50,000) is an operational fault, most
+/// likely a flapping detection, and the answer is an alert, not data
+/// loss (incident-domain-model.md, FU-32).
+pub async fn timeline_pressure(
+    _authority: &PlatformAuthority,
+    client: &impl tokio_postgres::GenericClient,
+) -> Result<i64, PersistError> {
+    Ok(client
+        .query_one(TIMELINE_PRESSURE, &[])
+        .await?
+        .try_get("pressure")?)
+}
+
 /// Runs the three timer steps once, in state-machine order.
 pub async fn run_maintenance(
     _authority: &PlatformAuthority,

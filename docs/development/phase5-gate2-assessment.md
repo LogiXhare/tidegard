@@ -1,9 +1,10 @@
 # Phase 5 Gate 2 Assessment
 
 Status: **Assessed 2026-10-11, at the end of Milestone 5F.** Gate 2 is
-**not passed in full**. Every functional criterion is met. Three
-criteria are partial or deferred, each with its reason and follow-up,
-and one deviation was reviewed and ratified by the owner.
+**not passed in full**. Every criterion is met but one: threat
+coverage, where T-21 needs a user directory and T-08 needs a UI, each
+with its follow-up. One deviation was reviewed and ratified by the
+owner.
 
 The criteria are those
 [defined before the work started](phase5-acceptance-criteria.md), under Gate 2.
@@ -48,7 +49,7 @@ request:
 | Optimistic concurrency prevents lost updates | Met | T-13 ([threat tests](../security/incident-threat-tests.md)) |
 | Idempotent retries are safe; reuse with another body conflicts | Met | T-14 |
 | Tenant isolation on every endpoint; cross-tenant is `404` | Met | `tenant_isolation.rs`, driven by the OpenAPI document |
-| Every capacity limit is enforced, with defined breach behaviour | **Partial** | Notes, suppression reasons, policy references, evidence, page sizes, export rows and rate limits are enforced and tested. `TIMELINE_ENTRY_LIMIT` (50,000) is not enforced (FU-32). Reaching it needs an authorised actor looping commands for about 14 hours at the API's 60 mutations per minute |
+| Every capacity limit is enforced, with defined breach behaviour | Met | Notes, suppression reasons, policy references, evidence, page sizes, export rows and rate limits are refused or capped, and tested. The timeline's defined breach behaviour is an alert, never truncation ([domain model](../architecture/incident-domain-model.md)): the `timeline_pressure` gauge reports the largest active timeline (`maintenance_timers.rs`, `metrics.rs` `stats_set_the_gauges`), and the [runbook](../operations/incident-runbook.md) alerts at 40,000 of 50,000 |
 | The timeline is never truncated | Met | Nothing deletes or caps timeline rows. Retention removes a closed incident whole, after 24 months |
 | Prometheus labels are asserted against an allowlist | Met | `metrics.rs` `every_label_is_on_the_allowlist` |
 | No note body appears in a log at `INFO` or above | Met | T-23 |
@@ -91,6 +92,8 @@ request:
 - **The runbook:** it named metrics that were never built (#80).
 - **Note supersession and redaction:** the schema had the columns, but
   nothing used them (FU-63).
+- **The timeline limit:** its alert was designed but never built
+  (FU-32).
 - **CI on current stable Rust:** `AtomicU64::fetch_update` became
   deprecated, and with warnings denied every build failed (#85).
 
@@ -100,6 +103,5 @@ request:
 |---|---|---|
 | T-21 assignee validation | Needs a user directory | FU-60, Phase 8 |
 | T-08 stored XSS | Needs a UI | Phase 6 acceptance, R17 |
-| `TIMELINE_ENTRY_LIMIT` | Unenforced; reaching it is bounded by the rate limit | FU-32 |
 | PITR, cross-version and cross-cluster restore drills | Only the logical restore is drilled | FU-61 |
 | The outbox has no consumer | `outbox_pending` only rises until Phase 6 | FU-62 |
