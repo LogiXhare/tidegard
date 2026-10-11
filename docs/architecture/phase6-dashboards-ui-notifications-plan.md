@@ -130,7 +130,7 @@ from the same origin, so there is no CORS to configure.
 **Exit:** the UI drives the incident lifecycle end to end against a real
 API in CI, and T-08 is Met.
 
-**Progress:** 6D-1 ([ADR 0044](decisions/0044-phase6d-noc-ui.md)) builds the scaffold: sign-in and sign-out, the incident list, the API serving the UI from the same origin with a strict Content-Security-Policy and security headers on every response, the T-08 lint rule with a test of the rule itself, a hostile-text component test, and the **Web UI** CI job (lint, types, tests, build, audit, licences). 6D-2 adds the incident page: facts, notes, timeline, and every operator action the role allows, each with the version seen and a fresh idempotency key, a reload on a version conflict, and confirmation where the CLI asks. The NOC overview and the end-to-end tests follow.
+**Progress:** 6D-1 ([ADR 0044](decisions/0044-phase6d-noc-ui.md)) builds the scaffold: sign-in and sign-out, the incident list, the API serving the UI from the same origin with a strict Content-Security-Policy and security headers on every response, the T-08 lint rule with a test of the rule itself, a hostile-text component test, and the **Web UI** CI job (lint, types, tests, build, audit, licences). 6D-2 adds the incident page: facts, notes, timeline, and every operator action the role allows, each with the version seen and a fresh idempotency key, a reload on a version conflict, and confirmation where the CLI asks. 6D-3 adds the NOC overview: active incidents by severity, traffic over the last hour as an SVG chart with no inline style, the top hosts, and exporters with silent ones called out; a tenant that is not the traffic tenant sees incidents alone. The end-to-end tests follow.
 
 ### 6E — Notifications (v0.8.0)
 

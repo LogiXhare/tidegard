@@ -257,3 +257,66 @@ export function redactNote(id: string, index: number, reason: string): Promise<I
     "Idempotency-Key": idempotencyKey(),
   });
 }
+
+export interface TrafficPoint {
+  time: string;
+  ipv4_bps: number;
+  ipv6_bps: number;
+  ipv4_pps: number;
+  ipv6_pps: number;
+}
+
+export interface TrafficSummary {
+  from: string;
+  to: string;
+  step_seconds: number;
+  points: TrafficPoint[];
+}
+
+export interface TopEntry {
+  key: string;
+  bytes: number;
+  packets: number;
+  flows: number;
+}
+
+export interface Exporter {
+  exporter: string;
+  last_seen: string;
+  silent_seconds: number;
+  bps: number;
+  pps: number;
+}
+
+/**
+ * Traffic is deployment-wide and served to one tenant only (ADR 0042).
+ * Anyone else gets 404, which this returns as `null`: not an error, just
+ * nothing to show.
+ */
+async function traffic<T>(path: string): Promise<T | null> {
+  try {
+    return await request<T>("GET", path);
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function trafficSummary(): Promise<TrafficSummary | null> {
+  return traffic<TrafficSummary>("/api/v1/traffic/summary");
+}
+
+export async function topHosts(limit: number): Promise<TopEntry[] | null> {
+  const list = await traffic<{ items: TopEntry[] }>(
+    `/api/v1/traffic/top?dimension=host&limit=${limit}`,
+  );
+  return list === null ? null : list.items;
+}
+
+export async function exporters(): Promise<Exporter[] | null> {
+  const list = await traffic<{ items: Exporter[] }>("/api/v1/exporters");
+  return list === null ? null : list.items;
+}
+

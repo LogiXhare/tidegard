@@ -211,3 +211,88 @@ form.inline {
   padding: 0.2rem 0;
   font-size: 0.9rem;
 }
+
+nav a {
+  margin-right: 0.8rem;
+}
+
+nav a.active {
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  list-style: none;
+  padding: 0;
+}
+
+.tile {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 9rem;
+  padding: 0.7rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.tile strong {
+  font-size: 1.6rem;
+}
+
+ul.plain {
+  list-style: none;
+  padding: 0;
+}
+
+ul.plain li {
+  padding: 0.25rem 0;
+}
+
+.warn {
+  color: var(--major);
+  font-weight: 600;
+}
+
+.chart svg {
+  width: 100%;
+  max-width: 960px;
+  height: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.chart .axis {
+  stroke: var(--line);
+}
+
+.chart .axis-label {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart .series {
+  fill: none;
+  stroke-width: 2;
+}
+
+.chart .series.ipv4 {
+  stroke: var(--info);
+}
+
+.chart .series.ipv6 {
+  stroke: var(--major);
+  stroke-dasharray: 6 4;
+}
+
+.chart .key.ipv4 {
+  color: var(--info);
+}
+
+.chart .key.ipv6 {
+  color: var(--major);
+}
