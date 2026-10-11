@@ -24,7 +24,7 @@ use wetechinetmon_incident_postgres::pool::acquire;
 use wetechinetmon_incident_postgres::queries::{
     self, AuditRow, DetectionLinkRow, TimelineEntryRow,
 };
-use wetechinetmon_incident_postgres::row::IncidentRow;
+use wetechinetmon_incident_postgres::row::{IncidentRow, NoteRow};
 
 use crate::auth::Principal;
 use crate::incidents::{limit, parse_id};
@@ -232,9 +232,38 @@ pub struct NoteView {
     pub note_index: i32,
     pub author: String,
     /// Untrusted operator text, returned verbatim: escape it on output.
+    /// Empty once the note is redacted.
     pub body: String,
     /// internal or customer_visible.
     pub visibility: String,
+    /// The note this one replaces, when it is an edit.
+    pub supersedes_note_index: Option<i32>,
+    /// The edit that replaced this note, if any.
+    pub superseded_by_note_index: Option<i32>,
+    /// The body was removed. Who did it, and why, is on the audit trail.
+    pub redacted: bool,
+}
+
+/// The notes as the API shows them. A superseded note is left out
+/// unless `include_superseded`, so the default view is the current text.
+pub fn note_views(notes: Vec<NoteRow>, include_superseded: bool) -> Vec<NoteView> {
+    let replaced_by: std::collections::BTreeMap<i32, i32> = notes
+        .iter()
+        .filter_map(|note| note.supersedes.map(|earlier| (earlier, note.note_index)))
+        .collect();
+    notes
+        .into_iter()
+        .map(|note| NoteView {
+            superseded_by_note_index: replaced_by.get(&note.note_index).copied(),
+            note_index: note.note_index,
+            author: actor(&note.created_by.actor_type, note.created_by.actor_id),
+            body: note.body,
+            visibility: note.visibility,
+            supersedes_note_index: note.supersedes,
+            redacted: note.redaction.is_some(),
+        })
+        .filter(|view| include_superseded || view.superseded_by_note_index.is_none())
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -422,14 +451,18 @@ pub async fn detections(
 }
 
 /// An incident's notes. Bounded by the domain, so never paginated.
+/// Notes an edit replaced are left out unless `include_superseded=true`.
 #[utoipa::path(
     get,
     path = "/api/v1/incidents/{incident_id}/notes",
     tag = "incidents",
-    params(("incident_id" = String, Path, description = "The incident's UUID")),
+    params(
+        ("incident_id" = String, Path, description = "The incident's UUID"),
+        ("include_superseded" = Option<bool>, Query, description = "Also return the notes an edit replaced. Defaults to false"),
+    ),
     security(("bearer" = [])),
     responses(
-        (status = 200, description = "Every note", body = NoteList),
+        (status = 200, description = "The current notes, or every note with include_superseded", body = NoteList),
         (status = 400, description = "Bad id or an unknown parameter", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
         (status = 401, description = "No usable token", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
         (status = 403, description = "The role lacks incident.read", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
@@ -447,9 +480,20 @@ pub async fn notes(
         async {
             limit(&state.limits.reads, &principal)?;
             let id = parse_id(&incident_id)?;
-            if let Some((name, _)) = pairs.first() {
-                return Err(Problem::new(ErrorCode::UnknownField)
-                    .with_detail(format!("unknown query parameter '{name}'")));
+            let mut include_superseded = false;
+            for (name, value) in &pairs {
+                match (name.as_str(), value.as_str()) {
+                    ("include_superseded", "true") => include_superseded = true,
+                    ("include_superseded", "false") => include_superseded = false,
+                    ("include_superseded", _) => {
+                        return Err(Problem::new(ErrorCode::InvalidRequest)
+                            .with_detail("include_superseded must be true or false"))
+                    }
+                    _ => {
+                        return Err(Problem::new(ErrorCode::UnknownField)
+                            .with_detail(format!("unknown query parameter '{name}'")))
+                    }
+                }
             }
             let auth = principal.authorization(state.resolver.as_ref());
             let mut client = acquire(&state.pool).await.map_err(|e| Problem::from(&e))?;
@@ -459,16 +503,7 @@ pub async fn notes(
                 .map_err(|e| Problem::from(&e))?;
             let row = IncidentRow::from_incident(&incident).map_err(|e| Problem::from(&e))?;
             Ok(NoteList {
-                items: row
-                    .notes
-                    .into_iter()
-                    .map(|note| NoteView {
-                        note_index: note.note_index,
-                        author: actor(&note.created_by.actor_type, note.created_by.actor_id),
-                        body: note.body,
-                        visibility: note.visibility,
-                    })
-                    .collect(),
+                items: note_views(row.notes, include_superseded),
             })
         }
         .await,

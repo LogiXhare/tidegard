@@ -1,8 +1,8 @@
 # 0017. The Community/Enterprise Seam Is an Extension Point, Not a Limitation
 
-Status: Proposed
+Status: **Accepted** — 2026-10-05, as implemented (see [Acceptance](#acceptance))
 Date: 2026-08-22
-Deciders: Repository owner (pending review)
+Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
 ## Context
 
@@ -111,9 +111,32 @@ an extension point and not a lever.
 [commercial-boundaries.md](../../commercial-boundaries.md). Enterprise
 implementations live outside this repository.
 
+## Acceptance
+
+The principle is accepted unchanged:
+
+- Community ships complete incident management.
+- There are no licence checks, artificial limits or non-functional stubs.
+- Correctness invariants are never seams.
+
+The seam list is accepted as built, which is narrower than planned:
+
+| Seam | State in Phase 5 |
+|---|---|
+| `PermissionResolver` | A trait, with the fixed role bundles |
+| `NumberAllocator` | A trait, with the per-tenant sequence in PostgreSQL |
+| `IncidentGenerator`, `Clock` | Traits (UUIDv7 and system time), also used by tests |
+| `Authenticator` (API) | A trait, with bearer tokens |
+| `CorrelationStrategy`, `AssignmentPolicy`, `IdentityProvider`, `RetentionPolicy`, `IncidentEventPublisher` | Complete Community behaviour, not yet behind a trait |
+
+The five not yet extracted follow this ADR's own warning about designing
+an abstraction before its second implementation exists. Each will be
+extracted when a second implementation is real. None is a stub, and
+none withholds anything.
+
 ## Follow-Up
 
-- [ ] Review seam list after Milestone 5A, when the domain types exist
+- [x] Review seam list after Milestone 5A, when the domain types exist
       and a wrong abstraction is still cheap to change.
-- [ ] Cross-reference from
+- [x] Cross-reference from
       [commercial-boundaries.md](../../commercial-boundaries.md).

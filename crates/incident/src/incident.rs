@@ -31,8 +31,8 @@ use crate::durable_time::DurableTimestamp;
 use crate::evidence::EvidenceLedger;
 use crate::id::IncidentId;
 use crate::limits::{
-    DESCRIPTION_MAX_LEN, NOTES_PER_INCIDENT_MAX, NOTE_BODY_MAX_LEN, POLICY_REFS_MAX,
-    TAGS_PER_INCIDENT_MAX, TITLE_MAX_LEN,
+    DESCRIPTION_MAX_LEN, NOTES_PER_INCIDENT_MAX, NOTE_BODY_MAX_LEN, NOTE_REDACTION_REASON_MAX_LEN,
+    POLICY_REFS_MAX, TAGS_PER_INCIDENT_MAX, TITLE_MAX_LEN,
 };
 use crate::number::IncidentNumber;
 use crate::severity::{Priority, Severity, SeveritySource};
@@ -50,12 +50,43 @@ pub enum NoteVisibility {
     CustomerVisible,
 }
 
+/// Notes are immutable with supersession (incident-persistence.md): an
+/// edit appends a new note that names the one it replaces, so the record
+/// of what the operator first wrote survives. A redaction is the one
+/// in-place change, and it is itself recorded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Note {
     pub index: u32,
+    /// Empty once the note is redacted.
     pub body: String,
     pub visibility: NoteVisibility,
     pub created_by: Actor,
+    /// The earlier note this one replaces, when it is an edit.
+    #[serde(default)]
+    pub supersedes: Option<u32>,
+    #[serde(default)]
+    pub redaction: Option<NoteRedaction>,
+}
+
+impl Note {
+    pub fn new(index: u32, body: String, visibility: NoteVisibility, created_by: Actor) -> Self {
+        Note {
+            index,
+            body,
+            visibility,
+            created_by,
+            supersedes: None,
+            redaction: None,
+        }
+    }
+}
+
+/// Who removed a note's body, and why. The reason is required, because
+/// removing an operator's words must itself be explainable.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NoteRedaction {
+    pub by: Actor,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -189,6 +220,14 @@ impl Incident {
         self.notes.len() >= NOTES_PER_INCIDENT_MAX
     }
 
+    /// The note that replaced note `index`, if it has been edited.
+    pub fn note_superseded_by(&self, index: u32) -> Option<u32> {
+        self.notes
+            .iter()
+            .find(|note| note.supersedes == Some(index))
+            .map(|note| note.index)
+    }
+
     pub fn tags_at_capacity(&self) -> bool {
         self.tags.len() >= TAGS_PER_INCIDENT_MAX
     }
@@ -223,6 +262,20 @@ pub fn validate_note_body(body: &str) -> Result<(), crate::error::IncidentError>
     if body.chars().count() > NOTE_BODY_MAX_LEN {
         return Err(crate::error::IncidentError::ValidationError(format!(
             "note body exceeds {NOTE_BODY_MAX_LEN} characters"
+        )));
+    }
+    Ok(())
+}
+
+pub fn validate_redaction_reason(reason: &str) -> Result<(), crate::error::IncidentError> {
+    if reason.trim().is_empty() {
+        return Err(crate::error::IncidentError::ValidationError(
+            "a redaction needs a reason".to_string(),
+        ));
+    }
+    if reason.chars().count() > NOTE_REDACTION_REASON_MAX_LEN {
+        return Err(crate::error::IncidentError::ValidationError(format!(
+            "redaction reason exceeds {NOTE_REDACTION_REASON_MAX_LEN} characters"
         )));
     }
     Ok(())

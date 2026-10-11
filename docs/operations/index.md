@@ -15,5 +15,7 @@ Written so far:
 - [Detection Monitoring](detection-monitoring.md) — Phase 4: the metrics,
   what to alert on, and the ClickHouse queries worth having
 - [Capacity Planning](capacity-planning.md)
+- [Incident Runbook](incident-runbook.md) — Phase 5F: operating the
+  incident manager, its alerts, and the dead-letter procedure
 - [Backup and Restore](backup-and-restore.md) — Phase 5F: the incident
   database, and the drill CI runs on every pull request

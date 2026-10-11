@@ -1,7 +1,7 @@
 # 0013. Incident Identity and the Human-Readable Incident Number
 
-Status: **Accepted (conditional)** — BQ-5 resolved 2026-08-22; crate
-selection and licence review deferred to implementation
+Status: **Accepted** — the condition was met 2026-09-03: `uuid` passed the
+Phase 5B-1 dependency probe ([ADR 0019](0019-phase5b-uuidv7-identity-generation.md))
 Date: 2026-08-22
 Deciders: Repository owner — decided 2026-08-22
 
@@ -222,12 +222,12 @@ seam this allocator implements against.
       review.
 - [x] **FU-24** — resolved 2026-08-24: continuous per-tenant sequence,
       no annual reset (see above).
-- [ ] **BQ-7** — owner approves or refuses new dependencies for Phase 5.
-- [ ] Add `uuid` to
+- [x] **BQ-7** — owner approves or refuses new dependencies for Phase 5.
+- [x] Add `uuid` to
       [dependency-license-matrix.md](../../dependency-license-matrix.md)
-      if BQ-7 is approved.
-- [ ] Verify `uuid` published metadata and licence before adding it.
-- [ ] Implement the tenant-scoped allocator table and checked-increment
+      if BQ-7 is approved (row 32).
+- [x] Verify `uuid` published metadata and licence before adding it.
+- [x] Implement the tenant-scoped allocator table and checked-increment
       allocation at Phase 5B-2/5B-3, replacing
       `InMemoryNumberAllocator` behind the existing `NumberAllocator`
       trait.

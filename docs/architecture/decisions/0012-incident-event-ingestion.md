@@ -1,8 +1,8 @@
 # 0012. Detection-Event Ingestion: Transactional Outbox, At-Least-Once
 
-Status: Proposed
+Status: **Accepted** — 2026-10-05, as amended by ADR 0031 and ADR 0035 (see [Acceptance](#acceptance))
 Date: 2026-08-22
-Deciders: Repository owner (pending review)
+Deciders: Repository owner — accepted 2026-10-05 (Phase 5F) under the owner's standing delegation for Phase 5
 
 ## Context
 
@@ -150,10 +150,32 @@ implied by [ADR 0015](0015-incident-operational-storage.md) — see BQ-7.
 **Operational.** Two new alerts: outbox depth, and dead-letter count
 above zero.
 
+## Acceptance
+
+The decision stands: at-least-once delivery, effectively-once processing,
+and `UNIQUE (tenant_id, dedup_key)` as the duplicate answer. Later ADRs
+changed three mechanics.
+
+- **The detection side is an inbox, not an outbox.** The detector has no
+  database transaction to write an outbox row in. Events reach
+  `detection_event_inbox` through a bounded, non-blocking sink
+  ([ADR 0035](0035-phase5c-detection-event-inbox.md)), which states its
+  small loss window plainly. `incident_outbox` carries the incident
+  domain's own events ([ADR 0033](0033-phase5b-transactional-outbox-and-dead-letter.md)).
+- **Lateness is not decided by `observed_at_ms`.** Decisions use the
+  database's time ([ADR 0031](0031-phase5b-durable-time.md)). Whether an
+  event is late news about a resolved incident is decided by detection
+  identity: an `Ended` event, or an event of an episode the incident
+  already holds, links as evidence and never reopens (threat T-18).
+- **Consumers poll.** `LISTEN`/`NOTIFY` is not used yet.
+
+The two alerts the decision calls for exist as the `outbox_pending` and
+`dead_letter_pending` gauges.
+
 ## Follow-Up
 
-- [ ] **BQ-7** — dependency approval.
+- [x] **BQ-7** — dependency approval.
 - [ ] Revisit when correlation needs more than one node; NATS is the
       recorded direction (ADR 0004).
-- [ ] Runbook entries for outbox backlog and dead-letter review —
-      [operations plan](../../operations/incident-runbook-plan.md).
+- [x] Runbook entries for outbox backlog and dead-letter review —
+      [incident runbook](../../operations/incident-runbook.md).

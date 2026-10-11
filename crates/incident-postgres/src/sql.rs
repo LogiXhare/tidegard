@@ -31,7 +31,9 @@ use wetechinetmon_incident::id::IncidentId;
 use wetechinetmon_incident::incident::Incident;
 
 use crate::error::PersistError;
-use crate::row::{ActorColumns, IncidentRow, NoteRow, PolicyRefRow, SuppressionColumns};
+use crate::row::{
+    ActorColumns, IncidentRow, NoteRedactionColumns, NoteRow, PolicyRefRow, SuppressionColumns,
+};
 
 /// Whether a load takes the row lock ADR 0034's load step needs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,21 +136,53 @@ FROM incidents";
 /// domain's open index holds: everything before `Resolved`.
 const ACTIVE: &str = "state NOT IN ('resolved', 'closed')";
 
+/// `$8` is the `note_index` an edit replaces, resolved to that row's
+/// `note_id`. Notes are written in index order, so it already exists.
 const INSERT_NOTE_IF_ABSENT: &str = "\
 INSERT INTO incident_notes (
-    incident_id, tenant_id, note_index, body, visibility, created_by_type, created_by_id
+    incident_id, tenant_id, note_index, body, visibility, created_by_type, created_by_id,
+    supersedes_note_id
 )
-SELECT $1::text::uuid, $2::text, $3::integer, $4::text, $5::text, $6::text, $7::text
+SELECT $1::text::uuid, $2::text, $3::integer, $4::text, $5::text, $6::text, $7::text, (
+    SELECT note_id FROM incident_notes
+    WHERE incident_id = $1::text::uuid AND note_index = $8::integer
+)
 WHERE NOT EXISTS (
     SELECT 1 FROM incident_notes
     WHERE incident_id = $1::text::uuid AND note_index = $3::integer
 )";
 
+/// Stamps a replaced note once. The `IS NULL` guard keeps the first
+/// time and actor when the incident is saved again.
+const MARK_NOTE_SUPERSEDED: &str = "\
+UPDATE incident_notes
+SET superseded_at = transaction_timestamp(), superseded_by_type = $4, superseded_by_id = $5
+WHERE tenant_id = $2 AND incident_id = $1::text::uuid AND note_index = $3::integer
+    AND superseded_at IS NULL";
+
+/// The one in-place change to a note: the body goes, the record stays.
+const REDACT_NOTE: &str = "\
+UPDATE incident_notes
+SET body = '', redacted_at = transaction_timestamp(), redacted_by_type = $4,
+    redacted_by_id = $5, redaction_reason = $6
+WHERE tenant_id = $2 AND incident_id = $1::text::uuid AND note_index = $3::integer
+    AND redacted_at IS NULL";
+
+/// `earlier` must be on the same incident: the foreign key only holds
+/// the tenant, so a row pointing elsewhere is read as corrupt.
 const SELECT_NOTES: &str = "\
-SELECT note_index, body, visibility, created_by_type, created_by_id
-FROM incident_notes
-WHERE tenant_id = $1 AND incident_id = $2::text::uuid
-ORDER BY note_index";
+SELECT n.note_index, n.body, n.visibility, n.created_by_type, n.created_by_id,
+    n.supersedes_note_id IS NOT NULL AS has_supersedes,
+    earlier.note_index AS supersedes_index,
+    n.redacted_at IS NOT NULL AS redacted, n.redacted_by_type, n.redacted_by_id,
+    n.redaction_reason
+FROM incident_notes n
+LEFT JOIN incident_notes earlier
+    ON earlier.tenant_id = n.tenant_id
+    AND earlier.note_id = n.supersedes_note_id
+    AND earlier.incident_id = n.incident_id
+WHERE n.tenant_id = $1 AND n.incident_id = $2::text::uuid
+ORDER BY n.note_index";
 
 const DELETE_TAGS: &str =
     "DELETE FROM incident_tags WHERE tenant_id = $1 AND incident_id = $2::text::uuid";
@@ -318,11 +352,25 @@ async fn incident_from_row(client: &impl GenericClient, r: Row) -> Result<Incide
         .await?
         .iter()
         .map(|n| {
+            let supersedes: Option<i32> = n.try_get("supersedes_index")?;
+            if n.try_get::<_, bool>("has_supersedes")? != supersedes.is_some() {
+                return Err(PersistError::corrupt(
+                    "supersedes_note_id",
+                    "names a note on another incident",
+                ));
+            }
             Ok(NoteRow {
                 note_index: n.try_get("note_index")?,
                 body: n.try_get("body")?,
                 visibility: n.try_get("visibility")?,
                 created_by: actor(n, "created_by_type", "created_by_id")?,
+                supersedes,
+                redaction: NoteRedactionColumns::from_nullable(
+                    n.try_get("redacted")?,
+                    n.try_get("redacted_by_type")?,
+                    n.try_get("redacted_by_id")?,
+                    n.try_get("redaction_reason")?,
+                )?,
             })
         })
         .collect::<Result<Vec<_>, PersistError>>()?;
@@ -418,9 +466,39 @@ async fn write_children(
                     &note.visibility,
                     &note.created_by.actor_type,
                     &note.created_by.actor_id,
+                    &note.supersedes,
                 ],
             )
             .await?;
+        if let Some(earlier) = note.supersedes {
+            client
+                .execute(
+                    MARK_NOTE_SUPERSEDED,
+                    &[
+                        id,
+                        tenant,
+                        &earlier,
+                        &note.created_by.actor_type,
+                        &note.created_by.actor_id,
+                    ],
+                )
+                .await?;
+        }
+        if let Some(redaction) = &note.redaction {
+            client
+                .execute(
+                    REDACT_NOTE,
+                    &[
+                        id,
+                        tenant,
+                        &note.note_index,
+                        &redaction.by.actor_type,
+                        &redaction.by.actor_id,
+                        &redaction.reason,
+                    ],
+                )
+                .await?;
+        }
     }
     client.execute(DELETE_TAGS, &[tenant, id]).await?;
     for (key, value) in &row.tags {

@@ -335,6 +335,120 @@ async fn transitions_are_idempotent_versioned_and_tenant_scoped() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["items"].as_array().unwrap().len(), 2, "{body}");
 
+    // --- Notes: the author edits, a lead redacts (FU-63) ---
+    let edit_first = format!("{notes}/0/edit");
+    let (status, body) = post(
+        &app,
+        &edit_first,
+        &senior,
+        None,
+        json!({"body": "not mine"}),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "only the author edits: {body}"
+    );
+    assert_eq!(body["error"], "incident.forbidden");
+    let (status, body) = post(
+        &app,
+        &edit_first,
+        &operator,
+        None,
+        json!({"body": "upstream confirms spoofing from one /24"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(body["version"].as_u64().unwrap(), version + 1);
+    version += 1;
+    let (status, body) = post(&app, &edit_first, &operator, None, json!({"body": "again"})).await;
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "a note is replaced once: {body}"
+    );
+    assert_eq!(body["error"], "incident.validation_failed");
+    let (status, body) = post(
+        &app,
+        &format!("{notes}/first/edit"),
+        &operator,
+        None,
+        json!({"body": "x"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
+    let redact_second = format!("{notes}/1/redact");
+    let (status, body) = post(
+        &app,
+        &redact_second,
+        &operator,
+        None,
+        json!({"reason": "credential"}),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "operator lacks incident.note.redact: {body}"
+    );
+    let (status, body) = post(&app, &redact_second, &lead, None, json!({"reason": " "})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let (status, body) = post(
+        &app,
+        &redact_second,
+        &lead,
+        Some(&key("redact")),
+        json!({"reason": "pasted a credential"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["version"].as_u64().unwrap(), version + 1);
+    version += 1;
+
+    let list_notes = |query: &str| {
+        Request::get(format!("{notes}{query}"))
+            .header(header::AUTHORIZATION, format!("Bearer {viewer}"))
+            .body(Body::empty())
+            .unwrap()
+    };
+    let (status, body) = send(&app, list_notes("")).await;
+    assert_eq!(status, StatusCode::OK);
+    let current: Vec<(Value, Value, Value, Value)> = body["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|note| {
+            (
+                note["note_index"].clone(),
+                note["body"].clone(),
+                note["supersedes_note_index"].clone(),
+                note["redacted"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        current,
+        vec![
+            (json!(1), json!(""), Value::Null, json!(true)),
+            (
+                json!(2),
+                json!("upstream confirms spoofing from one /24"),
+                json!(0),
+                json!(false)
+            ),
+        ],
+        "the replaced note is hidden and the redacted one is empty"
+    );
+    let (status, body) = send(&app, list_notes("?include_superseded=true")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["items"][0]["note_index"], 0);
+    assert_eq!(body["items"][0]["body"], "upstream confirms spoofing");
+    assert_eq!(body["items"][0]["superseded_by_note_index"], 2);
+    let (status, body) = send(&app, list_notes("?include_superseded=maybe")).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+
     // --- Tags: PUT sets, DELETE removes, only with incident.update ---
     let tag = format!("{base}/tags/env");
     let put_tag = |token: &str, value: &str| {
@@ -432,6 +546,34 @@ async fn transitions_are_idempotent_versioned_and_tenant_scoped() {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["priority"], "P4");
     version += 1;
+
+    // T-20: the audit trail alone shows each change, with both values.
+    let (status, audit) = send(
+        &app,
+        Request::get(format!("{base}/audit?limit=200"))
+            .header(header::AUTHORIZATION, format!("Bearer {lead}"))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{audit}");
+    let allowed = |action: &str| {
+        audit["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["action"] == action && entry["result"] == "allowed")
+            .cloned()
+            .unwrap_or_else(|| panic!("no allowed {action} entry: {audit}"))
+    };
+    let severity = allowed("incident_severity_change");
+    assert_eq!(severity["after"], json!({"severity": "minor"}));
+    assert!(severity["before"]["severity"].is_string(), "{severity}");
+    assert_ne!(severity["before"], severity["after"]);
+    assert_eq!(severity["reason"], "host stable");
+    let priority = allowed("incident_priority_change");
+    assert_eq!(priority["after"], json!({"priority": "P4"}));
+    assert!(priority["before"]["priority"].is_string(), "{priority}");
 
     let (status, body) = step(
         "investigate",

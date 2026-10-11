@@ -72,6 +72,9 @@ foreclose them:
   phases even though tenant *isolation enforcement* (RBAC, SSO) ships later
   — retrofitting tenant IDs into schemas after the fact is expensive and
   error-prone.
+- For incident management, the seams an Enterprise build may extend, and
+  the correctness invariants it may never replace, are fixed by
+  [ADR 0017](architecture/decisions/0017-incident-community-enterprise-boundary.md).
 
 ## 5. Licensing Posture for the Product Itself
 
