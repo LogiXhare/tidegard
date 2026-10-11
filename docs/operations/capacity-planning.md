@@ -1,6 +1,8 @@
 # Capacity Planning
 
-Status: Phase 3 — target defined, **not yet benchmarked**.
+Status: The flow-rate target (Phase 3) is **not yet benchmarked**. The
+incident database **was benchmarked on 2026-10-05** (Phase 5F); see
+[Incident persistence, measured](#incident-persistence-measured).
 
 ## Performance Target
 
@@ -72,7 +74,98 @@ outage) or treat ClickHouse analytics data as best-effort and rely on
 Prometheus metrics (which are not subject to this trade-off) for
 operational alerting during an outage.
 
-## PostgreSQL (Phase 5B, planning only — nothing below is measured)
+## Incident persistence, measured
+
+Measured 2026-10-05 by the Benchmark workflow,
+[run 37316065893](https://github.com/LogiXhare/wetechi-netmon/actions/runs/37316065893),
+at commit `0f0dd71`. The harness is
+`crates/incident-postgres/tests/benchmark.rs`. Anyone can rerun it from
+the Actions tab.
+
+**Machine.** A GitHub-hosted `ubuntu-latest` runner:
+
+- AMD EPYC 9V74, 4 vCPUs;
+- 15 GiB of memory;
+- Linux 6.17 (Azure).
+
+**Database.** PostgreSQL 17.11 (`postgres:17-alpine`) on the same host:
+
+- default settings;
+- data on the runner's disk, so every commit pays for a real fsync;
+- client and server talk over loopback TCP.
+
+**Method.** The service is wired as the API wires it, with UUIDv7 ids and
+the system clock. Each operation is called 300 times in sequence on one
+connection. Latency is the whole call, measured at the client, including
+every round trip the service makes.
+
+### Latency at 10,000 incidents of history
+
+| Operation | p50 ms | p95 ms | p99 ms | max ms |
+|---|---:|---:|---:|---:|
+| Create an incident (opening event) | 11.39 | 12.25 | 14.40 | 17.18 |
+| Link an update to an open incident | 8.84 | 9.39 | 10.91 | 16.91 |
+| Refuse a duplicate event | 1.06 | 1.12 | 1.16 | 1.17 |
+| Acknowledge (versioned, with an idempotency key) | 9.23 | 10.77 | 16.59 | 26.73 |
+| Replay an idempotent request | 5.07 | 5.52 | 5.97 | 6.10 |
+| Add a note | 8.99 | 10.47 | 13.07 | 22.68 |
+| List the newest 50 incidents | 0.88 | 0.93 | 1.09 | 2.02 |
+| List 50 acknowledged incidents | 1.44 | 1.53 | 2.18 | 2.85 |
+| Read an incident's timeline | 1.15 | 1.27 | 1.42 | 1.70 |
+| Claim and publish an outbox batch of up to 100 | 4.19 | 73.45 | 78.97 | 158.33 |
+
+At 1,000 incidents of history, every p50 was lower than these, by up to
+about 20%. The outbox figure is the exception (see below). The full tables for both sizes are in the run's job
+summary.
+
+### Concurrent incident creation in one tenant
+
+| Writers | Incidents | Seconds | Incidents/s |
+|---:|---:|---:|---:|
+| 1 | 200 | 2.1 | 95 |
+| 4 | 800 | 7.0 | 114 |
+| 8 | 1,600 | 14.9 | 108 |
+
+### What the numbers say
+
+- **A write is about 9–11 ms, and a read about 1 ms.** Each write is one
+  transaction holding several statements: the incident, the timeline, the
+  audit trail and the outbox (ADR 0034). It ends in one fsync.
+- **History matters little at this size.** Growing from 1,000 to 10,000
+  incidents slowed writes by about 15–20%, and reads by at most a few
+  tenths of a millisecond. The list
+  and timeline queries use their indexes.
+- **New incidents in one tenant top out near 100–115 per second, whatever
+  the number of writers.** Each new incident takes the next number from
+  that tenant's allocator row, under a row lock. The design wants this:
+  numbers are gapless and per tenant
+  ([ADR 0013](../architecture/decisions/0013-incident-identity.md)).
+  Updates to existing incidents do not take that lock. A real attack wave
+  opens incidents in the tens, not thousands per second, so the ceiling
+  leaves wide headroom.
+- **The outbox figure is bimodal.** A claim that finds a full batch
+  publishes 100 rows, one acknowledgement each, which takes about 70 ms.
+  A claim that finds nothing takes about 1 ms. The p50 is mostly the
+  second case. No consumer exists in Phase 5 (FU-62).
+- **Pool sizing.** One tenant gains nothing past about four concurrent
+  writers. The default pool of 16 per process is therefore enough for a
+  single node. Raise it only for many busy tenants, and only if
+  `max_connections` has room.
+
+### How far to trust them
+
+- **Shared runners vary.** An earlier run of the same code on another
+  runner ([run 37314862055](https://github.com/LogiXhare/wetechi-netmon/actions/runs/37314862055))
+  was 30–40% faster on writes: about 5–7 ms at p50, with 149–186
+  incidents/s. Read the numbers as an order of magnitude and as a
+  baseline for regressions, not as a guarantee.
+- **They are not a production figure.** A database on another host adds
+  the network round trip to every statement. A tuned server, faster
+  storage or `synchronous_commit` settings move the write numbers in
+  either direction.
+- The API's own HTTP, authentication and JSON costs are not included.
+
+## PostgreSQL planning inputs (Phase 5B)
 
 Added 2026-08-24 during Phase 5B PostgreSQL-persistence planning. Every
 figure here is a **planning input**, not a benchmark result — the
@@ -113,9 +206,9 @@ defines what will actually be measured at Milestone 5B-5.
 - No sustained-throughput benchmark has been run.
 - No memory-under-load measurement has been taken.
 - No latency-under-load (P50/P95/P99) figures exist yet.
-- No PostgreSQL transaction-latency, pool-sizing, or index-growth
-  measurement has been taken — Phase 5B has not been implemented.
+- PostgreSQL latency and throughput for the incident database **are**
+  measured, above. Index growth beyond 10,000 incidents, and latency
+  through the HTTP API, are not.
 
-All of the above are legitimate Phase 9 (or Phase 5B-5, for the
-PostgreSQL figures specifically) deliverables once a documented test
-machine and load-generation setup exist.
+The rest are Phase 9 deliverables, once a documented test machine and a
+load-generation setup exist.
