@@ -8,7 +8,8 @@ with a session cookie
 
 **Status:** Phase 6D, in progress. Built so far: signing in and out, the
 incident list, an incident's page with its notes, timeline and actions,
-and the NOC overview. The end-to-end tests come next.
+and the NOC overview. End-to-end tests run the UI in a real browser
+against the real API in CI.
 
 The overview shows active incidents by severity, and, for the traffic
 tenant only (ADR 0042), traffic over the last hour, the top hosts and
@@ -50,6 +51,7 @@ For development, `npm run dev` serves the UI on Vite's port and proxies
 | `npm run build` | A production build with no inline script or style |
 | `npm audit` | No known high or critical vulnerability |
 | `npm run licences` | Every licence is on the allowlist, stricter for what ships |
+| `npm run e2e` | Playwright, against a running stack: `E2E_BASE_URL` and `E2E_TOKEN` (a noc_lead token) |
 
 CI runs all of them in the **Web UI** job.
 

@@ -18,5 +18,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // e2e/ is Playwright's, run against a live stack.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",
-    "licences": "node scripts/check-licences.mjs"
+    "licences": "node scripts/check-licences.mjs",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "react": "19.3.0",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@types/react": "19.3.0",
