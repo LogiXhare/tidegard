@@ -54,6 +54,8 @@ pub enum OperatorCommandKind {
     Claim,
     Release,
     AddNote,
+    EditNote,
+    RedactNote,
     ChangeSeverity,
     ChangePriority,
     AddTag,
@@ -107,6 +109,16 @@ pub enum TimelinePayload {
     NoteAdded {
         note_index: u32,
     },
+    /// An edit: note `by_note_index` replaces note `note_index`.
+    NoteSuperseded {
+        note_index: u32,
+        by_note_index: u32,
+    },
+    /// The reason is on the audit entry, not here: the timeline is read
+    /// more widely than the audit trail.
+    NoteRedacted {
+        note_index: u32,
+    },
     Suppressed {
         reason: String,
     },
@@ -148,6 +160,8 @@ impl TimelinePayload {
             TimelinePayload::PriorityChanged { .. } => "priority_changed",
             TimelinePayload::AssignmentChanged { .. } => "assignment_changed",
             TimelinePayload::NoteAdded { .. } => "note_added",
+            TimelinePayload::NoteSuperseded { .. } => "note_superseded",
+            TimelinePayload::NoteRedacted { .. } => "note_redacted",
             TimelinePayload::Suppressed { .. } => "suppressed",
             TimelinePayload::Unsuppressed => "unsuppressed",
             TimelinePayload::Reopened { .. } => "reopened",

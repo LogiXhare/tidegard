@@ -98,12 +98,32 @@ pub enum Action {
     Note {
         body: String,
     },
+    /// Replace your own note; the original stays, marked superseded.
+    NoteEdit {
+        index: u32,
+        body: String,
+    },
+    NoteRedact {
+        index: u32,
+        reason: String,
+    },
 }
 
 impl Action {
     /// The API action path below `/incidents/{id}/`.
-    pub fn path(&self) -> &'static str {
+    pub fn path(&self) -> String {
         match self {
+            Action::NoteEdit { index, .. } => format!("notes/{index}/edit"),
+            Action::NoteRedact { index, .. } => format!("notes/{index}/redact"),
+            other => other.verb().to_string(),
+        }
+    }
+
+    /// What the action is called in messages.
+    pub fn verb(&self) -> &'static str {
+        match self {
+            Action::NoteEdit { .. } => "note edit",
+            Action::NoteRedact { .. } => "note redact",
             Action::Acknowledge => "acknowledge",
             Action::Investigate => "investigate",
             Action::Monitor => "monitor",
@@ -120,9 +140,12 @@ impl Action {
         }
     }
 
-    /// Whether the API needs `expected_version`. A note does not.
+    /// Whether the API needs `expected_version`. A note change does not.
     pub fn is_versioned(&self) -> bool {
-        !matches!(self, Action::Note { .. })
+        !matches!(
+            self,
+            Action::Note { .. } | Action::NoteEdit { .. } | Action::NoteRedact { .. }
+        )
     }
 }
 
@@ -217,6 +240,8 @@ Changing (each reads the current version first unless --expected-version):
   incidents severity set INCIDENT LEVEL [--reason TEXT]   (confirms when lowering)
   incidents priority set INCIDENT LEVEL
   incidents note add INCIDENT --message TEXT
+  incidents note edit INCIDENT INDEX --message TEXT   (your own note)
+  incidents note redact INCIDENT INDEX --reason TEXT   (confirms)
   incidents claim INCIDENT                 (assign to yourself)
   incidents tag set INCIDENT KEY VALUE
   incidents tag remove INCIDENT KEY
@@ -492,6 +517,26 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
             let body = flags.require("message", "note add")?;
             change(flags, "note add", reference(id), Action::Note { body })?
         }
+        ["incidents", "note", "edit", id, index] => {
+            let index = note_index(index)?;
+            let body = flags.require("message", "note edit")?;
+            change(
+                flags,
+                "note edit",
+                reference(id),
+                Action::NoteEdit { index, body },
+            )?
+        }
+        ["incidents", "note", "redact", id, index] => {
+            let index = note_index(index)?;
+            let reason = flags.require("reason", "note redact")?;
+            change(
+                flags,
+                "note redact",
+                reference(id),
+                Action::NoteRedact { index, reason },
+            )?
+        }
         ["incidents", "open"] => {
             let address_family = match flags.take("address_family")? {
                 Some(text) => Some(
@@ -627,6 +672,13 @@ fn is_change_verb(verb: &str) -> bool {
 
 /// A change command: takes `--expected-version` (not for a note) and
 /// `--yes`, and refuses any other leftover flag.
+/// A note's position, as `incidents note list` shows it after `#`.
+fn note_index(text: &str) -> Result<u32, UsageError> {
+    text.trim_start_matches('#')
+        .parse()
+        .map_err(|_| usage("INDEX is a note's number, such as 3 or #3"))
+}
+
 fn change(
     mut flags: Flags,
     verb: &str,
@@ -782,6 +834,28 @@ mod tests {
                 body: "hello".into()
             }
         );
+        assert_eq!(
+            action("incidents note edit X 3 --message better"),
+            Action::NoteEdit {
+                index: 3,
+                body: "better".into()
+            }
+        );
+        assert_eq!(
+            action("incidents note redact X #2 --reason pasted-a-key"),
+            Action::NoteRedact {
+                index: 2,
+                reason: "pasted-a-key".into()
+            }
+        );
+        assert_eq!(
+            Action::NoteRedact {
+                index: 2,
+                reason: String::new()
+            }
+            .path(),
+            "notes/2/redact"
+        );
     }
 
     #[test]
@@ -905,6 +979,10 @@ mod tests {
             "incidents acknowledge X --expected-version six",
             "incidents note add X --message m --expected-version 3",
             "incidents note add X",
+            "incidents note edit X 1",
+            "incidents note edit X one --message m",
+            "incidents note edit X 1 --message m --expected-version 3",
+            "incidents note redact X 1",
             "incidents severity set X",
             "incidents --yes=true acknowledge X",
             "incidents open --title t --severity major",

@@ -97,6 +97,14 @@ pub fn router(state: AppState) -> Router {
             get(history::notes).post(transitions::add_note),
         )
         .route(
+            "/incidents/{incident_id}/notes/{note_index}/edit",
+            post(transitions::edit_note),
+        )
+        .route(
+            "/incidents/{incident_id}/notes/{note_index}/redact",
+            post(transitions::redact_note),
+        )
+        .route(
             "/incidents/{incident_id}/detections",
             get(history::detections),
         )

@@ -301,6 +301,124 @@ async fn the_service_commits_each_call_whole_and_a_killed_flush_commits_nothing(
         .unwrap();
     assert_eq!(hidden, Err(IncidentError::NotFound));
 
+    // --- FU-63: an edit supersedes, a redaction empties the body ---
+    let first_new = scalar(
+        &client,
+        "SELECT count(*) FROM incident_notes WHERE incident_id = $1::text::uuid",
+        &[&id_text],
+    )
+    .await as u32;
+    for command in [
+        Command::AddNote {
+            body: "router password is hunter2".to_string(),
+            visibility: NoteVisibility::Internal,
+        },
+        Command::EditNote {
+            note_index: first_new,
+            body: "router password rotated".to_string(),
+        },
+        Command::RedactNote {
+            note_index: first_new,
+            reason: "pasted a credential".to_string(),
+        },
+    ] {
+        service
+            .handle_command(&mut client, &noc, id, command, None)
+            .await
+            .unwrap()
+            .expect("the note command commits");
+    }
+    const NOTE_PAIR: &str = "\
+SELECT original.body, original.superseded_at IS NOT NULL AS superseded,
+    original.superseded_by_type, original.superseded_by_id,
+    original.redacted_at IS NOT NULL AS redacted, original.redacted_by_id,
+    original.redaction_reason, original.redacted_at::text AS redacted_at,
+    edit.supersedes_note_id = original.note_id AS linked, edit.body AS edit_body
+FROM incident_notes original
+JOIN incident_notes edit
+    ON edit.incident_id = original.incident_id AND edit.note_index = original.note_index + 1
+WHERE original.incident_id = $1::text::uuid AND original.note_index = $2::integer";
+    let original_index = first_new as i32;
+    let pair = client
+        .query_one(NOTE_PAIR, &[&id_text, &original_index])
+        .await
+        .unwrap();
+    assert_eq!(pair.get::<_, String>("body"), "");
+    assert!(pair.get::<_, bool>("superseded"));
+    assert_eq!(
+        pair.get::<_, Option<String>>("superseded_by_type")
+            .as_deref(),
+        Some("operator")
+    );
+    assert_eq!(
+        pair.get::<_, Option<String>>("superseded_by_id").as_deref(),
+        Some("op-7")
+    );
+    assert!(pair.get::<_, bool>("redacted"));
+    assert_eq!(
+        pair.get::<_, Option<String>>("redacted_by_id").as_deref(),
+        Some("op-7")
+    );
+    assert_eq!(
+        pair.get::<_, Option<String>>("redaction_reason").as_deref(),
+        Some("pasted a credential")
+    );
+    assert!(pair.get::<_, bool>("linked"));
+    assert_eq!(
+        pair.get::<_, String>("edit_body"),
+        "router password rotated"
+    );
+    let redacted_at: String = pair.get("redacted_at");
+    assert_eq!(
+        scalar(
+            &client,
+            "SELECT count(*) FROM incident_timeline WHERE incident_id = $1::text::uuid \
+             AND entry_type IN ('note_superseded', 'note_redacted')",
+            &[&id_text]
+        )
+        .await,
+        2
+    );
+    for table in ["incident_notes", "incident_timeline", "incident_audit"] {
+        let sql = format!("SELECT count(*) FROM {table} t WHERE t::text LIKE '%hunter2%'");
+        assert_eq!(scalar(&client, &sql, &[]).await, 0, "{table}");
+    }
+
+    // A later save rewrites every note: the stamps keep their first value.
+    service
+        .handle_command(
+            &mut client,
+            &noc,
+            id,
+            Command::AddNote {
+                body: "after the redaction".to_string(),
+                visibility: NoteVisibility::Internal,
+            },
+            None,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let again = client
+        .query_one(NOTE_PAIR, &[&id_text, &original_index])
+        .await
+        .unwrap();
+    assert_eq!(again.get::<_, String>("redacted_at"), redacted_at);
+    let reloaded = load_incident(&client, &tenant, &id, Locking::NoLock)
+        .await
+        .unwrap()
+        .unwrap();
+    let original = &reloaded.notes[first_new as usize];
+    assert_eq!(
+        original.redaction.as_ref().map(|r| r.reason.as_str()),
+        Some("pasted a credential")
+    );
+    assert_eq!(
+        reloaded.notes[first_new as usize + 1].supersedes,
+        Some(first_new)
+    );
+    assert_eq!(reloaded.note_superseded_by(first_new), Some(first_new + 1));
+
     // --- FU-44: a connection killed mid-flush commits nothing ---
     let killer = connect(&url).await;
     let umbrella = TenantId::new("umbrella");

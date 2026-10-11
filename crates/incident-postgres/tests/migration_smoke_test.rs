@@ -117,8 +117,8 @@ async fn migrations_apply_cleanly_are_idempotent_and_produce_the_expected_schema
         .expect("all migrations must apply cleanly against an empty schema");
     assert_eq!(
         report.applied_migrations().len(),
-        16,
-        "expected all 16 migration files (V1..V16) to apply on a fresh schema"
+        17,
+        "expected all 17 migration files (V1..V17) to apply on a fresh schema"
     );
 
     // --- Idempotency: refinery's own guarantee ---

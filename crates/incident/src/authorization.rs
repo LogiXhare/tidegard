@@ -26,6 +26,9 @@ pub enum Permission {
     IncidentAssign,
     IncidentInvestigate,
     IncidentNoteCreate,
+    /// Remove a note's body, keeping the record that it existed. Held by
+    /// `noc_lead` and above: it removes another operator's words.
+    IncidentNoteRedact,
     IncidentNoteCustomerVisible,
     IncidentSeverityChange,
     IncidentPriorityChange,
@@ -60,6 +63,7 @@ impl Permission {
             IncidentAssign => "incident.assign",
             IncidentInvestigate => "incident.investigate",
             IncidentNoteCreate => "incident.note.create",
+            IncidentNoteRedact => "incident.note.redact",
             IncidentNoteCustomerVisible => "incident.note.customer_visible",
             IncidentSeverityChange => "incident.severity.change",
             IncidentPriorityChange => "incident.priority.change",
@@ -199,6 +203,7 @@ impl PermissionResolver for FixedBundleResolver {
                 IncidentAuditRead,
                 IncidentConfigRead,
                 IncidentUpdate,
+                IncidentNoteRedact,
             ]);
             v
         };

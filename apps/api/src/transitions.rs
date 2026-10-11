@@ -560,6 +560,150 @@ pub async fn add_note(
 
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
+pub struct NoteEditRequest {
+    /// The replacement text. Untrusted, stored and returned verbatim.
+    pub body: String,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NoteRedactRequest {
+    /// Required, up to 500 characters. Recorded on the audit trail.
+    pub reason: String,
+}
+
+/// The common part of both note-change endpoints: limit, parse, decide.
+async fn note_change<T: DeserializeOwned>(
+    state: AppState,
+    principal: Principal,
+    (incident_id, note_index): (String, String),
+    headers: HeaderMap,
+    body: Result<Bytes, BytesRejection>,
+    command: impl FnOnce(u32, T) -> Command,
+) -> Result<IncidentView, Problem> {
+    limit(&state.limits.mutations, &principal)?;
+    let id = parse_id(&incident_id)?;
+    let note_index = note_index.parse::<u32>().map_err(|_| {
+        Problem::new(ErrorCode::InvalidRequest)
+            .with_detail("the note index must be a non-negative integer")
+    })?;
+    let key = optional_key(&headers, false)?;
+    let command = command(note_index, crate::body::json(&headers, body)?);
+    execute(&state, &principal, id, key, command).await
+}
+
+/// Replaces your own note with new text. Needs `incident.note.create`,
+/// and the note must be yours.
+///
+/// The original stays, marked superseded: `GET .../notes` shows the
+/// replacement, and `include_superseded=true` shows both. A note is
+/// replaced once; to change the text again, edit the replacement.
+#[utoipa::path(
+    post,
+    path = "/api/v1/incidents/{incident_id}/notes/{note_index}/edit",
+    tag = "incidents",
+    params(
+        ("incident_id" = String, Path, description = "The incident's UUID"),
+        ("note_index" = u32, Path, description = "The note to replace"),
+        ("Idempotency-Key" = Option<String>, Header, description = "Optional; 16 to 255 characters"),
+    ),
+    request_body(content = NoteEditRequest, content_type = "application/json"),
+    security(("bearer" = [])),
+    responses(
+        (status = 201, description = "The incident with the replacement note added", body = IncidentView),
+        (status = 400, description = "Bad id, index, header or body, or an unknown field", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 401, description = "No usable token", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 403, description = "The role lacks incident.note.create, or the note is someone else's", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 404, description = "No such incident in the caller's tenant", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 409, description = "The note limit is reached, or the key was reused", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 413, description = "The body is over 64 KiB", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 415, description = "The body is not application/json", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 422, description = "No such note, it was already replaced or redacted, or the text is too long", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 429, description = "Rate limited", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 503, description = "The database is unreachable", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+    )
+)]
+pub async fn edit_note(
+    State(state): State<AppState>,
+    Extension(principal): Extension<Principal>,
+    Path(path): Path<(String, String)>,
+    headers: HeaderMap,
+    body: Result<Bytes, BytesRejection>,
+) -> Response {
+    let result = note_change(
+        state,
+        principal,
+        path,
+        headers,
+        body,
+        |note_index, request: NoteEditRequest| Command::EditNote {
+            note_index,
+            body: request.body,
+        },
+    )
+    .await;
+    match result {
+        Ok(view) => (StatusCode::CREATED, Json(view)).into_response(),
+        Err(problem) => problem.into_response(),
+    }
+}
+
+/// Removes a note's body, keeping the note and the record of who removed
+/// it and why. Needs `incident.note.redact` (`noc_lead` and above).
+///
+/// For words that must go, such as a pasted credential. A replaced note
+/// can be redacted too. A note is redacted once.
+#[utoipa::path(
+    post,
+    path = "/api/v1/incidents/{incident_id}/notes/{note_index}/redact",
+    tag = "incidents",
+    params(
+        ("incident_id" = String, Path, description = "The incident's UUID"),
+        ("note_index" = u32, Path, description = "The note to redact"),
+        ("Idempotency-Key" = Option<String>, Header, description = "Optional; 16 to 255 characters"),
+    ),
+    request_body(content = NoteRedactRequest, content_type = "application/json"),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, description = "The incident with the note redacted", body = IncidentView),
+        (status = 400, description = "Bad id, index, header or body, or an unknown field", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 401, description = "No usable token", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 403, description = "The role lacks incident.note.redact", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 404, description = "No such incident in the caller's tenant", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 409, description = "The key was reused", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 415, description = "The body is not application/json", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 422, description = "No such note, it is already redacted, or the reason is blank or too long", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 429, description = "Rate limited", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+        (status = 503, description = "The database is unreachable", body = crate::openapi::ProblemDocument, content_type = "application/problem+json"),
+    )
+)]
+pub async fn redact_note(
+    State(state): State<AppState>,
+    Extension(principal): Extension<Principal>,
+    Path(path): Path<(String, String)>,
+    headers: HeaderMap,
+    body: Result<Bytes, BytesRejection>,
+) -> Response {
+    let result = note_change(
+        state,
+        principal,
+        path,
+        headers,
+        body,
+        |note_index, request: NoteRedactRequest| Command::RedactNote {
+            note_index,
+            reason: request.reason,
+        },
+    )
+    .await;
+    match result {
+        Ok(view) => Json(view).into_response(),
+        Err(problem) => problem.into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TagRequest {
     /// Up to 256 characters.
     pub value: String,
