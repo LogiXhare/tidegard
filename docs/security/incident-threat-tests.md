@@ -1,6 +1,6 @@
 # Incident Threat Tests
 
-Status: **Phase 5F security review**, 2026-10-05.
+Status: **Phase 5F security review**, 2026-10-05; T-08 updated in Phase 6D, 2026-10-12.
 
 This maps each threat in the [threat model](incident-threat-model.md) to
 the tests that prove its control. Gate 2 requires that every threat has a
@@ -45,7 +45,7 @@ jobs must show the test as `ok`, and it must not have skipped.
 | T-05 Tenant escape | Met | `apps/api/tests/tenant_isolation.rs` (operations read from the OpenAPI document); `apps/api/tests/list_incidents.rs`; residual risk R16 (no row-level security until Phase 8) |
 | T-06 Unauthorized state transition | Met | `crates/incident/tests/threats.rs` `every_command_is_allowed_exactly_by_its_permission_for_every_role` (17 commands × 4 roles plus ingestion; a refusal changes nothing and is audited) |
 | T-07 Malicious note content | Met | `apps/api/tests/threats.rs` (markup, SQL, JSON, line breaks, bidi control and a 4,000-character line round-trip byte for byte; NUL is `400`); `apps/cli/src/output.rs` `control_characters_never_reach_the_terminal` |
-| T-08 Stored XSS | Deferred | There is no UI in Phase 5. Escaping on output is a Phase 6 acceptance item (R17). The API returns text verbatim as JSON, and the CLI strips control characters. |
+| T-08 Stored XSS | Met (Phase 6D) | Four layers, each tested ([ADR 0044](../architecture/decisions/0044-phase6d-noc-ui.md)): React renders strings as text; an ESLint rule refuses every way of handing HTML to the DOM, and `apps/web/src/lint.test.ts` proves the rule; component tests render hostile titles, notes, targets and assignees as text (`Incidents.test.tsx`, `IncidentDetail.test.tsx`, `Overview.test.tsx`); and the page's Content-Security-Policy refuses inline script. `apps/web/e2e/lifecycle.spec.ts` stores a hostile note through the real API and checks, in a real browser, that it shows as text and never runs. The API still returns text verbatim, and the CLI strips control characters. |
 | T-09 Audit-log injection | Met | `apps/api/tests/threats.rs` (a reason holding newlines and JSON makes exactly one audit row and one note, stored byte for byte); audit rows are JSONB written from typed values |
 | T-10 SQL injection | Met | `apps/api/tests/threats.rs` (payloads in `sort`, `order`, `state`, `cursor`, `incident_number`, the time range and a tag key are refused or stored as data, and the table is intact); `crates/incident-postgres/src/queries.rs` `the_tenant_is_always_the_first_parameter` (parameters, never interpolation) |
 | T-11 Query exhaustion | Met | `apps/api/src/list.rs` unit tests (page size capped at 200, 90-day ranges, unknown parameters refused); `apps/api/tests/list_incidents.rs` |
@@ -72,10 +72,10 @@ jobs must show the test as `ok`, and it must not have skipped.
 
 | Status | Count |
 |---|---|
-| Met | 25 |
+| Met | 26 |
 | Met, as implemented | 2 (T-03, T-18) |
 | Partial | 1 (T-21 → FU-60) |
-| Deferred | 1 (T-08 → Phase 6, R17) |
+| Deferred | 0 |
 
 One of the 29 threats is partial, so the Gate 2 criterion "every threat
 has a passing test" is not fully met. T-21 needs a user directory, which
