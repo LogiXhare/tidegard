@@ -19,6 +19,8 @@ name: Validate
 #              Linux
 #   postgres — Rust plus an ephemeral PostgreSQL service container, once
 #              per supported version (ADR 0025), for crates/incident-postgres
+#   grafana  — Rust plus throwaway ClickHouse, Prometheus and Grafana
+#              containers, to run every dashboard query for real (ADR 0041)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -174,6 +176,91 @@ jobs:
           DRILL_PG_TOOL: docker exec -i ${{ job.services.postgres.id }}
           DRILL_WORK_DIR: ${{ runner.temp }}/backup-drill
         run: bash scripts/postgres-backup-restore-drill.sh
+
+  grafana:
+    name: Grafana dashboards (live queries)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Throwaway credentials for containers that live only in this job.
+      CLICKHOUSE_USER: wnm_ci
+      CLICKHOUSE_PASSWORD: ci-only-clickhouse
+      GRAFANA_AUTH: admin:ci-only-grafana
+      GRAFANA_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start ClickHouse and Prometheus
+        run: |
+          set -euo pipefail
+          docker network create wnm
+          docker run -d --name clickhouse --network wnm -p 127.0.0.1:8123:8123 \
+            -e CLICKHOUSE_USER -e CLICKHOUSE_PASSWORD \
+            -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+            clickhouse/clickhouse-server:26.8.24.9
+          docker run -d --name prometheus --network wnm prom/prometheus:v3.13.4
+          for _ in $(seq 60); do
+            curl -sf http://127.0.0.1:8123/ping >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8123/ping
+      - name: Create the ClickHouse schema (the first run on a real server)
+        run: |
+          set -euo pipefail
+          cargo run --quiet -p wetechinetmon-dashboard-check --bin clickhouse-schema > schema.sql
+          while IFS= read -r statement; do
+            curl -sS --fail-with-body --user "$CLICKHOUSE_USER:$CLICKHOUSE_PASSWORD" \
+              --data-binary "$statement" http://127.0.0.1:8123/
+          done < schema.sql
+          curl -sS --fail-with-body --user "$CLICKHOUSE_USER:$CLICKHOUSE_PASSWORD" \
+            --data-binary "SELECT name FROM system.tables WHERE database = 'default' ORDER BY name" \
+            http://127.0.0.1:8123/
+      - name: Start Grafana with the shipped dashboards
+        run: |
+          set -euo pipefail
+          # CI's own datasources: plain HTTP inside this job's private
+          # network. The shipped example uses TLS.
+          mkdir -p ci-datasources
+          cat > ci-datasources/ci.yaml <<'EOF'
+          apiVersion: 1
+          datasources:
+            - name: CI Prometheus
+              uid: wnm-prometheus
+              type: prometheus
+              access: proxy
+              url: http://prometheus:9090
+            - name: CI ClickHouse
+              uid: wnm-clickhouse
+              type: grafana-clickhouse-datasource
+              jsonData:
+                host: clickhouse
+                port: 8123
+                protocol: http
+                secure: false
+                username: $CLICKHOUSE_USER
+                defaultDatabase: default
+              secureJsonData:
+                password: $CLICKHOUSE_PASSWORD
+          EOF
+          docker run -d --name grafana --network wnm -p 127.0.0.1:3000:3000 \
+            -e GF_SECURITY_ADMIN_PASSWORD="${GRAFANA_AUTH#admin:}" \
+            -e GF_PLUGINS_PREINSTALL_SYNC=grafana-clickhouse-datasource@4.21.3 \
+            -e CLICKHOUSE_USER -e CLICKHOUSE_PASSWORD \
+            -v "$PWD/ci-datasources:/etc/grafana/provisioning/datasources:ro" \
+            -v "$PWD/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro" \
+            -v "$PWD/grafana/dashboards:/var/lib/grafana/dashboards/wetechinetmon:ro" \
+            grafana/grafana:13.2.3
+          for _ in $(seq 120); do
+            curl -sf "$GRAFANA_URL/api/health" >/dev/null && break
+            sleep 1
+          done
+          curl -sf "$GRAFANA_URL/api/health"
+      - name: Run every panel query
+        run: scripts/grafana-dashboard-live-check.sh grafana/dashboards
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs grafana 2>&1 | tail -n 100
+          docker logs clickhouse 2>&1 | tail -n 50
 
   docs:
     name: Docs (Markdown, YAML, links, MkDocs)

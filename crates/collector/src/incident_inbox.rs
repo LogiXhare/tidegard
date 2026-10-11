@@ -17,6 +17,7 @@
 use std::time::Duration;
 
 use deadpool_postgres::Pool;
+use prometheus::core::Collector;
 use prometheus::{IntCounter, IntGauge, Registry};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -56,11 +57,18 @@ impl InboxMetrics {
                 "Failed writes to the incident inbox; each is retried.",
             )?,
         };
-        registry.register(Box::new(metrics.queued.clone()))?;
-        registry.register(Box::new(metrics.written_total.clone()))?;
-        registry.register(Box::new(metrics.write_failures_total.clone()))?;
+        for collector in metrics.collectors() {
+            registry.register(collector)?;
+        }
         Ok(metrics)
     }
+}
+
+/// The incident inbox metrics, by name, for the Grafana dashboard check.
+pub(crate) fn metric_names() -> Vec<String> {
+    InboxMetrics::new(&Registry::new())
+        .expect("a fresh registry has no collisions")
+        .metric_names()
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -173,6 +181,33 @@ impl IncidentInbox {
         }
         self.metrics.queued.set(self.router.queued() as i64);
         total
+    }
+}
+
+impl InboxMetrics {
+    /// Every metric this owns. `new` registers exactly these and
+    /// `metric_names` reads them, so `/metrics` and the Grafana dashboard
+    /// check (ADR 0041) cannot disagree about what exists.
+    fn collectors(&self) -> Vec<Box<dyn Collector>> {
+        vec![
+            Box::new(self.queued.clone()),
+            Box::new(self.written_total.clone()),
+            Box::new(self.write_failures_total.clone()),
+        ]
+    }
+
+    /// The fully qualified name of every metric this owns.
+    pub(crate) fn metric_names(&self) -> Vec<String> {
+        self.collectors()
+            .iter()
+            .flat_map(|collector| {
+                collector
+                    .desc()
+                    .into_iter()
+                    .map(|desc| desc.fq_name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .collect()
     }
 }
 

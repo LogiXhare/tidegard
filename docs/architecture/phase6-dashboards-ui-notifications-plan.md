@@ -66,6 +66,8 @@ JSON works in any Grafana. CI validates each dashboard:
 **Exit:** the dashboards load in a Grafana started in CI against the
 real datasources, and the validation runs on every pull request.
 
+**Progress:** built in 6A-1 ([ADR 0041](decisions/0041-phase6a-grafana-dashboards-as-code.md)): four dashboards, the static check `tools/dashboard-check`, and the CI job **Grafana dashboards**. One draft query used a column the traffic totals do not have. The static check cannot see columns, which is why the live job runs every query.
+
 ### 6B — Read APIs for the UI
 
 The UI uses only the REST API, so what it shows needs endpoints:

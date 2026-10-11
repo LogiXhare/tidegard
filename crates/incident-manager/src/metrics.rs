@@ -10,6 +10,7 @@
 //! Names follow `docs/architecture/incident-observability.md`, which lists
 //! what each one is for.
 
+use prometheus::core::Collector;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, Opts, Registry};
 use wetechinetmon_incident_postgres::inbox::{BatchReport, InboxStats};
 use wetechinetmon_incident_postgres::maintenance::MaintenanceReport;
@@ -135,19 +136,9 @@ impl ManagerMetrics {
             )?,
         };
         let registry = Registry::new();
-        registry.register(Box::new(metrics.inbox_pending.clone()))?;
-        registry.register(Box::new(metrics.outbox_pending.clone()))?;
-        registry.register(Box::new(metrics.dead_letter_pending.clone()))?;
-        registry.register(Box::new(metrics.timeline_pressure.clone()))?;
-        registry.register(Box::new(metrics.inbox_events_total.clone()))?;
-        registry.register(Box::new(metrics.inbox_batches_total.clone()))?;
-        registry.register(Box::new(metrics.clock_skew_total.clone()))?;
-        registry.register(Box::new(metrics.maintenance_transitions_total.clone()))?;
-        registry.register(Box::new(
-            metrics.maintenance_incident_failures_total.clone(),
-        ))?;
-        registry.register(Box::new(metrics.retention_deleted_total.clone()))?;
-        registry.register(Box::new(metrics.job_runs_total.clone()))?;
+        for collector in metrics.collectors() {
+            registry.register(collector)?;
+        }
         Ok((metrics, registry))
     }
 
@@ -234,6 +225,41 @@ impl Job {
     }
 }
 
+impl ManagerMetrics {
+    /// Every metric this owns. `new` registers exactly these and
+    /// `metric_names` reads them, so `/metrics` and the Grafana dashboard
+    /// check (ADR 0041) cannot disagree about what exists.
+    fn collectors(&self) -> Vec<Box<dyn Collector>> {
+        vec![
+            Box::new(self.inbox_pending.clone()),
+            Box::new(self.outbox_pending.clone()),
+            Box::new(self.dead_letter_pending.clone()),
+            Box::new(self.timeline_pressure.clone()),
+            Box::new(self.inbox_events_total.clone()),
+            Box::new(self.inbox_batches_total.clone()),
+            Box::new(self.clock_skew_total.clone()),
+            Box::new(self.maintenance_transitions_total.clone()),
+            Box::new(self.maintenance_incident_failures_total.clone()),
+            Box::new(self.retention_deleted_total.clone()),
+            Box::new(self.job_runs_total.clone()),
+        ]
+    }
+
+    /// The fully qualified name of every metric this owns.
+    pub fn metric_names(&self) -> Vec<String> {
+        self.collectors()
+            .iter()
+            .flat_map(|collector| {
+                collector
+                    .desc()
+                    .into_iter()
+                    .map(|desc| desc.fq_name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -312,6 +338,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// `metric_names` is what `/metrics` exports once every series is
+    /// touched: the dashboard check (ADR 0041) relies on it.
+    #[test]
+    fn metric_names_are_exactly_the_exported_families() {
+        let (metrics, _) = ManagerMetrics::new().unwrap();
+        let mut named = metrics.metric_names();
+        named.sort();
+        let mut exported: Vec<String> = exercised()
+            .gather()
+            .iter()
+            .map(|family| family.name().to_string())
+            .collect();
+        exported.sort();
+        assert_eq!(named, exported);
     }
 
     #[test]

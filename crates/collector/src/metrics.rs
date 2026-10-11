@@ -12,6 +12,7 @@
 //! platform-specific code. Tracked as a follow-up rather than faked with
 //! a metric that never increments.
 
+use prometheus::core::Collector;
 use prometheus::{Histogram, HistogramOpts, IntCounter, IntCounterVec, IntGauge, Opts, Registry};
 
 pub struct Metrics {
@@ -192,36 +193,6 @@ impl Metrics {
             "Total ClickHouse batches permanently lost because the bounded retry queue was full (see ADR 0005).",
         )?;
 
-        registry.register(Box::new(datagrams_received_total.clone()))?;
-        registry.register(Box::new(parsed_flow_records_total.clone()))?;
-        registry.register(Box::new(ipv4_flows_total.clone()))?;
-        registry.register(Box::new(ipv6_flows_total.clone()))?;
-        registry.register(Box::new(parser_failures_total.clone()))?;
-        registry.register(Box::new(unknown_templates_total.clone()))?;
-        registry.register(Box::new(exporter_restarts_total.clone()))?;
-        registry.register(Box::new(reserved_set_id_total.clone()))?;
-        registry.register(Box::new(template_cache_size.clone()))?;
-        registry.register(Box::new(active_exporters.clone()))?;
-        registry.register(Box::new(sets_by_kind_total.clone()))?;
-        registry.register(Box::new(normalized_flows_total.clone()))?;
-        registry.register(Box::new(incomplete_records_total.clone()))?;
-        registry.register(Box::new(unsupported_protocol_fields_total.clone()))?;
-        registry.register(Box::new(corrected_samples_total.clone()))?;
-        registry.register(Box::new(sampling_errors_total.clone()))?;
-        registry.register(Box::new(classified_flows_by_direction_total.clone()))?;
-        registry.register(Box::new(prefix_lookup_failures_total.clone()))?;
-        registry.register(Box::new(active_hosts.clone()))?;
-        registry.register(Box::new(active_networks.clone()))?;
-        registry.register(Box::new(active_hostgroups.clone()))?;
-        registry.register(Box::new(active_asns.clone()))?;
-        registry.register(Box::new(queue_depth.clone()))?;
-        registry.register(Box::new(aggregation_latency_seconds.clone()))?;
-        registry.register(Box::new(expired_entries_total.clone()))?;
-        registry.register(Box::new(evicted_entries_total.clone()))?;
-        registry.register(Box::new(clickhouse_rows_written_total.clone()))?;
-        registry.register(Box::new(clickhouse_write_failures_total.clone()))?;
-        registry.register(Box::new(clickhouse_retry_queue_dropped_total.clone()))?;
-
         let metrics = Metrics {
             datagrams_received_total,
             parsed_flow_records_total,
@@ -253,8 +224,64 @@ impl Metrics {
             clickhouse_write_failures_total,
             clickhouse_retry_queue_dropped_total,
         };
+        for collector in metrics.collectors() {
+            registry.register(collector)?;
+        }
 
         Ok((metrics, registry))
+    }
+}
+
+impl Metrics {
+    /// Every metric this owns. `new` registers exactly these and
+    /// `metric_names` reads them, so `/metrics` and the Grafana dashboard
+    /// check (ADR 0041) cannot disagree about what exists.
+    fn collectors(&self) -> Vec<Box<dyn Collector>> {
+        vec![
+            Box::new(self.datagrams_received_total.clone()),
+            Box::new(self.parsed_flow_records_total.clone()),
+            Box::new(self.ipv4_flows_total.clone()),
+            Box::new(self.ipv6_flows_total.clone()),
+            Box::new(self.parser_failures_total.clone()),
+            Box::new(self.unknown_templates_total.clone()),
+            Box::new(self.exporter_restarts_total.clone()),
+            Box::new(self.reserved_set_id_total.clone()),
+            Box::new(self.template_cache_size.clone()),
+            Box::new(self.active_exporters.clone()),
+            Box::new(self.sets_by_kind_total.clone()),
+            Box::new(self.normalized_flows_total.clone()),
+            Box::new(self.incomplete_records_total.clone()),
+            Box::new(self.unsupported_protocol_fields_total.clone()),
+            Box::new(self.corrected_samples_total.clone()),
+            Box::new(self.sampling_errors_total.clone()),
+            Box::new(self.classified_flows_by_direction_total.clone()),
+            Box::new(self.prefix_lookup_failures_total.clone()),
+            Box::new(self.active_hosts.clone()),
+            Box::new(self.active_networks.clone()),
+            Box::new(self.active_hostgroups.clone()),
+            Box::new(self.active_asns.clone()),
+            Box::new(self.queue_depth.clone()),
+            Box::new(self.aggregation_latency_seconds.clone()),
+            Box::new(self.expired_entries_total.clone()),
+            Box::new(self.evicted_entries_total.clone()),
+            Box::new(self.clickhouse_rows_written_total.clone()),
+            Box::new(self.clickhouse_write_failures_total.clone()),
+            Box::new(self.clickhouse_retry_queue_dropped_total.clone()),
+        ]
+    }
+
+    /// The fully qualified name of every metric this owns.
+    pub fn metric_names(&self) -> Vec<String> {
+        self.collectors()
+            .iter()
+            .flat_map(|collector| {
+                collector
+                    .desc()
+                    .into_iter()
+                    .map(|desc| desc.fq_name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .collect()
     }
 }
 

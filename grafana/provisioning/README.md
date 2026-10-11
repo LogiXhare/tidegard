@@ -1,14 +1,25 @@
 # Grafana Provisioning
 
-**Status:** Reserved — not yet implemented.
+Example provisioning for the [WetechiNetMon dashboards](../dashboards/).
+Grafana is not shipped: you run your own, and load these files into it
+([ADR 0041](../../docs/architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)).
 
-**Planned for:** Phase 6 (see [../../docs/roadmap.md](../../docs/roadmap.md)).
+| File | What it does |
+|---|---|
+| `dashboards/wetechinetmon.yaml` | Loads every JSON file from `/var/lib/grafana/dashboards/wetechinetmon` into a `WetechiNetMon` folder, read-only |
+| `datasources/wetechinetmon.yaml` | An example Prometheus and ClickHouse datasource, configured from the environment |
 
-Datasource and dashboard provisioning config for ClickHouse/Prometheus/InfluxDB.
+The ClickHouse datasource needs the `grafana-clickhouse-datasource`
+plugin (Apache-2.0). CI tests with version 4.21.3.
 
-This directory is intentionally a placeholder as of Phase 1
-(repository and documentation foundation). No production code has been
-added here yet, per `prompts/CLAUDE_MASTER_PROMPT.md`. Do not implement
-functionality in this directory ahead of its scheduled phase without an
-explicit decision recorded in `docs/roadmap.md` and, where applicable, an
-architecture decision record under `docs/architecture/decisions/`.
+Environment for the example datasources:
+
+| Variable | Example |
+|---|---|
+| `WNM_PROMETHEUS_URL` | `https://prometheus.example.net:9090` |
+| `WNM_CLICKHOUSE_HOST` | `clickhouse.example.net` |
+| `WNM_CLICKHOUSE_USER` | a read-only user |
+| `WNM_CLICKHOUSE_PASSWORD` | from your secret store |
+
+Give Grafana a ClickHouse user that can only `SELECT`. The dashboards
+never write.
