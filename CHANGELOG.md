@@ -25,7 +25,8 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
   [testing plan](docs/architecture/incident-testing-plan.md), a 24-entry
   [threat model](docs/security/incident-threat-model.md), a
   [configuration plan](docs/configuration/incident-management-plan.md), an
-  [operations runbook plan](docs/operations/incident-runbook-plan.md), an
+  [operations runbook plan](docs/operations/incident-runbook.md) (since
+  renamed), an
   [API reference plan](docs/api/incident-api-plan.md) with a draft
   OpenAPI, an
   [implementation plan](docs/development/phase5-implementation-plan.md),

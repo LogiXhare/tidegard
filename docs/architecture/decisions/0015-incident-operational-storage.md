@@ -1,7 +1,7 @@
 # 0015. PostgreSQL Is the Operational Source of Truth for Incidents
 
-Status: **Accepted architecturally** — BQ-7 resolved 2026-08-22. Exact
-crate selection is deferred to [ADR 0018](0018-phase5-dependency-selection.md).
+Status: **Accepted** — BQ-7 resolved 2026-08-22; the crates were selected
+in ADRs 0019–0024 and passed the Phase 5B-1 probe on 2026-09-03.
 Date: 2026-08-22
 Deciders: Repository owner — decided 2026-08-22
 
@@ -147,8 +147,11 @@ before use.
 
 - [x] **BQ-7** — resolved 2026-08-22: approved architecturally, crate
       selection deferred.
-- [ ] **ADR 0018** — select the PostgreSQL driver and HTTP framework
-      before Milestone 5B.
-- [ ] Add rows to the dependency licence matrix.
-- [ ] Write and **test** backup and restore procedures (NFR-2).
+- [x] **ADR 0018** — select the PostgreSQL driver and HTTP framework
+      before Milestone 5B ([ADR 0020](0020-phase5b-postgresql-client.md),
+      [ADR 0037](0037-phase5d-http-framework-and-openapi.md)).
+- [x] Add rows to the dependency licence matrix.
+- [x] Write and **test** backup and restore procedures (NFR-2):
+      [backup-and-restore.md](../../operations/backup-and-restore.md). CI
+      restores a real dump on every pull request.
 - [ ] Evaluate RLS with Phase 8 (**FU-21**).

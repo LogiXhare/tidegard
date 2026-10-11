@@ -1,8 +1,8 @@
 # Architecture Decision Records (ADRs)
 
-Status: Phase 5 planning — eighteen decisions recorded. 0013, 0014, and
-0015 were decided on 2026-08-22; 0011, 0012, 0016, 0017, and 0018 remain
-Proposed.
+Status: Phase 5F. 0011–0017 are Accepted as of 2026-10-05. Where the
+implementation differs from the plan, each one records how. 0018 stays
+Proposed, because it holds selection criteria only.
 
 ## Purpose
 
@@ -52,13 +52,13 @@ yet:
 | [0008](0008-detection-policy-configuration.md) | Detection Policy Configuration: JSON, Not YAML | Accepted |
 | [0009](0009-detection-event-identity.md) | Detection Event Identity and Deduplication | Accepted |
 | [0010](0010-detector-owns-its-windowed-counters.md) | The Detector Keeps Its Own Windowed Counters | Accepted |
-| [0011](0011-incident-domain-boundary.md) | The Incident Domain Is Separate From the Detection Domain | Proposed |
-| [0012](0012-incident-event-ingestion.md) | Detection-Event Ingestion: Transactional Outbox, At-Least-Once | Proposed |
-| [0013](0013-incident-identity.md) | Incident Identity and the Human-Readable Incident Number | Accepted (conditional) |
+| [0011](0011-incident-domain-boundary.md) | The Incident Domain Is Separate From the Detection Domain | Accepted |
+| [0012](0012-incident-event-ingestion.md) | Detection-Event Ingestion: Transactional Outbox, At-Least-Once | Accepted (amended by 0031, 0035) |
+| [0013](0013-incident-identity.md) | Incident Identity and the Human-Readable Incident Number | Accepted |
 | [0014](0014-incident-state-machine.md) | The Incident State Machine Does Not Mirror the Detector's | Accepted |
-| [0015](0015-incident-operational-storage.md) | PostgreSQL Is the Operational Source of Truth for Incidents | Accepted architecturally |
-| [0016](0016-incident-concurrency-and-idempotency.md) | Optimistic Concurrency and Fingerprinted Idempotency | Proposed |
-| [0017](0017-incident-community-enterprise-boundary.md) | The Community/Enterprise Seam Is an Extension Point, Not a Limitation | Proposed |
+| [0015](0015-incident-operational-storage.md) | PostgreSQL Is the Operational Source of Truth for Incidents | Accepted |
+| [0016](0016-incident-concurrency-and-idempotency.md) | Optimistic Concurrency and Fingerprinted Idempotency | Accepted |
+| [0017](0017-incident-community-enterprise-boundary.md) | The Community/Enterprise Seam Is an Extension Point, Not a Limitation | Accepted |
 | [0018](0018-phase5-dependency-selection.md) | Phase 5 Dependency Selection: Criteria and Shortlist | Proposed |
 | [0019](0019-phase5b-uuidv7-identity-generation.md) | Phase 5B UUIDv7 Identity Generation | Conditionally Accepted |
 | [0020](0020-phase5b-postgresql-client.md) | Phase 5B PostgreSQL Client | Conditionally Accepted |
