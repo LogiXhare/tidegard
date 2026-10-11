@@ -7,13 +7,12 @@ detection, traffic analytics, and policy-controlled mitigation platform
 for ISPs, enterprises, data centers, hosting providers, and managed
 network service providers.
 
-> **Project status: Development Preview.** Phases 0–4 and Phase 5A are
-> merged, with real, tested Rust source (collector, aggregator, detector,
-> incident domain — 531 tests). Phase 5B (PostgreSQL persistence) is in
-> planning. There is no packaged release, no HTTP API, no notification
-> delivery, and mitigation is not implemented. See
-> [Project Status](#project-status) below before evaluating this as a
-> production-ready product.
+> **Project status: Development Preview.** Phases 0–5 are complete, with
+> real, tested Rust source: collector, aggregator, detector, and incident
+> management with PostgreSQL persistence, a REST API and a CLI. There is
+> no packaged release, no web UI, no notification delivery, and
+> mitigation is not implemented. See [Project Status](#project-status)
+> below before evaluating this as a production-ready product.
 
 Built by **WeTechi Solutions**.
 
@@ -38,20 +37,20 @@ Built by **WeTechi Solutions**.
 ## Project Status
 
 **Development Preview.** This repository follows an explicit, phased
-delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–4 and Phase 5A
-are merged to `main`, each after adversarial review:
+delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–5 are merged to
+`main`:
 
 - **Phase 0–1**: product foundation, clean-room boundary, repository
   governance and documentation/validation tooling.
 - **Phase 2–3**: IPFIX/NetFlow/sFlow telemetry collector, aggregation,
   and ClickHouse analytics storage.
 - **Phase 4**: static-threshold detection engine.
-- **Phase 5A**: dependency-free incident management domain (state
-  machine, correlation, closure/reopen policy, idempotency) — 531
-  workspace tests, zero third-party dependency added.
-- **Phase 5B** (PostgreSQL persistence for incidents): architecture and
-  dependency-selection **planning only**, not yet implemented — see the
-  open documentation-only planning Pull Request.
+- **Phase 5**: incident management. A seven-state lifecycle that
+  correlates detections, PostgreSQL persistence with an append-only
+  timeline and audit trail, the incident manager process, a
+  [REST API](apps/api/README.md) and the
+  [`wetechinetmonctl` CLI](apps/cli/README.md). See the
+  [Gate 2 assessment](docs/development/phase5-gate2-assessment.md).
 
 **Explicit safety boundaries, current as of this preview:**
 
@@ -59,11 +58,8 @@ are merged to `main`, each after adversarial review:
   mitigation is disabled and dry-run by default at every layer,
   permanently (see [Security](#security) below).
 - No notification delivery is implemented (Phase 6).
-- No HTTP API or web UI is implemented yet (Phase 6).
+- No web UI is implemented yet (Phase 6).
 - APIs, schemas, and storage architecture may still change.
-- GitHub Actions cannot currently run on this repository because of an
-  account billing limitation; validation evidence cited in Pull Requests
-  is collected and reported locally instead.
 - Production use is not yet recommended unless explicitly supported by
   WeTechi Solutions.
 
@@ -155,14 +151,14 @@ screenshots exist yet.*
 ```text
 wetechi-netmon/
 ├── .github/          CI, issue/PR templates, CODEOWNERS, Dependabot
-├── apps/             api, web, cli — reserved, Phase 6+
-├── crates/           Rust service crates — 8 populated with real,
+├── apps/             api and cli (Phase 5); web reserved for Phase 6
+├── crates/           Rust service crates — 10 populated with real,
 │                     tested code (see Cargo.toml); the rest remain
 │                     README-only placeholders for later phases
 ├── deployments/       docker-compose, kubernetes, helm, systemd — reserved
 ├── docs/             product, architecture, and operational documentation
 ├── grafana/          dashboards, provisioning — reserved, Phase 6
-├── database/         ClickHouse, PostgreSQL schemas and migrations — reserved
+├── database/         reserved; incident migrations live in crates/incident-postgres
 ├── tests/            integration, replay, performance, security, fixtures
 ├── tools/            flow-generator, flow-replay, diagnostics, migration
 ├── scripts/          developer/CI helper scripts
@@ -174,7 +170,7 @@ wetechi-netmon/
 └── prompts/          the governing master prompt for this project
 ```
 
-`crates/` (8 of them) and `tools/flow-replay/` now carry real, tested
+`crates/` (10 of them), `apps/api`, `apps/cli` and `tools/flow-replay/` carry real, tested
 source (see `Cargo.toml`'s `[workspace] members`). Every still-empty
 directory contains a `README.md` explaining what it is reserved for and
 which phase populates it — see [docs/roadmap.md](docs/roadmap.md).

@@ -1,7 +1,7 @@
 # Roadmap
 
-Status: Phase 4 complete; Phase 5A merged; Phase 5B-0, 5B-1, and 5B-2 merged
-Last updated: 2026-09-05
+Status: Phases 0–5 complete; Phase 6 planning next
+Last updated: 2026-10-11
 
 This roadmap mirrors the phased delivery model and versioning plan in the
 master prompt (sections 28–29). No phase begins until the prior phase has
@@ -17,8 +17,8 @@ an explicit decision record, a commit, and updated documentation.
 | Phase 2 | v0.2.0 | IPFIX collector MVP — ✅ complete |
 | Phase 3 | v0.3.0 | Aggregation and direction classification — ✅ complete |
 | Phase 3 (cont.) | v0.4.0 | ClickHouse and Prometheus metrics — ✅ complete |
-| Phase 4 | v0.5.0 | Static detection engine |
-| Phase 5 | v0.6.0 | Incident lifecycle |
+| Phase 4 | v0.5.0 | Static detection engine — ✅ complete |
+| Phase 5 | v0.6.0 | Incident lifecycle — ✅ complete |
 | Phase 6 | v0.7.0 | Grafana and native UI |
 | Phase 6 (cont.) | v0.8.0 | Notification integrations |
 | Phase 7 | v0.9.0 | BGP mitigation lab |
@@ -137,7 +137,31 @@ than configured — see
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
 
-## Phase 5: Incident Management — 5A Merged, 5B-0/5B-1/5B-2 Merged
+## Phase 5: Incident Management — Complete
+
+**Complete on 2026-10-11**, in six milestones:
+
+- **5A:** a dependency-free incident domain, with the seven-state
+  lifecycle, tenant-aware correlation and idempotency.
+- **5B:** PostgreSQL persistence (migrations V1–V17), the transactional
+  outbox, retries, and tests on PostgreSQL 15 to 18.
+- **5C:** the incident manager process, ingesting detection events
+  through an inbox.
+- **5D:** the [REST API](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/api).
+- **5E:** the [`wetechinetmonctl` CLI](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/cli).
+- **5F:** operations and hardening: a tested backup and restore drill,
+  measured benchmarks, a security review against every threat, the
+  [runbook](operations/incident-runbook.md) and the
+  [installation guide](installation/incident-management.md).
+
+The [Gate 2 assessment](development/phase5-gate2-assessment.md) records
+each acceptance criterion with its evidence. Every criterion is met but
+threat coverage: T-21 needs a user directory (Phase 8) and T-08 stored
+XSS needs a UI (Phase 6). The
+[implementation plan](development/phase5-implementation-plan.md) holds
+the full delivery record.
+
+### History
 
 Phase 4 was reviewed and merged into `main` on 2026-08-22 (merge commit
 `3f0cf3e`, PR #14). Phase 5 architecture and documentation planning
