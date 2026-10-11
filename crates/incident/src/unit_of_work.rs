@@ -2086,6 +2086,7 @@ impl IncidentUnitOfWork {
         incident.version = new_version;
         incident.last_updated_at = now;
         self.maybe_fail()?;
+        let reason_for_audit = reason.clone();
 
         let ts = self.next_timeline_sequence();
         self.store.append_timeline(TimelineEntry::new(
@@ -2099,13 +2100,21 @@ impl IncidentUnitOfWork {
             },
         ));
         let asq = self.next_audit_sequence();
-        self.store.append_audit(AuditEntry::allowed(
-            asq,
-            auth.tenant().clone(),
-            auth.actor().clone(),
-            Permission::IncidentSeverityChange,
-            incident_id,
-        ));
+        self.store.append_audit(
+            AuditEntry::allowed(
+                asq,
+                auth.tenant().clone(),
+                auth.actor().clone(),
+                Permission::IncidentSeverityChange,
+                incident_id,
+            )
+            .with_change(
+                "severity",
+                from.as_str(),
+                new_severity.as_str(),
+                reason_for_audit,
+            ),
+        );
         let osq = self.next_outbox_sequence();
         self.store.append_outbox(OutboxMessage::new(
             osq,
@@ -2158,13 +2167,16 @@ impl IncidentUnitOfWork {
             },
         ));
         let asq = self.next_audit_sequence();
-        self.store.append_audit(AuditEntry::allowed(
-            asq,
-            auth.tenant().clone(),
-            auth.actor().clone(),
-            Permission::IncidentPriorityChange,
-            incident_id,
-        ));
+        self.store.append_audit(
+            AuditEntry::allowed(
+                asq,
+                auth.tenant().clone(),
+                auth.actor().clone(),
+                Permission::IncidentPriorityChange,
+                incident_id,
+            )
+            .with_change("priority", from.as_str(), new_priority.as_str(), None),
+        );
         let osq = self.next_outbox_sequence();
         self.store.append_outbox(OutboxMessage::new(
             osq,
