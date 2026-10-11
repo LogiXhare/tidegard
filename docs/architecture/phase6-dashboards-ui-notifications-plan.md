@@ -106,6 +106,8 @@ session cookie. The token is never stored in the browser.
 **Exit:** session tests covering fixation, expiry, revocation, CSRF and
 cross-tenant access.
 
+**Progress:** built in 6C ([ADR 0043](decisions/0043-phase6c-browser-sessions.md)): `api_sessions` (V18), `POST`, `GET` and `DELETE /api/v1/session`, the cookie path and CSRF check in the authentication middleware, audit rows for sign-in, sign-out and refusals, and retention of expired sessions. `apps/api/tests/sessions.rs` proves fixation, idle and absolute expiry, revocation, sign-out, CSRF, and that no secret is logged.
+
 ### 6D — The NOC UI (BQ-11)
 
 `apps/web`: React, TypeScript and Vite, served by the API as static files

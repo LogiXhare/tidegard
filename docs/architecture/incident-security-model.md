@@ -129,6 +129,16 @@ Correspondingly: read-only users may not mutate; `severity.change` is
 separate from `update` so lowering severity is separately grantable and
 separately audited; and lowering severity always requires a reason.
 
+### Browser sessions
+
+A browser never holds an API token. The operator signs in once with one,
+and the API answers with a session cookie that lives no longer than the
+token: 30 minutes idle, 12 hours in all, and revoking the token ends it
+([ADR 0043](decisions/0043-phase6c-browser-sessions.md)). The id is new
+at every sign-in, so a planted one is never honoured. A cookie request
+that changes anything must carry the session's CSRF value, which only
+the page can learn. A refusal is audited.
+
 ### Editing and redacting notes
 
 Notes are immutable with supersession ([persistence](incident-persistence.md#incident_notes)).

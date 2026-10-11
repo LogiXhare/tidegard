@@ -19,6 +19,7 @@ status.
 | `api.invalid_request` | 400 | A malformed body, query or path parameter. |
 | `api.unknown_field` | 400 | The body has a field the endpoint does not define. Unknown fields are never ignored. |
 | `api.unsupported_media_type` | 415 | The body is not `application/json`. |
+| `api.csrf_rejected` | 403 | A request made with a session cookie that changes anything lacks the session's `X-WNM-CSRF` value, or has the wrong one ([ADR 0043](../architecture/decisions/0043-phase6c-browser-sessions.md)). |
 | `api.payload_too_large` | 413 | The body is over 64 KiB. |
 | `api.rate_limited` | 429 | Over the rate limit. Sent with `Retry-After`. |
 | `api.unavailable` | 503 | The database cannot be reached. The API fails closed. Sent with `Retry-After`. |

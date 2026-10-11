@@ -24,6 +24,7 @@ pub mod problem;
 pub mod rate_limit;
 pub mod request_id;
 pub mod server;
+pub mod session;
 pub mod time;
 pub mod token_admin;
 pub mod traffic;
@@ -65,13 +66,17 @@ pub struct AppState {
     pub incidents: Arc<IncidentPersistence>,
     /// Deployment-wide traffic, when configured (ADR 0042).
     pub traffic: Option<Arc<traffic::TrafficSource>>,
+    /// Session cookies carry `Secure` (ADR 0043). Only a plain-HTTP API,
+    /// which is loopback-only, turns it off.
+    pub secure_cookies: bool,
 }
 
 impl AppState {
     /// The Community wiring: the token table and the fixed role bundles.
     pub fn new(pool: Pool) -> Self {
         AppState {
-            auth: AuthLayerState::new(Arc::new(TokenAuthenticator::new(pool.clone()))),
+            auth: AuthLayerState::new(Arc::new(TokenAuthenticator::new(pool.clone())))
+                .with_audit(pool.clone()),
             resolver: Arc::new(FixedBundleResolver),
             limits: Arc::new(incidents::Limits::default()),
             incidents: Arc::new(IncidentPersistence::new(
@@ -79,6 +84,7 @@ impl AppState {
                 Arc::new(SystemClock),
             )),
             traffic: None,
+            secure_cookies: true,
             pool,
         }
     }
@@ -170,7 +176,19 @@ pub fn router(state: AppState) -> Router {
         .route_layer(axum::middleware::from_fn_with_state(
             state.auth.clone(),
             auth::require_principal,
-        ));
+        ))
+        // Signing in needs no principal; reading or ending the session does.
+        .route(
+            "/session",
+            post(session::sign_in).merge(
+                get(session::current).delete(session::sign_out).route_layer(
+                    axum::middleware::from_fn_with_state(
+                        state.auth.clone(),
+                        auth::require_principal,
+                    ),
+                ),
+            ),
+        );
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))

@@ -50,6 +50,9 @@ answers. Neither needs a token.
 |---|---|---|---|
 | `GET` | `/healthz` | none | none |
 | `GET` | `/api/v1/whoami` | any token | 120/min per actor |
+| `POST` | `/api/v1/session` | a valid token in the body | failed sign-ins: 30/min per address |
+| `GET` | `/api/v1/session` | a session cookie | none |
+| `DELETE` | `/api/v1/session` | a session cookie and its CSRF value | none |
 | `GET` | `/readyz` | none | none |
 | `GET` | `/api/v1/incidents` | `incident.list` | 120/min per actor; `include_total` costs 2 |
 | `POST` | `/api/v1/incidents` | `incident.create` | 60/min per actor |
@@ -83,6 +86,8 @@ answers. Neither needs a token.
 Every transition `POST` needs an `Idempotency-Key` header (16 to 255 characters) and `expected_version` in its JSON body. A retry with the same key and body replays the first outcome; a stale version is `409 incident.version_conflict`. Each answers with the incident as it now is. Adding a note needs neither: notes are append-only, and a key, when given, still makes a retry replay. It answers `201` with the incident. Editing your own note (`201`) or redacting one (`200`) needs neither as well: a note is replaced once and redacted once, so a repeat is `422`. The original of an edited note stays; `GET .../notes` hides it unless `include_superseded=true`. Opening an incident by hand needs an `Idempotency-Key` and answers `201` with a `Location` ([ADR 0039](../../docs/architecture/decisions/0039-phase5d-manual-incidents.md)). An export is one JSON document (`format: wetechinetmon.incident-export`) holding the incident, timeline, notes, detections and, for a caller with `incident.audit.read`, the audit trail. Each history is capped at 5000 entries, and `truncated` reports any cut. Every export writes an audit entry before anything is read. Tags are set with `PUT` and removed with `DELETE`, which are idempotent by definition: no version, and the key is optional.
 
 The full contract is the generated [OpenAPI document](../../docs/api/openapi.json). Another tenant's incident is `404 incident.not_found`, indistinguishable from a missing one.
+
+**Browser sessions** ([ADR 0043](../../docs/architecture/decisions/0043-phase6c-browser-sessions.md)): `POST /api/v1/session` with `{"token": "wnm_..."}` answers with a `wnm_session` cookie (`HttpOnly`, `SameSite=Strict`, `Secure` when the API serves TLS) and a `csrf_token`. The cookie then works like the token. Any cookie request that changes anything needs `X-WNM-CSRF: <csrf_token>`, or it is `403 api.csrf_rejected`. A session ends after 30 minutes idle, 12 hours in all, at sign-out, or when its token is revoked or expires. A bearer token, when present, always wins.
 
 Traffic is deployment-wide until Phase 8 brings prefix ownership, so only the configured traffic tenant reaches the traffic endpoints; every other tenant gets `404 api.not_found`. The API reads ClickHouse read-only, with server-side query parameters, a 10-second limit and a row limit. A range is at most 30 days, and a summary has at most 500 points. ClickHouse being down answers `503` and leaves incidents working.
 

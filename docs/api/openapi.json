@@ -3713,6 +3713,179 @@
         ]
       }
     },
+    "/api/v1/session": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "The current session, so a reloaded page can learn its CSRF value.\nOnly a session cookie has one; a bearer token gets `404`.",
+        "operationId": "current",
+        "responses": {
+          "200": {
+            "description": "The current session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request was not made with a session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Signs in with an API token and answers with a session cookie. The\ntoken goes in the body, never a header a proxy might log.",
+        "operationId": "sign_in",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Signed in; the session cookie is set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad body or an unknown field",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The token is unknown, expired or revoked",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The body is not application/json",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed sign-ins from this address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Signs out: the session ends now, and the cookie is cleared. Needs the\nCSRF header, like every cookie request that changes anything.",
+        "operationId": "sign_out",
+        "parameters": [
+          {
+            "name": "X-WNM-CSRF",
+            "in": "header",
+            "description": "The session's CSRF value",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          },
+          "401": {
+            "description": "No usable session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The CSRF header is missing or wrong",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The request was not made with a session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/traffic/summary": {
       "get": {
         "tags": [
@@ -5003,6 +5176,43 @@
         },
         "additionalProperties": false
       },
+      "SessionView": {
+        "type": "object",
+        "description": "The session, as the page needs it.",
+        "required": [
+          "csrf_token",
+          "expires_at",
+          "idle_timeout_seconds",
+          "tenant_id",
+          "actor_id",
+          "role"
+        ],
+        "properties": {
+          "actor_id": {
+            "type": "string"
+          },
+          "csrf_token": {
+            "type": "string",
+            "description": "Send this in `X-WNM-CSRF` on every request that changes anything."
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "When the session ends at the latest, RFC 3339 UTC."
+          },
+          "idle_timeout_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The session ends after this many seconds without a request.",
+            "minimum": 0
+          },
+          "role": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          }
+        }
+      },
       "SeverityRequest": {
         "type": "object",
         "description": "`reason` is required when lowering severity, optional when raising it.",
@@ -5036,6 +5246,19 @@
           "major",
           "critical"
         ]
+      },
+      "SignIn": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "An API token, `wnm_` and 64 hex characters. Used once, never stored\nby the browser."
+          }
+        },
+        "additionalProperties": false
       },
       "SuppressRequest": {
         "type": "object",

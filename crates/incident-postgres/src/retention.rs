@@ -68,6 +68,8 @@ pub struct RetentionReport {
     pub processed_inbox: u64,
     pub reviewed_dead_letter: u64,
     pub closed_incidents: u64,
+    /// Browser sessions past their absolute expiry (ADR 0043).
+    pub expired_sessions: u64,
 }
 
 const PURGE_IDEMPOTENCY: &str =
@@ -92,6 +94,11 @@ const PURGE_CLOSED_INCIDENTS: &str = "\
 DELETE FROM incidents
 WHERE state = 'closed'
   AND closed_at <= transaction_timestamp() - make_interval(months => $1::integer)";
+
+/// A session idle too long is already refused; it goes once its absolute
+/// expiry passes, at most 12 hours after sign-in (ADR 0043).
+const PURGE_EXPIRED_SESSIONS: &str =
+    "DELETE FROM api_sessions WHERE expires_at <= transaction_timestamp()";
 
 /// Runs every retention job once, each as its own statement.
 pub async fn run_retention(
@@ -128,5 +135,6 @@ pub async fn run_retention(
         closed_incidents: client
             .execute(PURGE_CLOSED_INCIDENTS, &[&policy.closed_incident_months])
             .await?,
+        expired_sessions: client.execute(PURGE_EXPIRED_SESSIONS, &[]).await?,
     })
 }

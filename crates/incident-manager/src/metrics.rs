@@ -35,7 +35,14 @@ pub const LABEL_ALLOWLIST: &[(&str, &[&str])] = &[
     ("transition", &["entered_recovering", "resolved", "closed"]),
     (
         "table",
-        &["idempotency", "outbox", "inbox", "dead_letter", "incidents"],
+        &[
+            "idempotency",
+            "outbox",
+            "inbox",
+            "dead_letter",
+            "incidents",
+            "sessions",
+        ],
     ),
     ("job", &["stats", "maintenance", "retention"]),
 ];
@@ -193,6 +200,7 @@ impl ManagerMetrics {
             ("inbox", report.processed_inbox),
             ("dead_letter", report.reviewed_dead_letter),
             ("incidents", report.closed_incidents),
+            ("sessions", report.expired_sessions),
         ] {
             self.retention_deleted_total
                 .with_label_values(&[table])
@@ -302,6 +310,7 @@ mod tests {
             processed_inbox: 1,
             reviewed_dead_letter: 1,
             closed_incidents: 1,
+            expired_sessions: 1,
         });
         for job in [Job::Stats, Job::Maintenance, Job::Retention] {
             metrics.record_job(job, true);

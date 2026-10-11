@@ -17,6 +17,9 @@
 //! - **A principal never carries cross-tenant authority.** The roles are
 //!   the four tenant bundles; `platform_admin` is refused here and by the
 //!   table's CHECK constraint.
+//! - **A browser session is the other way in** (ADR 0043): without a
+//!   bearer token, a `wnm_session` cookie is looked up, and a request that
+//!   changes anything must also carry the session's CSRF value.
 
 use std::future::Future;
 use std::net::IpAddr;
@@ -105,10 +108,19 @@ pub enum AuthError {
 }
 
 pub type AuthFuture<'a> = Pin<Box<dyn Future<Output = Result<Principal, AuthError>> + Send + 'a>>;
+/// A session's principal and the id of the token it was made from.
+pub type SessionFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(Principal, String), AuthError>> + Send + 'a>>;
 
 /// The identity seam (ADR 0017's `IdentityProvider`, request side).
 pub trait Authenticator: Send + Sync {
     fn authenticate<'a>(&'a self, bearer: &'a str) -> AuthFuture<'a>;
+
+    /// A browser session (ADR 0043). Without a session store, none is
+    /// accepted.
+    fn authenticate_session<'a>(&'a self, _session_id: &'a str) -> SessionFuture<'a> {
+        Box::pin(async { Err(AuthError::Rejected) })
+    }
 }
 
 /// A new token's secret: `wnm_` and 64 hex characters.
@@ -143,6 +155,39 @@ WHERE token_hash = $1
   AND revoked_at IS NULL
   AND expires_at > transaction_timestamp()";
 
+/// A session: live, not idle past the timeout, and its token still valid.
+/// `stale` says `last_seen_at` is due a write.
+const SESSION_LOOKUP: &str = "\
+SELECT t.token_id::text AS token_id, t.tenant_id, t.actor_type, t.actor_id, t.role,
+    s.last_seen_at < transaction_timestamp() - $3::bigint * interval '1 second' AS stale
+FROM api_sessions s
+JOIN api_tokens t ON t.token_id = s.token_id
+WHERE s.session_hash = $1
+  AND s.expires_at > transaction_timestamp()
+  AND s.last_seen_at > transaction_timestamp() - $2::bigint * interval '1 second'
+  AND t.revoked_at IS NULL
+  AND t.expires_at > transaction_timestamp()";
+
+const SESSION_TOUCH: &str =
+    "UPDATE api_sessions SET last_seen_at = transaction_timestamp() WHERE session_hash = $1";
+
+fn principal_from(row: &tokio_postgres::Row) -> Result<Principal, AuthError> {
+    let tenant: String = row.get("tenant_id");
+    let actor_type: String = row.get("actor_type");
+    let actor_id: String = row.get("actor_id");
+    let role: String = row.get("role");
+    let actor = match actor_type.as_str() {
+        "operator" => Actor::Operator { id: actor_id },
+        "service_account" => Actor::ServiceAccount { id: actor_id },
+        _ => return Err(AuthError::Rejected),
+    };
+    Ok(Principal {
+        tenant: TenantId::new(tenant),
+        actor,
+        role: Role::parse(&role).ok_or(AuthError::Rejected)?,
+    })
+}
+
 /// The Community authenticator: the `api_tokens` table.
 pub struct TokenAuthenticator {
     pool: Pool,
@@ -168,20 +213,33 @@ impl Authenticator for TokenAuthenticator {
                 .await
                 .map_err(|_| AuthError::Unavailable)?
                 .ok_or(AuthError::Rejected)?;
-            let tenant: String = row.get("tenant_id");
-            let actor_type: String = row.get("actor_type");
-            let actor_id: String = row.get("actor_id");
-            let role: String = row.get("role");
-            let actor = match actor_type.as_str() {
-                "operator" => Actor::Operator { id: actor_id },
-                "service_account" => Actor::ServiceAccount { id: actor_id },
-                _ => return Err(AuthError::Rejected),
-            };
-            Ok(Principal {
-                tenant: TenantId::new(tenant),
-                actor,
-                role: Role::parse(&role).ok_or(AuthError::Rejected)?,
-            })
+            principal_from(&row)
+        })
+    }
+
+    fn authenticate_session<'a>(&'a self, session_id: &'a str) -> SessionFuture<'a> {
+        Box::pin(async move {
+            if !crate::session::is_well_formed_session(session_id) {
+                return Err(AuthError::Rejected);
+            }
+            let client = acquire(&self.pool)
+                .await
+                .map_err(|_| AuthError::Unavailable)?;
+            let hash = crate::session::session_hash(session_id);
+            let idle = crate::session::IDLE_TIMEOUT.as_secs() as i64;
+            let touch = crate::session::TOUCH_INTERVAL.as_secs() as i64;
+            let row = client
+                .query_opt(SESSION_LOOKUP, &[&hash, &idle, &touch])
+                .await
+                .map_err(|_| AuthError::Unavailable)?
+                .ok_or(AuthError::Rejected)?;
+            if row.get::<_, bool>("stale") {
+                client
+                    .execute(SESSION_TOUCH, &[&hash])
+                    .await
+                    .map_err(|_| AuthError::Unavailable)?;
+            }
+            Ok((principal_from(&row)?, row.get("token_id")))
         })
     }
 }
@@ -191,6 +249,9 @@ impl Authenticator for TokenAuthenticator {
 pub struct AuthLayerState {
     pub authenticator: Arc<dyn Authenticator>,
     pub failures: Arc<RateLimiter<IpAddr>>,
+    /// Where refused CSRF checks are audited (ADR 0043), when there is a
+    /// database.
+    pub audit: Option<Pool>,
 }
 
 impl AuthLayerState {
@@ -198,7 +259,13 @@ impl AuthLayerState {
         AuthLayerState {
             authenticator,
             failures: Arc::new(RateLimiter::new(FAILED_AUTH_QUOTA, FAILED_AUTH_MAX_KEYS)),
+            audit: None,
         }
+    }
+
+    pub fn with_audit(mut self, pool: Pool) -> Self {
+        self.audit = Some(pool);
+        self
     }
 }
 
@@ -232,12 +299,59 @@ pub async fn require_principal(
             .retry_after(refusal.retry_after_secs())
             .into_response();
     }
+    // A bearer token wins; the cookie is only for a browser that has none.
     let outcome = match bearer(&request) {
-        Some(token) => auth.authenticator.authenticate(token).await,
-        None => Err(AuthError::Rejected),
+        Some(token) => auth
+            .authenticator
+            .authenticate(token)
+            .await
+            .map(|principal| (principal, None)),
+        None => match crate::session::session_cookie(request.headers()) {
+            Some(id) => {
+                let id = id.to_string();
+                auth.authenticator
+                    .authenticate_session(&id)
+                    .await
+                    .map(|(principal, token_id)| {
+                        (
+                            principal,
+                            Some(crate::session::SessionContext { id, token_id }),
+                        )
+                    })
+            }
+            None => Err(AuthError::Rejected),
+        },
     };
     match outcome {
-        Ok(principal) => {
+        Ok((principal, session)) => {
+            if let Some(session) = session {
+                if crate::session::needs_csrf(request.method()) {
+                    let presented = request
+                        .headers()
+                        .get(crate::session::CSRF_HEADER)
+                        .and_then(|value| value.to_str().ok())
+                        .unwrap_or_default();
+                    if !crate::session::csrf_matches(&session.id, presented) {
+                        if let Some(pool) = &auth.audit {
+                            crate::session::record(
+                                pool,
+                                crate::session::SessionEvent {
+                                    action: "session.csrf_rejected",
+                                    principal: &principal,
+                                    token_id: &session.token_id,
+                                    allowed: false,
+                                    reason: Some("missing or wrong CSRF header"),
+                                    source: Some(source),
+                                },
+                            )
+                            .await;
+                        }
+                        tracing::info!(%source, "a CSRF check failed");
+                        return Problem::new(ErrorCode::CsrfRejected).into_response();
+                    }
+                }
+                request.extensions_mut().insert(session);
+            }
             request.extensions_mut().insert(principal);
             next.run(request).await
         }
