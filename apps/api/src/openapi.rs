@@ -57,6 +57,9 @@ pub struct ProblemDocument {
         crate::transitions::severity,
         crate::transitions::priority,
         crate::transitions::add_note,
+        crate::traffic::summary,
+        crate::traffic::top,
+        crate::traffic::exporters,
         crate::transitions::edit_note,
         crate::transitions::redact_note,
         crate::transitions::set_tag,
@@ -91,6 +94,12 @@ pub struct ProblemDocument {
         crate::transitions::PriorityRequest,
         crate::transitions::NoteVisibilityValue,
         crate::transitions::NoteRequest,
+        crate::traffic::TrafficSummary,
+        crate::traffic::TrafficPoint,
+        crate::traffic::TopList,
+        crate::traffic::TopEntry,
+        crate::traffic::ExporterList,
+        crate::traffic::ExporterView,
         crate::transitions::NoteEditRequest,
         crate::transitions::NoteRedactRequest,
         crate::transitions::TagRequest,
@@ -108,6 +117,7 @@ pub struct ProblemDocument {
         (name = "operations", description = "Liveness and readiness"),
         (name = "incidents", description = "Incidents in the caller's tenant"),
         (name = "identity", description = "Who the bearer token identifies"),
+        (name = "traffic", description = "Deployment-wide traffic, for the one traffic tenant (ADR 0042)"),
     )
 )]
 pub struct ApiDoc;

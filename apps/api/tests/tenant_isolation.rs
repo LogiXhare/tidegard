@@ -196,7 +196,25 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         },
     )
     .expect("a loopback test database");
-    let app = router(AppState::new(pool));
+    // Traffic is served to acme only, from a ClickHouse that is not
+    // there: acme's callers reach ClickHouse and get 503, while another
+    // tenant is refused before anything is read (ADR 0042).
+    let unreachable =
+        wetechinetmon_api::clickhouse::ClickHouse::new(wetechinetmon_api::clickhouse::Endpoint {
+            scheme: wetechinetmon_api::clickhouse::Scheme::Http,
+            host: "127.0.0.1".into(),
+            port: 9,
+            user: "default".into(),
+            password_file: None,
+            ca_file: None,
+        })
+        .unwrap();
+    let app = router(
+        AppState::new(pool).with_traffic(wetechinetmon_api::traffic::TrafficSource {
+            tenant: TenantId::new("acme"),
+            clickhouse: unreachable,
+        }),
+    );
     let owner = token(&admin, "acme", Role::NocLead).await;
     let outsider = token(&admin, "globex", Role::NocLead).await;
     let base = format!("/api/v1/incidents/{id}");
@@ -284,6 +302,35 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         checked >= 20,
         "only {checked} operations were found in the OpenAPI document"
     );
+
+    // --- Deployment-wide traffic: the traffic tenant only (ADR 0042) ---
+    let mut traffic_checked = 0;
+    for (template, operations) in document["paths"].as_object().unwrap() {
+        let is_traffic = operations
+            .as_object()
+            .unwrap()
+            .values()
+            .any(|operation| operation["tags"][0] == "traffic");
+        if !is_traffic {
+            continue;
+        }
+        let path = if template.ends_with("/top") {
+            format!("{template}?dimension=host")
+        } else {
+            template.clone()
+        };
+        let (status, theirs) = send(&app, &Method::GET, &path, &outsider, "", None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}: {theirs}");
+        assert_eq!(theirs["error"], "api.not_found", "{path}");
+        let (status, ours) = send(&app, &Method::GET, &path, &owner, "", None).await;
+        assert_eq!(
+            status,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the traffic tenant reaches ClickHouse: {path}: {ours}"
+        );
+        traffic_checked += 1;
+    }
+    assert_eq!(traffic_checked, 3, "summary, top and exporters");
 
     // --- Nothing changed, and nothing shows in the other tenant's list ---
     let (_, after) = send(&app, &Method::GET, &base, &owner, "", None).await;

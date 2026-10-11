@@ -10,6 +10,92 @@
     "version": "0.0.0"
   },
   "paths": {
+    "/api/v1/exporters": {
+      "get": {
+        "tags": [
+          "traffic"
+        ],
+        "summary": "Every exporter seen in the last day: when it last reported, and its\nrate over the last five minutes. Needs `traffic.read`, from the\ntraffic tenant only.",
+        "operationId": "exporters",
+        "responses": {
+          "200": {
+            "description": "At most 1,000 exporters, by address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExporterList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks traffic.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Traffic is not available to the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ClickHouse is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/incidents": {
       "get": {
         "tags": [
@@ -3627,6 +3713,238 @@
         ]
       }
     },
+    "/api/v1/traffic/summary": {
+      "get": {
+        "tags": [
+          "traffic"
+        ],
+        "summary": "Bits and packets per second over time, IPv4 and IPv6. Needs\n`traffic.read`, from the traffic tenant only.",
+        "operationId": "summary",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "RFC 3339 UTC; defaults to an hour before `to`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "RFC 3339 UTC, exclusive; defaults to now. At most 30 days after `from`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most 500 points",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrafficSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad range or an unknown parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks traffic.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Traffic is not available to the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ClickHouse is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/traffic/top": {
+      "get": {
+        "tags": [
+          "traffic"
+        ],
+        "summary": "The top talkers of one dimension, by bytes. Needs `traffic.read`, from\nthe traffic tenant only.",
+        "operationId": "top",
+        "parameters": [
+          {
+            "name": "dimension",
+            "in": "query",
+            "description": "host, network, slash24, hostgroup, asn, interface or exporter",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 50; defaults to 10",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "RFC 3339 UTC; defaults to an hour before `to`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "RFC 3339 UTC, exclusive; defaults to now. At most 30 days after `from`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The top entries, largest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An unknown dimension, a bad limit or range, or an unknown parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks traffic.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Traffic is not available to the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ClickHouse is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/whoami": {
       "get": {
         "tags": [
@@ -3997,6 +4315,54 @@
           "outgoing",
           "internal"
         ]
+      },
+      "ExporterList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExporterView"
+            }
+          }
+        }
+      },
+      "ExporterView": {
+        "type": "object",
+        "required": [
+          "exporter",
+          "last_seen",
+          "silent_seconds",
+          "bps",
+          "pps"
+        ],
+        "properties": {
+          "bps": {
+            "type": "number",
+            "format": "double",
+            "description": "Over the last five minutes."
+          },
+          "exporter": {
+            "type": "string",
+            "description": "The exporter's address."
+          },
+          "last_seen": {
+            "type": "string",
+            "description": "When its traffic was last recorded, RFC 3339 UTC."
+          },
+          "pps": {
+            "type": "number",
+            "format": "double"
+          },
+          "silent_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Seconds since then. A large number means a silent exporter."
+          }
+        }
       },
       "Health": {
         "type": "object",
@@ -4813,6 +5179,123 @@
           }
         }
       },
+      "TopEntry": {
+        "type": "object",
+        "required": [
+          "key",
+          "bytes",
+          "packets",
+          "flows"
+        ],
+        "properties": {
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "flows": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "key": {
+            "type": "string",
+            "description": "The host, network (`address/length`), /24, hostgroup, ASN,\ninterface (`exporter/index/direction`) or exporter."
+          },
+          "packets": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "TopList": {
+        "type": "object",
+        "required": [
+          "dimension",
+          "from",
+          "to",
+          "items"
+        ],
+        "properties": {
+          "dimension": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopEntry"
+            },
+            "description": "Largest first, by bytes."
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
+      "TrafficPoint": {
+        "type": "object",
+        "description": "One step of the summary. A step with no traffic is absent, not zero:\nan absent point means no data arrived.",
+        "required": [
+          "time",
+          "ipv4_bps",
+          "ipv6_bps",
+          "ipv4_pps",
+          "ipv6_pps"
+        ],
+        "properties": {
+          "ipv4_bps": {
+            "type": "number",
+            "format": "double"
+          },
+          "ipv4_pps": {
+            "type": "number",
+            "format": "double"
+          },
+          "ipv6_bps": {
+            "type": "number",
+            "format": "double"
+          },
+          "ipv6_pps": {
+            "type": "number",
+            "format": "double"
+          },
+          "time": {
+            "type": "string",
+            "description": "The start of the step, RFC 3339 UTC."
+          }
+        }
+      },
+      "TrafficSummary": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "step_seconds",
+          "points"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrafficPoint"
+            }
+          },
+          "step_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      },
       "Truncation": {
         "type": "object",
         "description": "Which sections were cut short at [`EXPORT_MAX_ROWS`].",
@@ -4904,6 +5387,10 @@
     {
       "name": "identity",
       "description": "Who the bearer token identifies"
+    },
+    {
+      "name": "traffic",
+      "description": "Deployment-wide traffic, for the one traffic tenant (ADR 0042)"
     }
   ]
 }

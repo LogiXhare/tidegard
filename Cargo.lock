@@ -2229,8 +2229,12 @@ name = "wetechinetmon-api"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "bytes",
  "deadpool-postgres",
  "getrandom 0.4.3",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "proptest",
  "rustls",
  "serde",
@@ -2249,6 +2253,7 @@ dependencies = [
  "wetechinetmon-detector",
  "wetechinetmon-incident",
  "wetechinetmon-incident-postgres",
+ "wetechinetmon-storage",
 ]
 
 [[package]]
