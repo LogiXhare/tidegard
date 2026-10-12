@@ -36,6 +36,8 @@ name: Validate
 #   upgrade  — v0.9.0 and the candidate, built side by side: v0.9.0 fills a
 #              database, the candidate upgrades it, and a restore rolls it
 #              back (ADR 0055)
+#   disaster-recovery — a fresh runner rebuilt from the package job's
+#              tarball and the upgrade and grafana jobs' backups (ADR 0055)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -355,7 +357,22 @@ jobs:
         env:
           CLICKHOUSE_URL: http://127.0.0.1:8123
           DRILL_WORK_DIR: ${{ runner.temp }}/clickhouse-drill
+          DRILL_BACKUP_NAME: wetechinetmon-drill.zip
         run: bash scripts/clickhouse-backup-restore-drill.sh
+      # What the disaster recovery job restores (ADR 0055).
+      - name: Keep the ClickHouse backup for the disaster recovery drill
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dr-clickhouse"
+          # ClickHouse wrote the archive as its own user.
+          sudo cp "$RUNNER_TEMP/ch-backups/wetechinetmon-drill.zip" "$RUNNER_TEMP/dr-clickhouse/"
+          sudo chown -R "$(id -u)" "$RUNNER_TEMP/dr-clickhouse"
+          cp "$RUNNER_TEMP/clickhouse-drill/before.txt" "$RUNNER_TEMP/dr-clickhouse/"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dr-clickhouse
+          path: ${{ runner.temp }}/dr-clickhouse/
+          retention-days: 1
       - name: Start Grafana with the shipped dashboards
         run: |
           set -euo pipefail
@@ -788,6 +805,13 @@ jobs:
         run: |
           docker compose logs --no-color --tail 80 || true
           docker compose exec -T clickhouse tail -n 40 /var/log/clickhouse-server/clickhouse-server.err.log || true
+      - name: Keep the tarball for the disaster recovery drill
+        if: matrix.arch == 'x86_64'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dr-tarball
+          path: dist/wetechinetmon-*.tar.gz
+          retention-days: 1
       - name: systemd's exposure rating for each unit
         run: |
           for service in collector incident-manager api notifier mitigator; do
@@ -841,9 +865,47 @@ jobs:
           PG_DB: wetechinetmon_upgrade_test
           WORK: ${{ runner.temp }}/upgrade-drill
         run: bash scripts/upgrade-rollback-drill.sh
+      - name: Keep the PostgreSQL backup for the disaster recovery drill
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dr-postgres"
+          cp "$RUNNER_TEMP"/upgrade-drill/{roles.sql,incident.dump,incidents.txt} "$RUNNER_TEMP/dr-postgres/"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dr-postgres
+          path: ${{ runner.temp }}/dr-postgres/
+          retention-days: 1
       - name: Logs on failure
         if: failure()
         run: tail -n 40 "$RUNNER_TEMP"/upgrade-drill/*.log || true
+
+  # ADR 0055 (9C-3): rebuild a lost host on a fresh runner from the release
+  # tarball and the two backups the jobs above made, following
+  # docs/operations/disaster-recovery.md.
+  disaster-recovery:
+    name: Disaster recovery from an empty runner (ADR 0055)
+    needs: [package, upgrade, grafana]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dr-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/dr
+      - name: Recover
+        env:
+          DR: ${{ runner.temp }}/dr
+          # Throwaway passwords for the drill's new servers.
+          PG_PASSWORD: dr_drill_only
+          CH_PASSWORD: dr_drill_only
+        run: bash scripts/disaster-recovery-drill.sh
+      - name: Logs on failure
+        if: failure()
+        run: |
+          sudo journalctl -u 'wetechinetmon-*' --no-pager -n 100 || true
+          docker logs dr-clickhouse 2>&1 | tail -n 30 || true
 
   docs:
     name: Docs (Markdown, YAML, links, MkDocs)

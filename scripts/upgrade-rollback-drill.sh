@@ -190,6 +190,13 @@ incidents_after "$before"
 echo "drill: upgraded; $(sql 'SELECT count(*) FROM incidents') incidents"
 stop_all
 
+# What the disaster recovery drill starts from: the candidate's database,
+# backed up as the runbook says (roles, then the database), and what it
+# held.
+pg pg_dumpall -U "$PG_USER" --roles-only > "$work/roles.sql"
+pg pg_dump -U "$PG_USER" -d "$PG_DB" --format=custom --no-owner > "$work/incident.dump"
+sql 'SELECT count(*) FROM incidents' > "$work/incidents.txt"
+
 echo "drill: rolling back by restoring the pre-upgrade backup"
 pg psql -X -v ON_ERROR_STOP=1 -U "$PG_USER" -d postgres \
   -c "DROP DATABASE $PG_DB WITH (FORCE)" -c "CREATE DATABASE $PG_DB"

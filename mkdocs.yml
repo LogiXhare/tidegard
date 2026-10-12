@@ -124,6 +124,7 @@ nav:
       - Detection Monitoring: operations/detection-monitoring.md
       - Capacity Planning: operations/capacity-planning.md
       - Backup and Restore: operations/backup-and-restore.md
+      - Disaster Recovery: operations/disaster-recovery.md
       - Incident Runbook: operations/incident-runbook.md
       - RTBH Guide: operations/rtbh-guide.md
       - FlowSpec Guide: operations/flowspec-guide.md

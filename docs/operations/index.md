@@ -17,6 +17,9 @@ Written so far:
 - [Capacity Planning](capacity-planning.md)
 - [Incident Runbook](incident-runbook.md) — Phase 5F: operating the
   incident manager, its alerts, and the dead-letter procedure
+- [Disaster Recovery](disaster-recovery.md) — Phase 9C: rebuilding a lost
+  host from the release tarball and the two backups, as CI does on every
+  pull request.
 - [Backup and Restore](backup-and-restore.md) — Phase 5F: the incident
   database, and the drill CI runs on every pull request
 - [RTBH Guide](rtbh-guide.md) — Phase 7F: blackholing, and what the edge
