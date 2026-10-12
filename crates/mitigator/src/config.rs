@@ -11,8 +11,10 @@
 //! }
 //! ```
 //!
-//! `guard` is ADR 0047's file. An omitted `guard` is the fresh install:
-//! dry-run, BGP off, nothing allowlisted.
+//! `guard` is ADR 0047's configuration. Instead of writing it here,
+//! `guard_file` may name a file holding it, which the API reads too
+//! (`WETECHINETMON_API_MITIGATION_GUARD_FILE`): one allowlist for both.
+//! Neither is the fresh install: dry-run, BGP off, nothing allowlisted.
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -37,6 +39,9 @@ pub const DEFAULT_CONSUMER_ID: &str = "wetechinetmon-mitigator";
 pub struct File {
     #[serde(default)]
     pub guard: GuardConfig,
+    /// A file holding the guard, shared with the API. Not with `guard`.
+    #[serde(default)]
+    pub guard_file: Option<PathBuf>,
     pub routes: RouteConfig,
     pub gobgp: GoBgpEndpoint,
     #[serde(default)]
@@ -155,7 +160,20 @@ impl Config {
 pub fn load_file(path: &Path) -> Result<File, ConfigError> {
     let text = std::fs::read_to_string(path)
         .map_err(|error| ConfigError::File(format!("{}: {error}", path.display())))?;
-    parse_file(&text)
+    let mut file = parse_file(&text)?;
+    if let Some(guard_path) = &file.guard_file {
+        if file.guard != GuardConfig::default() {
+            return Err(ConfigError::File(
+                "give guard or guard_file, not both".into(),
+            ));
+        }
+        let guard = std::fs::read_to_string(guard_path)
+            .map_err(|error| ConfigError::File(format!("{}: {error}", guard_path.display())))?;
+        file.guard = serde_json::from_str(&guard)
+            .map_err(|error| ConfigError::File(format!("{}: {error}", guard_path.display())))?;
+        Guard::new(file.guard.clone()).map_err(|e| ConfigError::File(e.to_string()))?;
+    }
+    Ok(file)
 }
 
 pub fn parse_file(text: &str) -> Result<File, ConfigError> {
@@ -227,6 +245,40 @@ mod tests {
         ] {
             assert!(parse_file(text).is_err(), "{text}");
         }
+    }
+
+    #[test]
+    fn a_guard_file_is_shared_and_exclusive() {
+        let dir = std::env::temp_dir().join(format!("wnm-guard-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let guard = dir.join("guard.json");
+        std::fs::write(&guard, r#"{"bgp_enabled": true, "allowlist": [{"prefix": "192.0.2.0/24", "tenant": "acme", "actions": ["rtbh"]}]}"#).unwrap();
+        let path = guard.display().to_string().replace('\\', "/");
+        let shared = dir.join("shared.json");
+        std::fs::write(
+            &shared,
+            MINIMAL.replace(
+                "\"gobgp\"",
+                &format!("\"guard_file\": \"{path}\", \"gobgp\""),
+            ),
+        )
+        .unwrap();
+        let file = load_file(&shared).unwrap();
+        assert!(file.guard.bgp_enabled);
+        assert_eq!(file.guard.allowlist.len(), 1);
+        let both = dir.join("both.json");
+        std::fs::write(
+            &both,
+            MINIMAL.replace(
+                "\"gobgp\"",
+                &format!(
+                    "\"guard\": {{\"kill_switch\": true}}, \"guard_file\": \"{path}\", \"gobgp\""
+                ),
+            ),
+        )
+        .unwrap();
+        assert!(load_file(&both).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

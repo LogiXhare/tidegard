@@ -397,10 +397,15 @@ impl Mitigator {
         Ok(report)
     }
 
-    /// Counts GoBGP's peers, for the metrics.
-    pub async fn check_peers(&mut self) -> Result<(usize, usize), MitigatorError> {
-        let (established, total) = self.live()?.peer_states().await?;
-        self.metrics.record_peers(established, total);
-        Ok((established, total))
+    /// Records GoBGP's peers for the API (V21) and the metrics.
+    pub async fn check_peers(&mut self, pool: &Pool) -> Result<(usize, usize), MitigatorError> {
+        let peers = self.live()?.peers().await?;
+        let established = peers.iter().filter(|(_, _, s)| *s == "established").count();
+        let mut client = acquire(pool).await?;
+        self.store
+            .record_peers(&self.platform, &mut client, &peers)
+            .await?;
+        self.metrics.record_peers(established, peers.len());
+        Ok((established, peers.len()))
     }
 }

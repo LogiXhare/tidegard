@@ -26,6 +26,9 @@ async fn main() {
     if args.first().map(String::as_str) == Some("token") {
         std::process::exit(token_command(&pool, &args[1..]).await);
     }
+    if args.first().map(String::as_str) == Some("kill-switch") {
+        std::process::exit(kill_switch_command(&pool, &args[1..]).await);
+    }
 
     let listener = bind(config.bind, config.tls.as_ref())
         .await
@@ -68,6 +71,26 @@ async fn main() {
             clickhouse,
         });
     }
+    if let Some(path) = &config.mitigation_guard_file {
+        let guard = std::fs::read_to_string(path)
+            .map_err(|error| error.to_string())
+            .and_then(|text| {
+                serde_json::from_str::<wetechinetmon_mitigation::GuardConfig>(&text)
+                    .map_err(|error| error.to_string())
+            })
+            .and_then(|config| {
+                wetechinetmon_mitigation::Guard::new(config).map_err(|error| error.to_string())
+            })
+            .unwrap_or_else(|error| {
+                tracing::error!(error = %error, "the mitigation guard file is invalid");
+                std::process::exit(1);
+            });
+        tracing::info!(
+            allowlisted = guard.config().allowlist.len(),
+            "checking mitigation requests against the guard file"
+        );
+        state = state.with_guard(guard);
+    }
     let app =
         router(state).into_make_service_with_connect_info::<wetechinetmon_api::server::PeerAddr>();
     let served = match listener {
@@ -103,6 +126,74 @@ async fn shutdown_signal() {
         }
     }
     let _ = tokio::signal::ctrl_c().await;
+}
+
+const KILL_SWITCH_USAGE: &str = "\
+usage:
+  wetechinetmon-api kill-switch status
+  wetechinetmon-api kill-switch engage --actor-id ID --reason TEXT
+  wetechinetmon-api kill-switch release --actor-id ID --reason TEXT
+Releasing is host-only: no API token can turn the kill switch off.";
+
+/// `wetechinetmon-api kill-switch ...`: the break-glass path on the API
+/// host (ADR 0050). Audited under the given actor id.
+async fn kill_switch_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
+    let flag = |name: &str| {
+        args.windows(2)
+            .find(|pair| pair[0] == name)
+            .map(|pair| pair[1].clone())
+    };
+    let mut client = match wetechinetmon_incident_postgres::pool::acquire(pool).await {
+        Ok(client) => client,
+        Err(error) => {
+            eprintln!("the incident database cannot be reached: {error}");
+            return 1;
+        }
+    };
+    let store = AppState::new(pool.clone()).mitigations;
+    let engaged = match args.first().map(String::as_str) {
+        Some("status") => None,
+        Some("engage") => Some(true),
+        Some("release") => Some(false),
+        _ => {
+            eprintln!("{KILL_SWITCH_USAGE}");
+            return 2;
+        }
+    };
+    let result = match engaged {
+        None => store.kill_switch(&**client).await,
+        Some(engaged) => {
+            let (Some(actor_id), Some(reason)) = (flag("--actor-id"), flag("--reason")) else {
+                eprintln!("{KILL_SWITCH_USAGE}");
+                return 2;
+            };
+            let ctx = wetechinetmon_api::mitigations::host_admin_context(&actor_id);
+            store
+                .set_kill_switch(&mut client, &ctx, engaged, &reason)
+                .await
+        }
+    };
+    match result {
+        Ok(state) => {
+            println!(
+                "kill switch: {}  (version {}, changed {} by {}: {})",
+                if state.engaged { "ON" } else { "off" },
+                state.version,
+                state.changed_at.as_deref().unwrap_or("never"),
+                state
+                    .changed_by
+                    .as_ref()
+                    .map(wetechinetmon_api::incidents::actor_label)
+                    .unwrap_or_else(|| "nobody".to_string()),
+                state.reason.as_deref().unwrap_or("-"),
+            );
+            0
+        }
+        Err(error) => {
+            eprintln!("the kill switch could not be changed: {error}");
+            1
+        }
+    }
 }
 
 const TOKEN_USAGE: &str = "\

@@ -133,7 +133,9 @@ pub async fn export(
             format_version: EXPORT_FORMAT_VERSION,
             exported_at: rfc3339(exported_at),
             exported_by: actor_text(&principal.actor),
-            incident: IncidentView::from_incident(&bundle.incident)?,
+            incident: IncidentView::from_incident(&bundle.incident)?
+                .with_statuses(&**client)
+                .await?,
             truncated: Truncation {
                 timeline: bundle.timeline.has_more,
                 detections: bundle.detections.has_more,

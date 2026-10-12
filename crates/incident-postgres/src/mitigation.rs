@@ -123,6 +123,29 @@ WHERE state IN ('proposed', 'requested', 'approved', 'announcing', 'active', 'wi
 ORDER BY created_at, mitigation_id
 LIMIT $2";
 
+/// Times as microseconds since the epoch, for the API to format.
+const TIMES: &str = "\
+, (extract(epoch FROM created_at) * 1000000)::bigint AS created_at_us,
+  (extract(epoch FROM updated_at) * 1000000)::bigint AS updated_at_us,
+  (extract(epoch FROM approved_at) * 1000000)::bigint AS approved_at_us,
+  (extract(epoch FROM active_since) * 1000000)::bigint AS active_since_us,
+  (extract(epoch FROM expires_at) * 1000000)::bigint AS expires_at_us,
+  (extract(epoch FROM ended_at) * 1000000)::bigint AS ended_at_us,
+  route::text AS route_json";
+
+const HISTORY: &str = "\
+SELECT version, (extract(epoch FROM occurred_at) * 1000000)::bigint AS occurred_at_us,
+    from_state, to_state, actor_type, actor_id, detail
+FROM mitigation_history
+WHERE mitigation_id = $1::text::uuid AND tenant_id = $2
+ORDER BY version";
+
+const PEERS: &str = "\
+SELECT neighbor_address, peer_asn, session_state,
+    (extract(epoch FROM updated_at) * 1000000)::bigint AS updated_at_us
+FROM bgp_peers
+ORDER BY neighbor_address";
+
 const CANDIDATES: &str = "\
 SELECT i.tenant_id, i.incident_id::text AS incident_id, host(i.target_addr) AS address,
     i.severity
@@ -189,6 +212,52 @@ pub struct KillSwitch {
     pub changed_at: Option<String>,
     pub changed_by: Option<Actor>,
     pub reason: Option<String>,
+}
+
+/// A mitigation with its times and its recorded route, for the API.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MitigationDetail {
+    pub record: MitigationRecord,
+    /// Microseconds since the epoch.
+    pub created_at_us: i64,
+    pub updated_at_us: i64,
+    pub approved_at_us: Option<i64>,
+    pub active_since_us: Option<i64>,
+    pub expires_at_us: Option<i64>,
+    pub ended_at_us: Option<i64>,
+    /// The route recorded when announcing began, as JSON text.
+    pub route: Option<String>,
+}
+
+/// One state change in a mitigation's history.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HistoryEntry {
+    pub version: u64,
+    pub occurred_at_us: i64,
+    pub from_state: Option<String>,
+    pub to_state: String,
+    pub actor: Actor,
+    pub detail: Option<String>,
+}
+
+/// One of GoBGP's peers, as the mitigator last saw it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerStatus {
+    pub neighbor_address: String,
+    pub peer_asn: u32,
+    /// `established`, `idle`, `active` and the rest, lower case.
+    pub session_state: String,
+    pub updated_at_us: i64,
+}
+
+/// Which mitigations a list returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListFilter {
+    All,
+    /// Not yet ended.
+    Live,
+    /// Announced live, with a route that may be in GoBGP now.
+    Routed,
 }
 
 /// One live mitigation, as the mitigator sees it.
@@ -701,6 +770,145 @@ impl MitigationStore {
         Ok(mitigation.into_record())
     }
 
+    /// One mitigation with its times and route, if the caller's tenant
+    /// owns it.
+    pub async fn detail(
+        &self,
+        client: &impl GenericClient,
+        ctx: &AuthorizationContext,
+        id: &MitigationId,
+    ) -> Result<MitigationDetail, MitigationStoreError> {
+        if !ctx.has(Permission::MitigationRead) {
+            return Err(MitigationError::Forbidden(Permission::MitigationRead).into());
+        }
+        let row = client
+            .query_opt(
+                &format!(
+                    "SELECT {COLUMNS}{TIMES} FROM mitigations WHERE mitigation_id = $1::text::uuid"
+                ),
+                &[&id.as_str()],
+            )
+            .await?;
+        match row.as_ref().map(detail_from_row).transpose()? {
+            Some(detail) if detail.record.tenant == *ctx.tenant() => Ok(detail),
+            _ => Err(MitigationError::NotFound.into()),
+        }
+    }
+
+    /// The tenant's mitigations, newest first.
+    pub async fn list_details(
+        &self,
+        client: &impl GenericClient,
+        ctx: &AuthorizationContext,
+        filter: ListFilter,
+        limit: u32,
+    ) -> Result<Vec<MitigationDetail>, MitigationStoreError> {
+        if !ctx.has(Permission::MitigationRead) {
+            return Err(MitigationError::Forbidden(Permission::MitigationRead).into());
+        }
+        let condition = match filter {
+            ListFilter::All => "",
+            ListFilter::Live => " AND state NOT IN ('withdrawn', 'rejected', 'expired', 'failed')",
+            ListFilter::Routed => {
+                " AND state IN ('announcing', 'active', 'withdrawing') \
+                 AND dry_run = FALSE AND route IS NOT NULL"
+            }
+        };
+        let limit = i64::from(limit.clamp(1, MAX_PAGE));
+        let rows = client
+            .query(
+                &format!(
+                    "SELECT {COLUMNS}{TIMES} FROM mitigations WHERE tenant_id = $1{condition} \
+                     ORDER BY created_at DESC, mitigation_id DESC LIMIT $2"
+                ),
+                &[&ctx.tenant().as_str(), &limit],
+            )
+            .await?;
+        rows.iter()
+            .map(|row| detail_from_row(row).map_err(Into::into))
+            .collect()
+    }
+
+    /// A mitigation's state changes, oldest first.
+    pub async fn history(
+        &self,
+        client: &impl GenericClient,
+        ctx: &AuthorizationContext,
+        id: &MitigationId,
+    ) -> Result<Vec<HistoryEntry>, MitigationStoreError> {
+        // Existence and the tenant are checked first, so another tenant's
+        // mitigation is `not_found` and never an empty history.
+        self.get(client, ctx, id).await?;
+        let rows = client
+            .query(HISTORY, &[&id.as_str(), &ctx.tenant().as_str()])
+            .await?;
+        rows.iter()
+            .map(|row| {
+                Ok(HistoryEntry {
+                    version: u64::try_from(row.try_get::<_, i64>("version")?)
+                        .map_err(|_| PersistError::corrupt("version", "negative"))?,
+                    occurred_at_us: row.try_get("occurred_at_us")?,
+                    from_state: row.try_get("from_state")?,
+                    to_state: row.try_get("to_state")?,
+                    actor: actor_from(
+                        ActorColumns {
+                            actor_type: row.try_get("actor_type")?,
+                            actor_id: row.try_get("actor_id")?,
+                        },
+                        "actor",
+                    )?,
+                    detail: row.try_get("detail")?,
+                })
+            })
+            .collect::<Result<_, PersistError>>()
+            .map_err(Into::into)
+    }
+
+    /// GoBGP's peers as the mitigator last saw them. Deployment-wide:
+    /// held by those who may pull the kill switch (FU-65).
+    pub async fn peers(
+        &self,
+        client: &impl GenericClient,
+        ctx: &AuthorizationContext,
+    ) -> Result<Vec<PeerStatus>, MitigationStoreError> {
+        if !ctx.has(Permission::MitigationKillSwitchEngage) {
+            return Err(MitigationError::Forbidden(Permission::MitigationKillSwitchEngage).into());
+        }
+        let rows = client.query(PEERS, &[]).await?;
+        rows.iter()
+            .map(|row| {
+                Ok(PeerStatus {
+                    neighbor_address: row.try_get("neighbor_address")?,
+                    peer_asn: u32::try_from(row.try_get::<_, i64>("peer_asn")?)
+                        .map_err(|_| PersistError::corrupt("peer_asn", "out of range"))?,
+                    session_state: row.try_get("session_state")?,
+                    updated_at_us: row.try_get("updated_at_us")?,
+                })
+            })
+            .collect::<Result<_, PersistError>>()
+            .map_err(Into::into)
+    }
+
+    /// Replaces the peer snapshot with what the mitigator sees now.
+    pub async fn record_peers(
+        &self,
+        _platform: &PlatformAuthority,
+        client: &mut Client,
+        peers: &[(String, u32, &'static str)],
+    ) -> Result<(), MitigationStoreError> {
+        let tx = client.transaction().await?;
+        tx.execute("DELETE FROM bgp_peers", &[]).await?;
+        for (address, asn, state) in peers {
+            tx.execute(
+                "INSERT INTO bgp_peers (neighbor_address, peer_asn, session_state) VALUES ($1, $2, $3)",
+                &[address, &i64::from(*asn), state],
+            )
+            .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// The kill switch as it stands.
     pub async fn kill_switch(
         &self,
@@ -900,6 +1108,35 @@ impl MitigationStore {
             Ok(_) => error.into(),
             Err(database) => database.into(),
         }
+    }
+}
+
+fn detail_from_row(row: &Row) -> Result<MitigationDetail, PersistError> {
+    Ok(MitigationDetail {
+        record: from_row(row)?,
+        created_at_us: row.try_get("created_at_us")?,
+        updated_at_us: row.try_get("updated_at_us")?,
+        approved_at_us: row.try_get("approved_at_us")?,
+        active_since_us: row.try_get("active_since_us")?,
+        expires_at_us: row.try_get("expires_at_us")?,
+        ended_at_us: row.try_get("ended_at_us")?,
+        route: row.try_get("route_json")?,
+    })
+}
+
+/// What an incident's `mitigation_status` says for its most relevant
+/// mitigation (FU-64).
+pub fn mitigation_status(state: MitigationState, dry_run: Option<bool>) -> &'static str {
+    match state {
+        MitigationState::Proposed | MitigationState::Requested => "pending_approval",
+        MitigationState::Approved => "approved",
+        MitigationState::Announcing | MitigationState::Active if dry_run == Some(true) => "dry_run",
+        MitigationState::Announcing | MitigationState::Active => "active",
+        MitigationState::Withdrawing => "withdrawing",
+        MitigationState::Withdrawn => "withdrawn",
+        MitigationState::Rejected => "rejected",
+        MitigationState::Expired => "expired",
+        MitigationState::Failed => "failed",
     }
 }
 

@@ -252,25 +252,38 @@ impl GoBgp {
         Ok(())
     }
 
-    /// GoBGP's peers: how many there are, and how many are established.
-    pub async fn peer_states(&mut self) -> Result<(usize, usize), GoBgpError> {
+    /// GoBGP's peers: address, ASN and session state, lower case.
+    pub async fn peers(&mut self) -> Result<Vec<(String, u32, &'static str)>, GoBgpError> {
+        use api::peer_state::SessionState;
         let mut stream = self
             .client
             .list_peer(api::ListPeerRequest::default())
             .await?
             .into_inner();
-        let (mut established, mut total) = (0, 0);
+        let mut peers = Vec::new();
         while let Some(response) = stream.message().await? {
-            total += 1;
-            let state = response
-                .peer
-                .and_then(|peer| peer.state)
-                .map(|state| state.session_state);
-            if state == Some(api::peer_state::SessionState::Established as i32) {
-                established += 1;
-            }
+            let Some(peer) = response.peer else { continue };
+            let (address, asn) = peer
+                .conf
+                .as_ref()
+                .map(|c| (c.neighbor_address.clone(), c.peer_asn))
+                .unwrap_or_default();
+            let state = match peer
+                .state
+                .as_ref()
+                .and_then(|s| SessionState::try_from(s.session_state).ok())
+            {
+                Some(SessionState::Idle) => "idle",
+                Some(SessionState::Connect) => "connect",
+                Some(SessionState::Active) => "active",
+                Some(SessionState::Opensent) => "opensent",
+                Some(SessionState::Openconfirm) => "openconfirm",
+                Some(SessionState::Established) => "established",
+                _ => "unknown",
+            };
+            peers.push((address, asn, state));
         }
-        Ok((established, total))
+        Ok(peers)
     }
 
     /// Every route in the global table that carries WetechiNetMon's

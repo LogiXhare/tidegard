@@ -40,6 +40,19 @@ status.
 | `incident.clock_skew` | 503 | The decision time ran backward ([ADR 0031](../architecture/decisions/0031-phase5b-durable-time.md)). Retry. |
 | `incident.correlation_conflict` | 409 | The correlation key conflicts with an existing incident. |
 | `incident.customer_visible_unsupported` | 501 | A customer-visible note was asked for. Phase 5 keeps every note internal. |
+| `mitigation.not_found` | 404 | No such mitigation, **or another tenant's**. The two are indistinguishable by design ([ADR 0050](../architecture/decisions/0050-phase7e-mitigation-api-cli-ui.md)). |
+| `mitigation.forbidden` | 403 | The role lacks the mitigation permission. |
+| `mitigation.illegal_transition` | 409 | The mitigation's state does not allow this, for example approving one that is already active. |
+| `mitigation.self_approval` | 403 | The requester tried to approve their own mitigation, and the deployment does not allow it. |
+| `mitigation.invalid` | 422 | The request is well formed but not a valid mitigation: a prefix with host bits, an RTBH that is not a host route, ports without TCP or UDP, a reason or duration out of range. |
+| `mitigation.duplicate` | 409 | A live mitigation already does the same action on the same prefix and match. |
+| `mitigation.version_conflict` | 409 | `expected_version` is stale. Carries `current_version`. |
+| `mitigation.idempotency_key_reuse` | 409 | The `Idempotency-Key` was used for a different mitigation request. |
+| `mitigation.kill_switch` | 409 | The kill switch is on: no mitigation may start. |
+| `mitigation.not_allowlisted` | 403 | The prefix is not on this tenant's allowlist. Another tenant's prefix gets the same answer. |
+| `mitigation.action_not_allowed` | 403 | The allowlist entry does not permit this action. |
+| `mitigation.too_wide` | 422 | The prefix is wider than the configured minimum length. |
+| `mitigation.too_long` | 422 | The duration is over the configured maximum. |
 
 The `type` member is `https://wetechi.com/probs/` followed by the code,
 with `.` and `_` written as `-`, for example

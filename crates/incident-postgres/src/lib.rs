@@ -119,6 +119,8 @@ pub mod queries;
 
 pub mod mitigation;
 
+pub mod status;
+
 /// Never called. Exists only so every probed dependency's crate root is
 /// referenced by name, forcing the compiler to actually resolve and link
 /// each one rather than merely list it in `Cargo.toml`.

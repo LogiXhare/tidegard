@@ -123,7 +123,9 @@ async fn execute(
             .await
             .map_err(|error| Problem::from(&error))?
             .map_err(|error| Problem::from(&error))?;
-        IncidentView::from_incident(&incident)
+        IncidentView::from_incident(&incident)?
+            .with_statuses(&**client)
+            .await
     }
 }
 

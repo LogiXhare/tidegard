@@ -141,7 +141,7 @@ pub async fn run(
                 Ok(report) => tracing::debug!(?report, "reconciled"),
                 Err(error) => tracing::warn!(error = %error, "reconciliation failed"),
             }
-            if let Err(error) = mitigator.check_peers().await {
+            if let Err(error) = mitigator.check_peers(&pool).await {
                 tracing::warn!(error = %error, "GoBGP's peers could not be listed");
             }
             next_reconcile = Instant::now() + reconcile_every;

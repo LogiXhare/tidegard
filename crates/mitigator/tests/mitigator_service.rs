@@ -402,6 +402,15 @@ async fn the_mitigator_announces_withdraws_reconciles_and_obeys_the_kill_switch(
         MitigationState::Withdrawn
     );
 
+    // --- Peers: the lab gobgpd has none; the snapshot is recorded ---
+    assert_eq!(live.check_peers(&pool).await.unwrap(), (0, 0));
+    let peers: i64 = client
+        .query_one("SELECT count(*) FROM bgp_peers", &[])
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(peers, 0);
+
     // --- BGP off: no connection, no reconciliation, dry-run only ---
     let mut off = mitigator(guard(false, true), None, ProposalPolicy::default()).await;
     assert!(!off.has_bgp() && off.dry_run());
