@@ -1,7 +1,7 @@
 # Risk Register
 
-Status: Phase 6 planning, R21–R24 added
-Last updated: 2026-10-11
+Status: Phase 7 planning, R25–R29 added
+Last updated: 2026-10-12
 
 Scale: Likelihood (L) and Impact (I) rated Low/Medium/High. This register
 is reviewed and updated at the end of every phase per the master prompt's
@@ -33,6 +33,11 @@ phase-summary requirement.
 | R22 | The web UI brings an npm dependency tree far larger than the Rust workspace's | M | M | Committed lockfile, `npm ci`, `npm audit` and a licence check in CI, pinned versions, and a strict Content-Security-Policy ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6D) |
 | R23 | Webhook notifications enable server-side request forgery and data exfiltration | M | H | A destination allowlist; private and link-local ranges refused unless allowed explicitly; redirects not followed ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6E) |
 | R24 | A large attack or a flapping detection floods operators with notifications | M | M | Deduplication and a per-channel rate limit, both tested ([Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md), 6E) |
+| R25 | A mitigation blackholes more than the victim, or another network's prefix | L | H | A prefix allowlist bound to tenants, and prefix-length bounds, checked at request, approval and announcement; an unauthorized-prefix suite with property tests ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7B) |
+| R26 | An announced route outlives its reason: a stale blackhole | M | H | A maximum duration, automatic withdrawal, reconciliation by an ownership community at start and on a timer, and a global kill switch ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7D) |
+| R27 | GoBGP's gRPC API has no authentication, so anyone who reaches it can announce routes | M | H | Loopback by default; TLS with a configured CA required off loopback; the runbook says never to expose it ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7C) |
+| R28 | gRPC brings a new dependency tree (`tonic`, `prost`, `h2`) | M | M | Reviewed in the 7C ADR, pinned, and confined to `crates/mitigator` by the dependency closure test ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7C) |
+| R29 | GoBGP's API changes between releases | M | M | The `.proto` files are vendored from one pinned release, and CI runs that release ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7C) |
 
 ## Review Trigger
 

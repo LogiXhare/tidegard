@@ -1,8 +1,8 @@
 # Blocking Questions
 
-Status: Phase 6 planning — **BQ-2 and BQ-10 to BQ-12 resolved**
-2026-10-11. No Phase 6 decision remains outstanding.
-Last updated: 2026-10-11
+Status: Phase 7 planning — **BQ-4 and BQ-13 to BQ-15 resolved**
+2026-10-12. No Phase 7 decision remains outstanding.
+Last updated: 2026-10-12
 
 ## Decision summary
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-11
 | BQ-1 | Project licence | Resolved — Apache-2.0 | — |
 | BQ-2 | Grafana bundling | **Resolved 2026-10-11** — external only | — |
 | BQ-3 | Reference hardware and traffic rates | Open | Benchmarking |
-| BQ-4 | Phase 8 before or after v1.0.0 | Open | Phase 7 scheduling |
+| BQ-4 | Phase 8 before or after v1.0.0 | **Resolved 2026-10-12** — after | — |
 | BQ-5 | Incident identity (UUID vs ADR 0009) | **Resolved 2026-08-22** — UUIDv7, conditional | Was 5A |
 | BQ-6 | Mitigation states in the incident machine | **Resolved 2026-08-22** — excluded | Was 5A |
 | BQ-7 | PostgreSQL and HTTP dependencies | **Resolved 2026-08-22** — approved architecturally | Was 5B |
@@ -20,6 +20,9 @@ Last updated: 2026-10-11
 | BQ-10 | How the web UI signs in before OIDC | **Resolved 2026-10-11** — API token exchanged for a session | — |
 | BQ-11 | Web UI stack | **Resolved 2026-10-11** — React, TypeScript, Vite | — |
 | BQ-12 | Phase 6 scope and order | **Resolved 2026-10-11** — dashboards, UI, notifications; no InfluxDB | — |
+| BQ-13 | How WetechiNetMon talks to GoBGP | **Resolved 2026-10-12** — gRPC to an external `gobgpd` | — |
+| BQ-14 | How a mitigation starts | **Resolved 2026-10-12** — request or proposal, then approval | — |
+| BQ-15 | Which mitigation actions Phase 7 builds | **Resolved 2026-10-12** — RTBH, parent prefix, FlowSpec discard and rate-limit | — |
 
 These are the only questions treated as genuinely blocking for Phase 1+
 architecture and legal posture. Per master prompt §31, minor questions are
@@ -87,6 +90,12 @@ sequencing/roadmap planning benefits from an explicit confirmation of the
 proposed resolution (tenancy ships after v1.0.0) before Phase 7/8 work is
 scheduled. This is lower urgency than BQ-1–BQ-3 since it doesn't block
 Phase 0/1 work, but should be confirmed before Phase 7 starts.
+
+**Resolved 2026-10-12: after.** v1.0.0 is the single-tenant release, and
+multi-tenancy and RBAC are v1.1.0. Until then, Phase 7's prefix allowlist
+is deployment configuration, with each prefix bound to one tenant; Phase 8
+replaces it with prefix ownership
+([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md)).
 
 ## BQ-5: Does FR-5.2's "UUID" requirement override the ADR 0009 no-`uuid` precedent for incidents?
 
@@ -393,3 +402,36 @@ sessions and the UI (v0.7.0), then notifications by email, Teams,
 Slack, Telegram and webhook (v0.8.0). InfluxDB dashboards are dropped:
 nothing in WetechiNetMon writes to InfluxDB, and FR-11.2 makes it
 optional.
+
+## BQ-13: How does WetechiNetMon talk to GoBGP?
+
+FR-6.1 asks for a supported, isolated API. The options were GoBGP's gRPC
+API from Rust, running the `gobgp` command and parsing its output, or a
+separate mitigator written in Go that links GoBGP as a library.
+
+**Resolved 2026-10-12.** GoBGP's gRPC API, from Rust with `tonic` and
+`prost`, to a `gobgpd` the operator runs. GoBGP stays a separate process
+and the repository stays one language. The `.proto` files are vendored
+from one pinned GoBGP release, and CI runs that release. The new crates
+are reviewed in the 7C ADR and confined to `crates/mitigator`.
+
+## BQ-14: How does a mitigation start?
+
+FR-6.4 asks for manual approval of the first production mitigation, which
+implies an automatic mode later.
+
+**Resolved 2026-10-12.** An operator requests a mitigation, or detection
+proposes one for an incident. Nothing is announced until an approver,
+`noc_lead` or above, approves it. Starting a mitigation without approval
+waits for Phase 9 or 10. Every mitigation still has a maximum duration,
+automatic withdrawal and the global kill switch.
+
+## BQ-15: Which mitigation actions does Phase 7 build?
+
+**Resolved 2026-10-12.** RTBH for host routes (`/32` and `/128`),
+parent-prefix announcement, FlowSpec discard and rate-limit, standard and
+large communities, a configurable next hop, `NO_EXPORT` and
+`NO_ADVERTISE`. FlowSpec redirect, which moves traffic to another VRF or
+a scrubbing centre, waits for a later phase: a mistake there sends traffic
+somewhere it should not go. AS-path prepend is built only if the 7C ADR
+finds a lab use for it.

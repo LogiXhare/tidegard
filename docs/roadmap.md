@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: Phases 0–6 complete; Phase 7 planning next
+Status: Phases 0–6 complete; Phase 7 planned, 7A next
 Last updated: 2026-10-12
 
 This roadmap mirrors the phased delivery model and versioning plan in the
@@ -136,6 +136,18 @@ than configured — see
 
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
+
+## Phase 7: BGP Mitigation Lab — Planned
+
+Planned on 2026-10-12, with the owner's decisions on BQ-4 and BQ-13 to
+BQ-15. Six milestones: the mitigation record (7A), the safety guard
+(7B), the GoBGP adapter (7C), the mitigator service (7D), the API, CLI,
+UI and notifications (7E), and the lab and hardening (7F). It is v0.9.0.
+GoBGP is reached over its gRPC API; nothing announces without approval;
+production BGP stays off by default; and nothing is pointed at a real
+network. See the
+[Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md) and its
+[acceptance criteria](development/phase7-acceptance-criteria.md).
 
 ## Phase 6: Dashboards, NOC UI and Notifications — Complete
 
