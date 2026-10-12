@@ -18,7 +18,7 @@ use lettre::transport::smtp::client::{Certificate, CertificateStore, Tls, TlsPar
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
 use crate::config::{ChannelSpec, SmtpTls};
-use crate::message::{clean, Notice};
+use crate::message::{clean, Render};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const SUBJECT_MAX_CHARS: usize = 200;
@@ -89,7 +89,7 @@ impl Email {
         }
     }
 
-    fn message(&self, notice: &Notice) -> Result<Message, String> {
+    fn message(&self, notice: &dyn Render) -> Result<Message, String> {
         let mut builder = Message::builder().from(self.from.clone()).subject(clean(
             &format!("WetechiNetMon {}", notice.headline()),
             SUBJECT_MAX_CHARS,
@@ -120,7 +120,7 @@ impl Email {
     }
 
     /// Sends `notice` through the relay at the vetted `address`.
-    pub async fn send(&self, address: SocketAddr, notice: &Notice) -> Result<(), Failure> {
+    pub async fn send(&self, address: SocketAddr, notice: &dyn Render) -> Result<(), Failure> {
         let message = self.message(notice).map_err(Failure::Permanent)?;
         let tls = self.tls().map_err(Failure::Permanent)?;
         let mut builder =
@@ -142,6 +142,7 @@ impl Email {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::message::Notice;
 
     fn notice(title: &str) -> Notice {
         Notice {
@@ -155,6 +156,7 @@ mod tests {
             priority: "P2".into(),
             target: "203.0.113.10".into(),
             direction: "incoming".into(),
+            mitigation_status: "none".into(),
             link: None,
         }
     }

@@ -89,6 +89,7 @@ fn notice(title: &str) -> Notice {
         priority: "P1".into(),
         target: "203.0.113.10".into(),
         direction: "incoming".into(),
+        mitigation_status: "none".into(),
         link: Some("https://noc.example.net/incidents/0192f3c4".into()),
     }
 }

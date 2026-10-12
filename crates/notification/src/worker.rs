@@ -1,6 +1,11 @@
 //! The notifier's work (ADR 0045): claim outbox messages, decide who hears
 //! of each, deliver, record each attempt on the incident's timeline, and
 //! mark the message published or failed.
+//!
+//! Since Phase 7E (ADR 0050) it also tells of mitigations, the kill switch
+//! and BGP sessions, from the payload each change wrote to the outbox. A
+//! mitigation's delivery is recorded on its incident's timeline when it has
+//! one.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -17,12 +22,13 @@ use wetechinetmon_incident_postgres::pool::acquire;
 use wetechinetmon_incident_postgres::queries;
 use wetechinetmon_incident_postgres::row::IncidentRow;
 use wetechinetmon_incident_postgres::service::IncidentPersistence;
+use wetechinetmon_incident_postgres::status;
 
 use crate::config::{channels_for, ChannelKind, ChannelSpec, File};
 use crate::destination::{self, Target};
 use crate::http::{self, Sent};
 use crate::limits::{Dedup, RateLimit};
-use crate::message::{self, Notice};
+use crate::message::{self, MitigationNotice, Notice, Render};
 use crate::metrics::NotifierMetrics;
 
 const DEFAULT_TELEGRAM_API: &str = "https://api.telegram.org";
@@ -117,7 +123,7 @@ impl Channel {
         })
     }
 
-    fn body(&self, notice: &Notice) -> serde_json::Value {
+    fn body(&self, notice: &dyn Render) -> serde_json::Value {
         match self.kind {
             ChannelKind::Webhook => message::webhook(notice),
             ChannelKind::Slack => message::slack(notice),
@@ -132,7 +138,7 @@ impl Channel {
     /// Vets the destination and posts `notice` to it.
     pub async fn deliver(
         &self,
-        notice: &Notice,
+        notice: &dyn Render,
         allowed_hosts: &[String],
         tls: Option<&TlsConnector>,
     ) -> Delivery {
@@ -282,16 +288,17 @@ impl Notifier {
         message: &ClaimedMessage,
         report: &mut BatchReport,
     ) -> Result<Option<String>, PersistError> {
+        if message::MITIGATION_AGGREGATES.contains(&message.aggregate_type.as_str()) {
+            return self.handle_mitigation(client, message, report).await;
+        }
         if message.aggregate_type != "incident" {
             return Ok(None);
         }
         let Ok(incident_id) = IncidentId::parse(&message.aggregate_id) else {
             return Ok(None);
         };
-        let auth = AuthorizationContext::notifier(
-            TenantId::new(message.tenant_id.clone()),
-            &self.consumer_id,
-        );
+        let tenant = TenantId::new(message.tenant_id.clone());
+        let auth = AuthorizationContext::notifier(tenant.clone(), &self.consumer_id);
         // Retention may have removed the incident since the message was
         // written; then there is no one to tell about it.
         let Ok(incident) = queries::get_incident(client, &auth, &incident_id).await? else {
@@ -310,6 +317,8 @@ impl Notifier {
         if channels.is_empty() {
             return Ok(None);
         }
+        let mitigation_status =
+            status::incident_mitigation_status(&*client, &tenant, &row.incident_id).await?;
         let notice = Notice {
             event_type: message.event_type.clone(),
             tenant: row.tenant_id.clone(),
@@ -326,6 +335,7 @@ impl Notifier {
                 .or_else(|| row.target_hostgroup.clone())
                 .unwrap_or_default(),
             direction: row.direction.clone(),
+            mitigation_status: mitigation_status.to_string(),
             link: self.file.ui_base_url.as_ref().map(|base| {
                 format!(
                     "{}/incidents/{}",
@@ -334,7 +344,81 @@ impl Notifier {
                 )
             }),
         };
+        self.deliver_all(
+            client,
+            message,
+            &auth,
+            channels,
+            &notice,
+            Some(incident_id),
+            report,
+        )
+        .await
+    }
 
+    /// A mitigation's, the kill switch's or a BGP session's change, told
+    /// from the outbox payload (ADR 0050).
+    async fn handle_mitigation(
+        &mut self,
+        client: &mut tokio_postgres::Client,
+        message: &ClaimedMessage,
+        report: &mut BatchReport,
+    ) -> Result<Option<String>, PersistError> {
+        let Ok(payload) = serde_json::from_str::<serde_json::Value>(&message.payload) else {
+            tracing::warn!(
+                outbox_id = message.outbox_id,
+                "an outbox payload is not JSON; it is skipped"
+            );
+            return Ok(None);
+        };
+        let notice = MitigationNotice {
+            event_type: message.event_type.clone(),
+            tenant: message.tenant_id.clone(),
+            payload,
+            link: self
+                .file
+                .ui_base_url
+                .as_ref()
+                .map(|base| format!("{}/mitigations", base.trim_end_matches('/'))),
+        };
+        let channels: Vec<String> = channels_for(
+            &self.file,
+            &message.tenant_id,
+            &message.event_type,
+            notice.severity(),
+        )
+        .into_iter()
+        .map(String::from)
+        .collect();
+        if channels.is_empty() {
+            return Ok(None);
+        }
+        let auth = AuthorizationContext::notifier(
+            TenantId::new(message.tenant_id.clone()),
+            &self.consumer_id,
+        );
+        let incident = notice
+            .incident_id()
+            .and_then(|id| IncidentId::parse(id).ok());
+        self.deliver_all(client, message, &auth, channels, &notice, incident, report)
+            .await
+    }
+
+    /// Sends `notice` to each channel that does not have it yet, and records
+    /// each attempt on `incident`'s timeline when there is one.
+    #[allow(clippy::too_many_arguments)]
+    async fn deliver_all(
+        &mut self,
+        client: &mut tokio_postgres::Client,
+        message: &ClaimedMessage,
+        auth: &AuthorizationContext,
+        channels: Vec<String>,
+        notice: &dyn Render,
+        incident: Option<IncidentId>,
+        report: &mut BatchReport,
+    ) -> Result<Option<String>, PersistError> {
+        // What duplicates are judged by: the incident, the mitigation, the peer.
+        let subject = &message.aggregate_id;
         let mut transient: Vec<String> = Vec::new();
         for name in channels {
             if self
@@ -350,7 +434,7 @@ impl Notifier {
             let now = Instant::now();
             if self
                 .dedup
-                .is_duplicate(&name, &row.incident_id, &message.event_type, now)
+                .is_duplicate(&name, subject, &message.event_type, now)
             {
                 report.duplicates += 1;
                 continue;
@@ -361,13 +445,12 @@ impl Notifier {
                 continue;
             }
             let delivery = channel
-                .deliver(&notice, &self.file.allowed_hosts, self.tls.as_ref())
+                .deliver(notice, &self.file.allowed_hosts, self.tls.as_ref())
                 .await;
             let (outcome, done) = match &delivery {
                 Delivery::Delivered => {
                     report.delivered += 1;
-                    self.dedup
-                        .record(&name, &row.incident_id, &message.event_type, now);
+                    self.dedup.record(&name, subject, &message.event_type, now);
                     (NotificationOutcome::Delivered, true)
                 }
                 Delivery::Transient(detail) => {
@@ -391,11 +474,14 @@ impl Notifier {
                     .or_default()
                     .insert(name.clone());
             }
+            let Some(incident_id) = incident else {
+                continue;
+            };
             if let Err(error) = self
                 .service
                 .record_notification_result(
                     client,
-                    &auth,
+                    auth,
                     incident_id,
                     &name,
                     &message.event_type,

@@ -1,13 +1,21 @@
 # Notifier
 
-`wetechinetmon-notifier` tells people about incidents by generic webhook,
-Slack, Microsoft Teams and Telegram
+`wetechinetmon-notifier` sends notifications through generic webhooks,
+Slack, Microsoft Teams, Telegram and email
 ([ADR 0045](../../docs/architecture/decisions/0045-phase6e-notification-delivery.md)).
-It is the incident outbox's first consumer. Every attempt is recorded on
-the incident's timeline as `notification_result`, and every message says
-**mitigation: none**, because WetechiNetMon does not act on traffic.
+It covers incidents and, since Phase 7E, mitigations, the kill switch and
+BGP sessions
+([ADR 0050](../../docs/architecture/decisions/0050-phase7e-mitigation-api-cli-ui.md)).
+It is the incident outbox's first consumer.
 
-**Status:** Phase 6E: webhook, Slack, Teams, Telegram and email.
+Every attempt is recorded on the incident's timeline as
+`notification_result`. A mitigation's attempts go on its incident's
+timeline when the mitigation has an incident. Every incident message says
+where the incident's mitigation stands, for example `Mitigation: none`
+or `Mitigation: active`.
+
+**Status:** Phase 7E. Webhook, Slack, Teams, Telegram and email, for
+incidents, mitigations, the kill switch and BGP peers.
 
 ## Running it
 
@@ -79,6 +87,46 @@ Events are the outbox's: `incident.opened`, `incident.reopened`,
 `incident.assignment_changed`, `incident.state_changed` and
 `incident.suppression_changed`. A message no route matches is sent
 nowhere.
+
+### Mitigations, the kill switch and BGP peers
+
+A mitigation event is `mitigation.` followed by the state it reached. The
+kill switch and BGP sessions have their own events. These events have no
+severity of their own, so each one has a fixed severity, which
+`min_severity` filters on:
+
+| Event | Severity | When it is written |
+|---|---|---|
+| `mitigation.requested`, `mitigation.proposed` | major | Someone must approve it |
+| `mitigation.approved` | minor | Approved; the mitigator will announce it |
+| `mitigation.active` | major | Announced. The message says so if it was a dry-run |
+| `mitigation.failed` | critical | GoBGP or the guard refused it |
+| `mitigation.withdrawn` | minor; major when the kill switch withdrew it | Taken down. The message gives the cause |
+| `mitigation.rejected`, `mitigation.expired`, `mitigation.announcing`, `mitigation.withdrawing` | minor | Routine steps |
+| `mitigation.kill_switch_engaged` | critical | Nothing may be announced |
+| `mitigation.kill_switch_released` | major | Released on the API host |
+| `bgp.peer_down` | critical | An established session left `established` or disappeared |
+| `bgp.peer_up` | minor | A known session is established again |
+
+**BGP peers are deployment-wide, so their events have the tenant
+`platform`.** Route them with `"tenant": "platform"`. Mitigation and
+kill-switch events have the tenant of the mitigation, or of the person
+who turned the switch. Mitigation and kill-switch links point to the
+UI's `/mitigations` page.
+
+```text
+"routes": [
+  { "tenant": "acme",
+    "events": ["mitigation.requested", "mitigation.failed", "mitigation.kill_switch_engaged"],
+    "channels": ["noc-slack"] },
+  { "tenant": "platform", "events": ["bgp.peer_down", "bgp.peer_up"],
+    "channels": ["noc-telegram"] }
+]
+```
+
+The generic webhook carries the outbox payload under `mitigation`,
+`kill_switch` or `bgp_peer`. It never includes a route attribute or a
+secret.
 
 ## Safety
 
