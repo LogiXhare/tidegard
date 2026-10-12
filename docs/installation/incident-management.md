@@ -1,6 +1,6 @@
 # Installing Incident Management
 
-Status: **Phase 5F**, 2026-10-05. This is a single-node installation built
+Status: **Phase 6**, 2026-10-12. This is a single-node installation built
 from source. There are no packages or container images yet. Each step
 below matches what CI builds and tests. The systemd units are examples
 and do not ship in the repository.
@@ -13,6 +13,8 @@ and do not ship in the repository.
 | `wetechinetmon-incident-manager` | Turns detection events into incidents; runs the timers and retention; applies migrations | metrics `0.0.0.0:9091` |
 | `wetechinetmon-api` | REST API, and the `token` command | `127.0.0.1:8080` |
 | `wetechinetmonctl` | CLI for operators, through the API | — |
+| `wetechinetmon-notifier` | Delivers notifications from the outbox | metrics `127.0.0.1:9093` |
+| NOC UI (`apps/web/dist`) | The browser UI, served by the API | through the API |
 
 PostgreSQL holds all incident state. ClickHouse holds flow and detection
 analytics for the collector, and is optional for incidents.
@@ -35,10 +37,21 @@ git clone https://github.com/LogiXhare/wetechi-netmon.git
 cd wetechi-netmon
 cargo build --release --locked \
   -p wetechinetmon-collector -p wetechinetmon-incident-manager \
-  -p wetechinetmon-api -p wetechinetmon-cli
+  -p wetechinetmon-api -p wetechinetmon-cli -p wetechinetmon-notification
 sudo install -m 0755 target/release/wetechinetmon-collector \
   target/release/wetechinetmon-incident-manager \
-  target/release/wetechinetmon-api target/release/wetechinetmonctl /usr/local/bin/
+  target/release/wetechinetmon-api target/release/wetechinetmonctl \
+  target/release/wetechinetmon-notifier /usr/local/bin/
+```
+
+The UI needs Node.js 22.12 or later, at build time only:
+
+```sh
+cd apps/web
+npm ci --ignore-scripts
+npm run build
+sudo mkdir -p /usr/local/share/wetechinetmon
+sudo cp -r dist /usr/local/share/wetechinetmon/web
 ```
 
 ## 2. The database
@@ -155,12 +168,65 @@ describes, and checks it:
 wetechinetmonctl incidents list
 ```
 
-## 6. Check the installation
+## 6. The NOC UI
+
+Point the API at the build, and restart it:
+
+```sh
+WETECHINETMON_API_WEB_ROOT=/usr/local/share/wetechinetmon/web
+```
+
+Open the API's address in a browser and sign in with a token. Off
+loopback the API serves TLS, so the session cookie is `Secure`.
+
+To show traffic in the UI, name the one tenant allowed to see it, and
+give the API a ClickHouse user that can only `SELECT`
+([ADR 0042](../architecture/decisions/0042-phase6b-traffic-read-api.md)):
+
+```sh
+WETECHINETMON_API_TRAFFIC_TENANT=acme
+WETECHINETMON_API_CLICKHOUSE_URL=https://clickhouse.example.net:8443
+WETECHINETMON_API_CLICKHOUSE_USER=wnm_reader
+WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE=/etc/wetechinetmon/clickhouse-password
+WETECHINETMON_API_CLICKHOUSE_CA_FILE=/etc/wetechinetmon/clickhouse-ca.pem
+```
+
+## 7. Notifications
+
+Write the channels-and-routes file and the secret files it names, as the
+[notifier README](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/notification)
+shows, then run the notifier after the incident manager:
+
+```sh
+WETECHINETMON_NOTIFY_DATABASE_URL="host=127.0.0.1 user=wetechinetmon dbname=incidents" \
+WETECHINETMON_NOTIFY_CONFIG=/etc/wetechinetmon/notify.json \
+wetechinetmon-notifier
+```
+
+Run one notifier per installation, or give each its own
+`WETECHINETMON_NOTIFY_CONSUMER_ID`. Open an incident by hand
+(`wetechinetmonctl incidents open ...`) and check its timeline for a
+`notification_result` entry per channel.
+
+## 8. Grafana
+
+Grafana is yours to run; WetechiNetMon ships dashboards, not Grafana
+([ADR 0041](../architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)).
+Install the `grafana-clickhouse-datasource` plugin, copy
+`grafana/provisioning` into Grafana's provisioning directory and
+`grafana/dashboards` to `/var/lib/grafana/dashboards/wetechinetmon`, set
+the variables the
+[provisioning README](https://github.com/LogiXhare/wetechi-netmon/tree/main/grafana/provisioning)
+lists, and restart Grafana.
+
+## 9. Check the installation
 
 - `curl -fsS http://127.0.0.1:8080/readyz` answers `200` once the API
   reaches the database.
 - `curl -fsS http://127.0.0.1:9091/metrics | grep wetechinetmon_incident_inbox_pending`
   shows the incident manager's gauges.
+- `curl -fsS http://127.0.0.1:9093/metrics` answers once the notifier
+  runs; its counters appear after the first message.
 - Add the [suggested alerts](../operations/incident-runbook.md#health).
 - Schedule backups, and run one restore, as
   [Backup and Restore](../operations/backup-and-restore.md) describes,
@@ -169,4 +235,5 @@ wetechinetmonctl incidents list
 ## Upgrading
 
 See [the runbook](../operations/incident-runbook.md#upgrades). The order
-is backup, then the incident manager, then the API, then the collector.
+is backup, then the incident manager, then the API (with the new UI
+build), then the notifier, then the collector.

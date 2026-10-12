@@ -1,16 +1,16 @@
 # Incident Management Threat Model
 
-Status: **Planning only.** Part of the
-[Phase 5 plan](../architecture/phase5-incident-management-plan.md).
-Nothing here is implemented; every control is a requirement on the future
-implementation, and every one has a corresponding entry in the
-[testing plan](../architecture/incident-testing-plan.md).
+Status: **Implemented and tested** through Phase 6, 2026-10-12. Written
+as the [Phase 5 plan](../architecture/phase5-incident-management-plan.md)'s
+threat model; each threat's test is mapped in the
+[threat tests](incident-threat-tests.md).
 
-Twenty-nine threats (twenty-four from Phase 5 planning, five added
-2026-08-24 during Phase 5B PostgreSQL-persistence planning — T-25
-through T-29). Each names the asset, the attacker, the path, a
-preventive control, a detective control, the test that must exist, and
-the residual risk that remains after both controls.
+Forty-one threats: twenty-four from Phase 5 planning, five added
+2026-08-24 during Phase 5B PostgreSQL-persistence planning (T-25 through
+T-29), and twelve added in Phase 6 for the UI, sessions, traffic and
+notifications (T-30 through T-41). Each names the asset, the attacker,
+the path, a preventive control, a detective control, the test, and the
+residual risk that remains after both controls.
 
 Attacker classes used throughout:
 
@@ -500,6 +500,154 @@ lease-reclaim and duplicate-consumer-idempotency integration tests in
 the downstream consumer must tolerate a duplicate, which the current
 sole consumer (the ClickHouse analytics exporter) already does by
 design.
+
+---
+
+## Phase 6 additions (2026-10-12)
+
+Phase 6 added a browser UI, browser sessions, a traffic read API and the
+first outbound delivery. Each brings threats the Phase 5 model did not
+have. Each entry names its control and the test that proves it; the
+[threat tests](incident-threat-tests.md) map them.
+
+## T-30 Cross-site request forgery through the session cookie
+
+**Asset** incident integrity · **Attacker** a page the operator visits
+
+**Path** A page on another site makes the operator's browser send a
+state-changing request, and the browser attaches the session cookie.
+
+**Prevent** The cookie is `SameSite=Strict`, and every cookie request
+that is not `GET`, `HEAD` or `OPTIONS` must carry `X-WNM-CSRF`,
+derived from the session id, which a cross-site page can neither read nor
+compute ([ADR 0043](../architecture/decisions/0043-phase6c-browser-sessions.md)).
+**Detect** each refusal is audited as `session.csrf_rejected`.
+**Test** `apps/api/tests/sessions.rs`; `apps/web/e2e/lifecycle.spec.ts`
+in a real browser.
+
+## T-31 Session fixation and session theft
+
+**Asset** an operator's identity · **Attacker** someone who plants or
+steals a session id
+
+**Path** A session id set before sign-in is honoured after it; or a stolen
+session lives on after the operator stops using it, or after the token
+behind it is revoked.
+
+**Prevent** Every sign-in issues a new random id; only its hash is stored;
+the cookie is `HttpOnly`; a session ends after 30 minutes idle, 12 hours
+in all, at sign-out, and when its token is revoked or expires.
+**Test** `apps/api/tests/sessions.rs` (fixation, idle and absolute
+expiry, revocation, sign-out, no secret logged).
+
+## T-32 Clickjacking
+
+**Asset** operator actions · **Attacker** a page that frames the UI
+
+**Prevent** `X-Frame-Options: DENY` and `frame-ancestors 'none'` on
+every response ([ADR 0044](../architecture/decisions/0044-phase6d-noc-ui.md)).
+**Test** `apps/api/tests/web.rs`; `apps/web/e2e/lifecycle.spec.ts`.
+
+## T-33 Path traversal through the UI's file serving
+
+**Asset** files on the API host · **Attacker** anyone who can reach the API
+
+**Prevent** Only `index.html` and allowlisted file names directly under
+`assets/` are served; nothing else under the root, and nothing outside it.
+**Test** `apps/api/src/web.rs` unit tests; `apps/api/tests/web.rs`
+(`..`, encoded `..`, other files and missing files are all `404`).
+
+## T-34 A compromised npm dependency
+
+**Asset** every operator's browser · **Attacker** whoever publishes a
+malicious version of a UI dependency (R22)
+
+**Prevent** Exact versions and a committed lockfile; `npm ci`; no install
+scripts; `npm audit`; a licence check; Dependabot proposes a release only
+once it is 14 days old; and the Content-Security-Policy refuses inline
+code and other origins, which limits what injected code could do.
+**Test** the **Web UI** CI job runs each of these on every pull request.
+**Residual** A malicious release older than the cooldown and unknown to
+the advisory database would be installed by a reviewed Dependabot PR.
+
+## T-35 Server-side request forgery through a notification destination
+
+**Asset** the internal network · **Attacker** whoever can edit the
+notifier's configuration, or control DNS for a configured host (R23)
+
+**Prevent** The host must be on the allowlist; every resolved address must
+be public unless the channel allows private ones; the connection goes to
+the checked address; `https` with the configured CA; no redirects; the
+response body is discarded ([ADR 0045](../architecture/decisions/0045-phase6e-notification-delivery.md)).
+**Test** `crates/notification/src/destination.rs` (ranges, allowlist,
+plain HTTP); `crates/notification/tests/delivery.rs` and `email.rs` (an
+unlisted host is refused before any connection).
+
+## T-36 Channel secret leakage
+
+**Asset** Slack and Teams webhook URLs, the Telegram token, webhook and
+SMTP secrets · **Attacker** anyone who reads logs, the timeline or the API
+
+**Prevent** Secrets live in files the configuration names; a destination
+prints without its path; timeline entries carry only the channel's name;
+nothing about channels is served by the API.
+**Test** `crates/notification/tests/delivery.rs` (no secret in any log
+line, in any other channel's message, or on the timeline);
+`destination.rs` (the path is redacted).
+
+## T-37 Notification storm
+
+**Asset** the operators' attention, and the channels' own rate limits ·
+**Attacker** a flapping detection or a large attack (R24)
+
+**Prevent** One message per channel, incident and event in each window,
+and a per-channel token bucket; over it, messages are dropped and counted.
+**Test** `crates/notification/src/limits.rs` (a burst of 100 sends 30).
+
+## T-38 Forged or replayed webhook
+
+**Asset** a receiving system that acts on notifications · **Attacker**
+anyone who can reach the receiver
+
+**Prevent** Every webhook carries `X-WNM-Timestamp` and an HMAC-SHA-256
+signature over the timestamp and the body; receivers are told to refuse a
+bad signature or an old timestamp.
+**Test** `crates/notification/src/hmac.rs` (RFC 4231 vectors);
+`crates/notification/tests/delivery.rs` (the receiver verifies it).
+
+## T-39 Content injection into a channel
+
+**Asset** the channel's readers · **Attacker** whoever controls an
+incident's title, such as a policy author or an API caller
+
+**Path** A title that mentions `@channel` in Slack, formats Teams
+Markdown, or adds a header or recipient to an email.
+
+**Prevent** Control characters removed; Slack `&<>` and Teams Markdown
+escaped; Telegram sent without a parse mode; email headers encoded by the
+library. **Test** `crates/notification/src/message.rs`;
+`crates/notification/src/email.rs`; `crates/notification/tests/email.rs`.
+
+## T-40 Cross-tenant traffic disclosure
+
+**Asset** one customer's traffic · **Attacker** another tenant's operator
+(R21)
+
+**Prevent** Traffic has no tenant until Phase 8, so only the one configured
+traffic tenant reaches the traffic endpoints; anyone else gets `404`
+before anything is read ([ADR 0042](../architecture/decisions/0042-phase6b-traffic-read-api.md)).
+**Test** `apps/api/tests/tenant_isolation.rs`; `apps/api/tests/traffic.rs`.
+
+## T-41 Query injection into ClickHouse
+
+**Asset** the analytics store · **Attacker** an API caller
+
+**Prevent** Fixed query text with server-side parameters; a dimension
+selects a query from an allowlist; every request is `readonly=2` and
+time- and row-limited.
+**Test** `apps/api/src/clickhouse.rs` (a hostile value travels as a
+parameter); `apps/api/src/traffic.rs`; `apps/api/tests/traffic.rs` (a
+hostile dimension is `400`).
 
 ---
 

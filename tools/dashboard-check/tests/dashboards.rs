@@ -13,6 +13,9 @@ fn known() -> Known {
     let (manager, _registry) =
         wetechinetmon_incident_manager::metrics::ManagerMetrics::new().expect("registers");
     metrics.extend(manager.metric_names());
+    let (notifier, _registry) =
+        wetechinetmon_notification::metrics::NotifierMetrics::new().expect("registers");
+    metrics.extend(notifier.metric_names());
     let tables = wetechinetmon_storage::schema::CREATE_TABLE_STATEMENTS
         .iter()
         .map(|(name, _)| name.to_string())

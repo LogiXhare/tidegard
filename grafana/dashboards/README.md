@@ -8,7 +8,7 @@ the [clean-room boundary](../../docs/clean-room-boundary.md)).
 | `traffic.json` | `wnm-traffic` | ClickHouse | Traffic, protocol mix, attack indicators, top talkers, exporters |
 | `collector.json` | `wnm-collector` | Prometheus | Decoding, classification, aggregation, ClickHouse export, inbox writes |
 | `detection.json` | `wnm-detection` | Prometheus, ClickHouse | Scopes by state, transitions, events, and the latest detection events |
-| `incidents.json` | `wnm-incidents` | Prometheus | The incident manager's inbox, outbox, dead letters, timers and retention |
+| `incidents.json` | `wnm-incidents` | Prometheus | The incident manager's inbox, outbox, dead letters, timers and retention, and the notifier's attempts |
 
 Each datasource is a dashboard variable, so the JSON works in any
 Grafana; load it with the [provisioning files](../provisioning/). The

@@ -166,6 +166,8 @@ internet from CI, and `mitigation_status` stays `none` in every payload.
   each channel.
 - A Gate 2 assessment, as Phase 5 had.
 
+**Progress:** done in 6F. The [threat model](../security/incident-threat-model.md) gains T-30 to T-41, each mapped to its test; the runbook gains the notifier's alerts and sections on notifications, sessions and the UI, and traffic; the installation guide gains the UI, notifications and Grafana. Two tests were added to close gaps the review found: `delivery.rs` now captures the log and proves no channel secret reaches it, refuses a redirect, and dead-letters a message at the retry limit. The [Gate 2 assessment](../development/phase6-gate2-assessment.md) finds every criterion met, and files FU-64.
+
 ## Risks
 
 | Id | Risk | Response |
