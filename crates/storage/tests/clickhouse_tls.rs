@@ -52,7 +52,9 @@ async fn exports_over_verified_tls_with_credentials() {
         .await
         .expect("the tables are listed over TLS");
     assert!(
-        tables.iter().any(|name| name == "wetechinetmon_host_traffic"),
+        tables
+            .iter()
+            .any(|name| name == "wetechinetmon_host_traffic"),
         "{tables:?}"
     );
 
