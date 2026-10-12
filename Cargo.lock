@@ -2768,6 +2768,7 @@ dependencies = [
  "wetechinetmon-detector",
  "wetechinetmon-incident",
  "wetechinetmon-incident-postgres",
+ "wetechinetmon-mitigation",
  "wetechinetmon-storage",
 ]
 

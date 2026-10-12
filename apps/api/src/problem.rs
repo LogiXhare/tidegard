@@ -16,6 +16,8 @@ use axum::response::{IntoResponse, Response};
 use serde_json::{Map, Value};
 use wetechinetmon_incident::error::IncidentError;
 use wetechinetmon_incident_postgres::error::PersistError;
+use wetechinetmon_incident_postgres::mitigation::MitigationStoreError;
+use wetechinetmon_mitigation::{GuardRefusal, MitigationError};
 
 use crate::request_id;
 
@@ -79,6 +81,19 @@ error_codes! {
     ClockSkew => ("incident.clock_skew", 503, "Clock skew; retry"),
     CorrelationConflict => ("incident.correlation_conflict", 409, "Correlation conflict"),
     CustomerVisibleUnsupported => ("incident.customer_visible_unsupported", 501, "Customer-visible notes are not available"),
+    MitigationNotFound => ("mitigation.not_found", 404, "Mitigation not found"),
+    MitigationForbidden => ("mitigation.forbidden", 403, "Permission denied"),
+    MitigationIllegalTransition => ("mitigation.illegal_transition", 409, "Illegal mitigation transition"),
+    MitigationSelfApproval => ("mitigation.self_approval", 403, "Cannot approve your own mitigation"),
+    MitigationInvalid => ("mitigation.invalid", 422, "Invalid mitigation"),
+    MitigationDuplicate => ("mitigation.duplicate", 409, "A live mitigation already does this"),
+    MitigationVersionConflict => ("mitigation.version_conflict", 409, "Version conflict"),
+    MitigationIdempotencyKeyReuse => ("mitigation.idempotency_key_reuse", 409, "Idempotency key reused"),
+    MitigationKillSwitch => ("mitigation.kill_switch", 409, "The kill switch is on"),
+    MitigationNotAllowlisted => ("mitigation.not_allowlisted", 403, "Not on the allowlist"),
+    MitigationActionNotAllowed => ("mitigation.action_not_allowed", 403, "Action not allowed on this prefix"),
+    MitigationTooWide => ("mitigation.too_wide", 422, "Prefix too wide"),
+    MitigationTooLong => ("mitigation.too_long", 422, "Duration too long"),
 }
 
 impl ErrorCode {
@@ -217,6 +232,51 @@ impl From<&IncidentError> for Problem {
     }
 }
 
+impl From<&MitigationStoreError> for Problem {
+    fn from(error: &MitigationStoreError) -> Self {
+        match error {
+            MitigationStoreError::Mitigation(error) => Problem::from(error),
+            MitigationStoreError::IdempotencyMismatch => {
+                Problem::new(ErrorCode::MitigationIdempotencyKeyReuse)
+            }
+            MitigationStoreError::Persist(PersistError::IdempotencyKeyTaken) => {
+                Problem::new(ErrorCode::MitigationIdempotencyKeyReuse)
+            }
+            MitigationStoreError::Persist(error) => Problem::from(error),
+        }
+    }
+}
+
+impl From<&MitigationError> for Problem {
+    fn from(error: &MitigationError) -> Self {
+        let code = match error {
+            MitigationError::Forbidden(_) => ErrorCode::MitigationForbidden,
+            MitigationError::NotFound => ErrorCode::MitigationNotFound,
+            MitigationError::IllegalTransition { .. } => ErrorCode::MitigationIllegalTransition,
+            MitigationError::SelfApproval => ErrorCode::MitigationSelfApproval,
+            MitigationError::Invalid(_) => ErrorCode::MitigationInvalid,
+            MitigationError::Duplicate => ErrorCode::MitigationDuplicate,
+            MitigationError::VersionConflict(_) => ErrorCode::MitigationVersionConflict,
+            MitigationError::Refused(refusal) => match refusal {
+                GuardRefusal::KillSwitch => ErrorCode::MitigationKillSwitch,
+                GuardRefusal::NotAllowlisted(_) => ErrorCode::MitigationNotAllowlisted,
+                GuardRefusal::ActionNotAllowed(..) => ErrorCode::MitigationActionNotAllowed,
+                GuardRefusal::TooWide(..) => ErrorCode::MitigationTooWide,
+                GuardRefusal::TooLong(_) => ErrorCode::MitigationTooLong,
+            },
+        };
+        let problem = Problem::new(code);
+        match error {
+            // The detail names the rule or the field, never another tenant.
+            MitigationError::Invalid(_)
+            | MitigationError::Refused(_)
+            | MitigationError::IllegalTransition { .. } => problem.with_detail(error.to_string()),
+            MitigationError::VersionConflict(current) => problem.with("current_version", *current),
+            _ => problem,
+        }
+    }
+}
+
 impl From<&PersistError> for Problem {
     fn from(error: &PersistError) -> Self {
         match error {
@@ -241,7 +301,9 @@ mod tests {
         for code in ErrorCode::ALL {
             assert!(seen.insert(code.code()), "duplicate {}", code.code());
             assert!(
-                code.code().starts_with("api.") || code.code().starts_with("incident."),
+                code.code().starts_with("api.")
+                    || code.code().starts_with("incident.")
+                    || code.code().starts_with("mitigation."),
                 "{}",
                 code.code()
             );

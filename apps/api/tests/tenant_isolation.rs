@@ -209,11 +209,23 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
             ca_file: None,
         })
         .unwrap();
+    // acme may mitigate its own 203.0.113.0/24 (ADR 0050).
+    let guard = wetechinetmon_mitigation::Guard::new(wetechinetmon_mitigation::GuardConfig {
+        allowlist: vec![wetechinetmon_mitigation::guard::AllowlistEntry {
+            prefix: "203.0.113.0/24".parse().unwrap(),
+            tenant: "acme".into(),
+            actions: vec![wetechinetmon_mitigation::ActionKind::Rtbh],
+        }],
+        ..wetechinetmon_mitigation::GuardConfig::default()
+    })
+    .unwrap();
     let app = router(
-        AppState::new(pool).with_traffic(wetechinetmon_api::traffic::TrafficSource {
-            tenant: TenantId::new("acme"),
-            clickhouse: unreachable,
-        }),
+        AppState::new(pool)
+            .with_traffic(wetechinetmon_api::traffic::TrafficSource {
+                tenant: TenantId::new("acme"),
+                clickhouse: unreachable,
+            })
+            .with_guard(guard),
     );
     let owner = token(&admin, "acme", Role::NocLead).await;
     let outsider = token(&admin, "globex", Role::NocLead).await;
@@ -331,6 +343,102 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         traffic_checked += 1;
     }
     assert_eq!(traffic_checked, 3, "summary, top and exporters");
+
+    // --- Mitigations: another tenant's do not exist (ADR 0050) ---
+    let (status, mine) = send(
+        &app,
+        &Method::POST,
+        "/api/v1/mitigations",
+        &owner,
+        "isolation-mitigation",
+        Some(&json!({"prefix": "203.0.113.90/32", "action": "rtbh",
+                     "reason": "isolation", "duration_seconds": 600})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{mine}");
+    let mitigation = mine["mitigation_id"].as_str().unwrap().to_string();
+    let mut mitigation_checked = 0;
+    for (template, operations) in document["paths"].as_object().unwrap() {
+        if !template.contains("{mitigation_id}") {
+            continue;
+        }
+        let last = template.rsplit('/').next().unwrap();
+        for (method_name, _) in operations.as_object().unwrap() {
+            let body = match (method_name.as_str(), last) {
+                ("get", _) => None,
+                ("post", "approve") => Some(json!({"expected_version": 1})),
+                ("post", "reject" | "withdraw") => {
+                    Some(json!({"expected_version": 1, "reason": "isolation"}))
+                }
+                _ => panic!("no isolation case for {method_name} {template}"),
+            };
+            let method = Method::from_bytes(method_name.to_uppercase().as_bytes()).unwrap();
+            let (status, cross) = send(
+                &app,
+                &method,
+                &template.replace("{mitigation_id}", &mitigation),
+                &outsider,
+                &format!("isolation-mitigation-cross-{mitigation_checked:02}"),
+                body.as_ref(),
+            )
+            .await;
+            let (_, absent) = send(
+                &app,
+                &method,
+                &template.replace("{mitigation_id}", MISSING),
+                &outsider,
+                &format!("isolation-mitigation-absent-{mitigation_checked:02}"),
+                body.as_ref(),
+            )
+            .await;
+            assert_eq!(
+                status,
+                StatusCode::NOT_FOUND,
+                "{method} {template}: {cross}"
+            );
+            assert_eq!(
+                cross["error"], "mitigation.not_found",
+                "{method} {template}"
+            );
+            assert_eq!(shape(&cross), shape(&absent), "{method} {template}");
+            mitigation_checked += 1;
+        }
+    }
+    assert_eq!(
+        mitigation_checked, 5,
+        "get, history, approve, reject and withdraw"
+    );
+    let (_, listed) = send(
+        &app,
+        &Method::GET,
+        "/api/v1/mitigations",
+        &outsider,
+        "",
+        None,
+    )
+    .await;
+    assert!(listed["items"].as_array().unwrap().is_empty(), "{listed}");
+    let (_, routes) = send(
+        &app,
+        &Method::GET,
+        "/api/v1/bgp/routes",
+        &outsider,
+        "",
+        None,
+    )
+    .await;
+    assert!(routes["items"].as_array().unwrap().is_empty(), "{routes}");
+    // Another tenant's lead cannot approve it either: still requested.
+    let (_, still) = send(
+        &app,
+        &Method::GET,
+        &format!("/api/v1/mitigations/{mitigation}"),
+        &owner,
+        "",
+        None,
+    )
+    .await;
+    assert_eq!(still["state"], "requested");
 
     // --- Nothing changed, and nothing shows in the other tenant's list ---
     let (_, after) = send(&app, &Method::GET, &base, &owner, "", None).await;

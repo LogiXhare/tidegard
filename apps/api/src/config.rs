@@ -22,6 +22,9 @@ pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_C
 pub const POOL_MAX_SIZE_ENV_VAR: &str = "WETECHINETMON_API_POOL_MAX_SIZE";
 pub const TRAFFIC_TENANT_ENV_VAR: &str = "WETECHINETMON_API_TRAFFIC_TENANT";
 pub const WEB_ROOT_ENV_VAR: &str = "WETECHINETMON_API_WEB_ROOT";
+/// The safety guard file mitigation requests are checked against
+/// (ADR 0047, ADR 0050): the same `guard` the mitigator uses.
+pub const MITIGATION_GUARD_FILE_ENV_VAR: &str = "WETECHINETMON_API_MITIGATION_GUARD_FILE";
 pub const CLICKHOUSE_URL_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_URL";
 pub const CLICKHOUSE_USER_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_USER";
 pub const CLICKHOUSE_PASSWORD_FILE_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE";
@@ -48,6 +51,9 @@ pub struct Config {
     pub traffic: Option<TrafficConfig>,
     /// The built NOC UI (`apps/web/dist`), served from the same origin.
     pub web_root: Option<PathBuf>,
+    /// The safety guard file. Without one nothing is allowlisted, so every
+    /// mitigation request is refused.
+    pub mitigation_guard_file: Option<PathBuf>,
 }
 
 impl std::fmt::Debug for Config {
@@ -176,6 +182,7 @@ impl Config {
             },
             traffic,
             web_root: get(WEB_ROOT_ENV_VAR).map(PathBuf::from),
+            mitigation_guard_file: get(MITIGATION_GUARD_FILE_ENV_VAR).map(PathBuf::from),
         })
     }
 }

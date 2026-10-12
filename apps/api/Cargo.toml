@@ -44,6 +44,9 @@ wetechinetmon-incident = { path = "../../crates/incident" }
 # The target vocabulary a manual incident names (ADR 0039).
 wetechinetmon-detector = { path = "../../crates/detector" }
 wetechinetmon-incident-postgres = { path = "../../crates/incident-postgres" }
+# Mitigation records and the safety guard (ADR 0050). The API never
+# speaks to GoBGP: the mitigator alone does.
+wetechinetmon-mitigation = { path = "../../crates/mitigation" }
 deadpool-postgres.workspace = true
 tokio-postgres.workspace = true
 uuid.workspace = true

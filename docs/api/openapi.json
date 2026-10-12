@@ -10,6 +10,138 @@
     "version": "0.0.0"
   },
   "paths": {
+    "/api/v1/bgp/peers": {
+      "get": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "GoBGP's peers as the mitigator last saw them. Deployment-wide: for\nthose who may pull the kill switch (FU-65).",
+        "operationId": "bgp_peers",
+        "responses": {
+          "200": {
+            "description": "The peers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BgpPeerList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks mitigation.kill_switch.engage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bgp/routes": {
+      "get": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "The routes the tenant's mitigations announced live and may hold in\nGoBGP now. Dry-run mitigations hold none.",
+        "operationId": "bgp_routes",
+        "responses": {
+          "200": {
+            "description": "The tenant's routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BgpRouteList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks mitigation.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/exporters": {
       "get": {
         "tags": [
@@ -3713,6 +3845,944 @@
         ]
       }
     },
+    "/api/v1/mitigation-controls/kill-switch": {
+      "get": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "The deployment-wide kill switch.",
+        "operationId": "get_kill_switch",
+        "responses": {
+          "200": {
+            "description": "The kill switch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks mitigation.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "Turns the kill switch on (`noc_lead` and up) or off (platform\nadministrators only), with a reason.",
+        "operationId": "set_kill_switch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The kill switch as it now is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks mitigation.kill_switch.engage or .release",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No reason",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/mitigations": {
+      "get": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "The tenant's mitigations, newest first.",
+        "operationId": "list_mitigations",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 500; 100 by default",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "live",
+            "in": "query",
+            "description": "Only mitigations that have not ended",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tenant's mitigations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad query",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks mitigation.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "Asks for a mitigation. Nothing is announced until it is approved.",
+        "operationId": "request_mitigation",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "16 to 255 characters",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MitigationRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks mitigation.request, or the prefix or action is not allowlisted",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A duplicate, the kill switch, or a reused key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid mitigation, or outside the guard's bounds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/mitigations/{mitigation_id}": {
+      "get": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "One mitigation.",
+        "operationId": "get_mitigation",
+        "parameters": [
+          {
+            "name": "mitigation_id",
+            "in": "path",
+            "description": "The mitigation's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The mitigation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The id is not a UUID",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks mitigation.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such mitigation in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/mitigations/{mitigation_id}/approve": {
+      "post": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "Approves a mitigation: the mitigator will announce it. `noc_lead` and\nup, and not your own unless the deployment allows it.",
+        "operationId": "approve_mitigation",
+        "parameters": [
+          {
+            "name": "mitigation_id",
+            "in": "path",
+            "description": "The mitigation's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks mitigation.approve, your own request, or no longer allowlisted",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such mitigation in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not awaiting approval, a stale version, or the kill switch",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/mitigations/{mitigation_id}/history": {
+      "get": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "A mitigation's state changes, oldest first.",
+        "operationId": "mitigation_history",
+        "parameters": [
+          {
+            "name": "mitigation_id",
+            "in": "path",
+            "description": "The mitigation's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every state change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The id is not a UUID",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role lacks mitigation.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such mitigation in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/mitigations/{mitigation_id}/reject": {
+      "post": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "Rejects a mitigation awaiting approval.",
+        "operationId": "reject_mitigation",
+        "parameters": [
+          {
+            "name": "mitigation_id",
+            "in": "path",
+            "description": "The mitigation's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks mitigation.approve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such mitigation in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not awaiting approval, or a stale version",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No reason",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/mitigations/{mitigation_id}/withdraw": {
+      "post": {
+        "tags": [
+          "mitigations"
+        ],
+        "summary": "Takes an approved mitigation down. The mitigator withdraws its route.",
+        "operationId": "withdraw_mitigation",
+        "parameters": [
+          {
+            "name": "mitigation_id",
+            "in": "path",
+            "description": "The mitigation's UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Withdrawing, or withdrawn if nothing was announced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MitigationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No usable token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Lacks mitigation.withdraw",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such mitigation in the caller's tenant",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not up, or a stale version",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No reason",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDocument"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/session": {
       "get": {
         "tags": [
@@ -4219,6 +5289,20 @@
   },
   "components": {
     "schemas": {
+      "ApproveBody": {
+        "type": "object",
+        "required": [
+          "expected_version"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "AssignRequest": {
         "type": "object",
         "description": "Exactly one of `user_id` and `team_id`.",
@@ -4310,6 +5394,97 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "BgpPeer": {
+        "type": "object",
+        "description": "One of GoBGP's peers, as the mitigator last saw it.",
+        "required": [
+          "neighbor_address",
+          "peer_asn",
+          "session_state",
+          "updated_at"
+        ],
+        "properties": {
+          "neighbor_address": {
+            "type": "string"
+          },
+          "peer_asn": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "session_state": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "When the mitigator last saw it. An old time means the mitigator has\nstopped, not that the session is still up."
+          }
+        }
+      },
+      "BgpPeerList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BgpPeer"
+            }
+          }
+        }
+      },
+      "BgpRoute": {
+        "type": "object",
+        "description": "A route the tenant's mitigations have in GoBGP.",
+        "required": [
+          "mitigation_id",
+          "state",
+          "prefix",
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mitigation_id": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "route": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "BgpRouteList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BgpRoute"
+            }
           }
         }
       },
@@ -4536,6 +5711,43 @@
             "description": "Seconds since then. A large number means a silent exporter."
           }
         }
+      },
+      "FlowView": {
+        "type": "object",
+        "description": "What a FlowSpec rule matches beyond the destination.",
+        "properties": {
+          "destination_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "protocol": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_port": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
       },
       "Health": {
         "type": "object",
@@ -4841,11 +6053,11 @@
           },
           "mitigation_status": {
             "type": "string",
-            "description": "Always `none` in Phase 5: nothing is ever mitigated."
+            "description": "The incident's most live mitigation, or else the one that ended\nlast: `none`, `pending_approval`, `approved`, `active`, `dry_run`,\n`withdrawing`, `withdrawn`, `rejected`, `expired` or `failed`\n(FU-64)."
           },
           "notification_status": {
             "type": "string",
-            "description": "Always `none` in Phase 5: nothing is ever notified."
+            "description": "Each channel's latest outcome: `none`, `delivered` (every\nchannel), `partial`, or `failed` (none delivered) (FU-64)."
           },
           "opened_at": {
             "type": "string"
@@ -4941,6 +6153,316 @@
             "type": "integer",
             "format": "int64",
             "description": "For `expected_version` on transitions."
+          }
+        }
+      },
+      "KillSwitchBody": {
+        "type": "object",
+        "required": [
+          "engaged",
+          "reason"
+        ],
+        "properties": {
+          "engaged": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "KillSwitchView": {
+        "type": "object",
+        "description": "The deployment-wide kill switch.",
+        "required": [
+          "engaged",
+          "version"
+        ],
+        "properties": {
+          "changed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "engaged": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "MitigationHistory": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MitigationHistoryEntry"
+            }
+          }
+        }
+      },
+      "MitigationHistoryEntry": {
+        "type": "object",
+        "description": "One state change.",
+        "required": [
+          "version",
+          "occurred_at",
+          "to_state",
+          "actor"
+        ],
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from_state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "type": "string"
+          },
+          "to_state": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "MitigationList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MitigationView"
+            }
+          }
+        }
+      },
+      "MitigationRequestBody": {
+        "type": "object",
+        "description": "A request for a mitigation. Route attributes are not here: they are\nthe deployment's (ADR 0046).",
+        "required": [
+          "prefix",
+          "action",
+          "reason",
+          "duration_seconds"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "bytes_per_second": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "flow": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FlowView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "incident_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prefix": {
+            "type": "string",
+            "description": "A canonical prefix, such as `192.0.2.10/32`."
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MitigationView": {
+        "type": "object",
+        "description": "One mitigation.",
+        "required": [
+          "mitigation_id",
+          "tenant_id",
+          "prefix",
+          "action",
+          "reason",
+          "duration_seconds",
+          "state",
+          "version",
+          "requested_by",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "`rtbh`, `parent_prefix`, `flowspec_discard` or `flowspec_rate_limit`."
+          },
+          "active_since": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytes_per_second": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "dry_run": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the mitigator was in dry-run when announcing began."
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flow": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FlowView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "incident_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mitigation_id": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "requested_by": {
+            "type": "string"
+          },
+          "route": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The route recorded when announcing began."
+          },
+          "state": {
+            "type": "string",
+            "description": "`proposed`, `requested`, `approved`, `announcing`, `active`,\n`withdrawing`, `withdrawn`, `rejected`, `expired` or `failed`."
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "For `expected_version`.",
+            "minimum": 0
+          },
+          "withdrawal_cause": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`operator`, `duration_reached` or `kill_switch`."
           }
         }
       },
@@ -5137,6 +6659,24 @@
             "description": "`https://wetechi.com/probs/` and the code, as an identifier."
           }
         }
+      },
+      "ReasonBody": {
+        "type": "object",
+        "required": [
+          "expected_version",
+          "reason"
+        ],
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "ReopenRequest": {
         "type": "object",
@@ -5614,6 +7154,10 @@
     {
       "name": "traffic",
       "description": "Deployment-wide traffic, for the one traffic tenant (ADR 0042)"
+    },
+    {
+      "name": "mitigations",
+      "description": "Mitigations in the caller's tenant, the kill switch and BGP status (ADR 0050)"
     }
   ]
 }

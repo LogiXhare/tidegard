@@ -154,6 +154,8 @@ duration and the kill switch are each proven against a real `gobgpd`.
 **Exit:** the UI drives a mitigation from request to withdrawal against a
 real API and `gobgpd` in CI.
 
+**Progress:** 7E-1 ([ADR 0050](decisions/0050-phase7e-mitigation-api-cli-ui.md)) adds the API: eleven endpoints for mitigations, their history, the kill switch and BGP routes and peers, checked against the same guard file the mitigator can share; thirteen `mitigation.*` error codes; the tenant-isolation suite over every `{mitigation_id}` operation; releasing the kill switch only through `wetechinetmon-api kill-switch` on the host; peers recorded by the mitigator (V21); and the incident's `mitigation_status` and `notification_status` derived from the records (FU-64 done). FU-65 records that the deployment-wide controls are open to every tenant's leads until Phase 8. The CLI, the UI and notifications follow.
+
 ### 7F — The lab, hardening and Gate 2
 
 - **The lab:** CI starts two speakers, WetechiNetMon's `gobgpd` and a

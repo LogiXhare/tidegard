@@ -19,6 +19,7 @@ pub mod export;
 pub mod history;
 pub mod incidents;
 pub mod list;
+pub mod mitigations;
 pub mod openapi;
 pub mod problem;
 pub mod rate_limit;
@@ -44,6 +45,7 @@ use utoipa::ToSchema;
 use wetechinetmon_incident::authorization::{FixedBundleResolver, PermissionResolver};
 use wetechinetmon_incident::clock::SystemClock;
 use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
+use wetechinetmon_incident_postgres::mitigation::MitigationStore;
 use wetechinetmon_incident_postgres::pool::acquire;
 use wetechinetmon_incident_postgres::service::IncidentPersistence;
 
@@ -72,6 +74,9 @@ pub struct AppState {
     pub secure_cookies: bool,
     /// The built NOC UI, when configured (ADR 0044).
     pub web: Option<Arc<web::WebRoot>>,
+    /// Mitigation records under the safety guard (ADR 0050). Without a
+    /// configured guard nothing is allowlisted, so every request is refused.
+    pub mitigations: Arc<MitigationStore>,
 }
 
 impl AppState {
@@ -89,8 +94,26 @@ impl AppState {
             traffic: None,
             secure_cookies: true,
             web: None,
+            mitigations: Arc::new(MitigationStore::new(
+                Arc::new(UuidV7IncidentGenerator::new()),
+                Arc::new(
+                    wetechinetmon_mitigation::Guard::new(
+                        wetechinetmon_mitigation::GuardConfig::default(),
+                    )
+                    .expect("the default guard is valid"),
+                ),
+            )),
             pool,
         }
+    }
+
+    /// Checks mitigation requests against `guard` (ADR 0047, ADR 0050).
+    pub fn with_guard(mut self, guard: wetechinetmon_mitigation::Guard) -> Self {
+        self.mitigations = Arc::new(MitigationStore::new(
+            Arc::new(UuidV7IncidentGenerator::new()),
+            Arc::new(guard),
+        ));
+        self
     }
 
     /// Serves the built NOC UI from `root` (ADR 0044).
@@ -183,6 +206,36 @@ pub fn router(state: AppState) -> Router {
             "/incidents/{incident_id}/tags/{key}",
             put(transitions::set_tag).delete(transitions::remove_tag),
         )
+        .route(
+            "/mitigations",
+            get(mitigations::list_mitigations).post(mitigations::request_mitigation),
+        )
+        .route(
+            "/mitigations/{mitigation_id}",
+            get(mitigations::get_mitigation),
+        )
+        .route(
+            "/mitigations/{mitigation_id}/history",
+            get(mitigations::mitigation_history),
+        )
+        .route(
+            "/mitigations/{mitigation_id}/approve",
+            post(mitigations::approve_mitigation),
+        )
+        .route(
+            "/mitigations/{mitigation_id}/reject",
+            post(mitigations::reject_mitigation),
+        )
+        .route(
+            "/mitigations/{mitigation_id}/withdraw",
+            post(mitigations::withdraw_mitigation),
+        )
+        .route(
+            "/mitigation-controls/kill-switch",
+            get(mitigations::get_kill_switch).put(mitigations::set_kill_switch),
+        )
+        .route("/bgp/routes", get(mitigations::bgp_routes))
+        .route("/bgp/peers", get(mitigations::bgp_peers))
         .route_layer(axum::middleware::from_fn_with_state(
             state.auth.clone(),
             auth::require_principal,

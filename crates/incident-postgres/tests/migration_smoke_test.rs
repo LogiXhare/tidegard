@@ -63,6 +63,7 @@ const EXPECTED_TABLES: &[&str] = &[
     "mitigations",
     "mitigation_history",
     "mitigation_controls",
+    "bgp_peers",
 ];
 
 /// The three target-type-specific partial unique indexes that make the
@@ -121,8 +122,8 @@ async fn migrations_apply_cleanly_are_idempotent_and_produce_the_expected_schema
         .expect("all migrations must apply cleanly against an empty schema");
     assert_eq!(
         report.applied_migrations().len(),
-        20,
-        "expected all 20 migration files (V1..V20) to apply on a fresh schema"
+        21,
+        "expected all 21 migration files (V1..V21) to apply on a fresh schema"
     );
 
     // --- Idempotency: refinery's own guarantee ---

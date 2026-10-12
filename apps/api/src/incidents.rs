@@ -27,6 +27,7 @@ use wetechinetmon_incident::incident::Incident;
 use wetechinetmon_incident_postgres::pool::acquire;
 use wetechinetmon_incident_postgres::queries;
 use wetechinetmon_incident_postgres::row::{ActorColumns, IncidentRow};
+use wetechinetmon_incident_postgres::status;
 
 use crate::auth::Principal;
 use crate::problem::{ErrorCode, Problem};
@@ -74,6 +75,11 @@ pub fn limit(
     limiter.check(&key, Instant::now()).map_err(|refusal| {
         Problem::new(ErrorCode::RateLimited).retry_after(refusal.retry_after_secs())
     })
+}
+
+/// How an actor is shown to people, as in every API response.
+pub fn actor_label(actor: &wetechinetmon_incident::authorization::Actor) -> String {
+    actor_text(actor)
 }
 
 pub(crate) fn actor_text(actor: &wetechinetmon_incident::authorization::Actor) -> String {
@@ -155,10 +161,14 @@ pub struct IncidentView {
     /// Linked events whose policy was not recorded because the list is full.
     pub policy_refs_omitted: i64,
     pub tags: BTreeMap<String, String>,
-    /// Always `none` in Phase 5: nothing is ever mitigated.
-    pub mitigation_status: &'static str,
-    /// Always `none` in Phase 5: nothing is ever notified.
-    pub notification_status: &'static str,
+    /// The incident's most live mitigation, or else the one that ended
+    /// last: `none`, `pending_approval`, `approved`, `active`, `dry_run`,
+    /// `withdrawing`, `withdrawn`, `rejected`, `expired` or `failed`
+    /// (FU-64).
+    pub mitigation_status: String,
+    /// Each channel's latest outcome: `none`, `delivered` (every
+    /// channel), `partial`, or `failed` (none delivered) (FU-64).
+    pub notification_status: String,
     /// For `expected_version` on transitions.
     pub version: i64,
     pub created_by: String,
@@ -226,12 +236,34 @@ impl IncidentView {
                 .collect(),
             policy_refs_omitted: row.policy_refs_omitted,
             tags: row.tags.into_iter().collect(),
-            mitigation_status: "none",
-            notification_status: "none",
+            mitigation_status: "none".to_string(),
+            notification_status: "none".to_string(),
             version: row.version,
             created_by: columns_text(&row.created_by),
             updated_by: columns_text(&row.updated_by),
         })
+    }
+}
+
+impl IncidentView {
+    /// Fills in the mitigation and notification status from the records
+    /// (FU-64), within the incident's own tenant.
+    pub async fn with_statuses(
+        mut self,
+        client: &impl tokio_postgres::GenericClient,
+    ) -> Result<Self, Problem> {
+        let tenant = wetechinetmon_incident::correlation::TenantId::new(self.tenant_id.clone());
+        self.mitigation_status =
+            status::incident_mitigation_status(client, &tenant, &self.incident_id)
+                .await
+                .map_err(|error| Problem::from(&error))?
+                .to_string();
+        self.notification_status =
+            status::incident_notification_status(client, &tenant, &self.incident_id)
+                .await
+                .map_err(|error| Problem::from(&error))?
+                .to_string();
+        Ok(self)
     }
 }
 
@@ -276,7 +308,9 @@ pub async fn get_incident(
             .await
             .map_err(|error| Problem::from(&error))?
             .map_err(|error| Problem::from(&error))?;
-        IncidentView::from_incident(&incident)
+        IncidentView::from_incident(&incident)?
+            .with_statuses(&**client)
+            .await
     }
     .await;
     match result {
