@@ -116,7 +116,7 @@ INSERT INTO incident_outbox (
 
 const WORK: &str = "\
 , (state IN ('proposed', 'requested')
-      AND created_at + $1 * interval '1 second' <= transaction_timestamp()) AS approval_expired,
+      AND created_at + $1::bigint * interval '1 second' <= transaction_timestamp()) AS approval_expired,
   (state = 'active' AND expires_at <= transaction_timestamp()) AS duration_reached
 FROM mitigations
 WHERE state IN ('proposed', 'requested', 'approved', 'announcing', 'active', 'withdrawing')
@@ -132,7 +132,7 @@ WHERE i.target_type = 'host'
   AND i.direction = 'incoming'
   AND i.state IN ('open', 'acknowledged', 'investigating', 'monitoring')
   AND i.severity = ANY($1)
-  AND i.opened_at >= transaction_timestamp() - $2 * interval '1 second'
+  AND i.opened_at >= transaction_timestamp() - $2::bigint * interval '1 second'
   AND NOT EXISTS (SELECT 1 FROM mitigations m WHERE m.incident_id = i.incident_id)
 ORDER BY i.opened_at, i.incident_id
 LIMIT $3";
