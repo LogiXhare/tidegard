@@ -20,6 +20,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
+use wetechinetmon_common::metrics_server::Readiness;
 use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
 use wetechinetmon_incident::clock::SystemClock;
 use wetechinetmon_incident::correlation::TenantId;
@@ -66,8 +67,12 @@ pub async fn run(
     let (metrics, registry) = metrics::NotifierMetrics::new()?;
     let registry = Arc::new(registry);
     let bind = config.metrics_bind;
+    let readiness = Readiness::new();
+    let served = readiness.clone();
     let server = tokio::spawn(async move {
-        if let Err(error) = wetechinetmon_common::metrics_server::serve(bind, registry).await {
+        if let Err(error) =
+            wetechinetmon_common::metrics_server::serve(bind, registry, served).await
+        {
             tracing::error!(error = %error, "the metrics server stopped");
         }
     });
@@ -105,7 +110,10 @@ pub async fn run(
 
     tokio::pin!(shutdown);
     loop {
-        let wait = match notifier.run_once(&pool).await {
+        let outcome = notifier.run_once(&pool).await;
+        // Ready while batches succeed (ADR 0052).
+        readiness.set(outcome.is_ok());
+        let wait = match outcome {
             Ok(report) if report.claimed == 0 => IDLE_WAIT,
             Ok(_) => Duration::ZERO,
             Err(error) => {

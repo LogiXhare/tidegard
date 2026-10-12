@@ -93,3 +93,4 @@ yet:
 | [0049](0049-phase7d-mitigator-service.md) | Phase 7D The Mitigator Service | Accepted |
 | [0050](0050-phase7e-mitigation-api-cli-ui.md) | Phase 7E Mitigations in the API, CLI and UI | Accepted |
 | [0051](0051-phase7f-two-speaker-lab.md) | Phase 7F The Two-Speaker BGP Lab | Accepted |
+| [0052](0052-phase9a-packaging.md) | Phase 9A Packaging | Accepted |

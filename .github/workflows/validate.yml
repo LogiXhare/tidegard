@@ -417,15 +417,17 @@ jobs:
         run: |
           set -euo pipefail
           # The incident manager applies the migrations, then keeps running.
+          # It reports ready once its first correlation batch succeeds, so
+          # after the migrations (ADR 0052).
           WETECHINETMON_INCIDENT_DATABASE_URL="$DATABASE" \
             WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
             target/debug/wetechinetmon-incident-manager > manager.log 2>&1 &
           for _ in $(seq 60); do
-            docker exec "${{ job.services.postgres.id }}" psql -U wetechinetmon_test \
-              -d wetechinetmon_incident_test -tAc "SELECT 1 FROM api_sessions LIMIT 1" \
-              >/dev/null 2>&1 && break
+            curl -sf http://127.0.0.1:9091/readyz >/dev/null && break
             sleep 1
           done
+          curl -sS --fail-with-body http://127.0.0.1:9091/readyz
+          curl -sS --fail-with-body http://127.0.0.1:9091/healthz
           token=$(WETECHINETMON_API_DATABASE_URL="$DATABASE" target/debug/wetechinetmon-api \
             token create --tenant acme --actor-id e2e-lead --role noc_lead --days 1 \
             | awk '/^token:/ {print $2}')
@@ -464,6 +466,13 @@ jobs:
             sleep 1
           done
           curl -sS --fail-with-body "$E2E_BASE_URL/readyz"
+          # The mitigator (metrics on its default 127.0.0.1:9094) is ready
+          # once it holds the lock and a pass succeeds.
+          for _ in $(seq 30); do
+            curl -sf http://127.0.0.1:9094/readyz >/dev/null && break
+            sleep 1
+          done
+          curl -sS --fail-with-body http://127.0.0.1:9094/readyz
           # One open incident whose title is hostile markup (T-08).
           curl -sS --fail-with-body -X POST "$E2E_BASE_URL/api/v1/incidents" \
             -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
