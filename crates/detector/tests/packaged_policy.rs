@@ -13,7 +13,12 @@ fn the_shipped_policy_compiles_and_is_dry_run() {
     let document = PolicyDocument::from_json(POLICY).expect("detection-policy.json parses");
     assert!(!document.policies.is_empty());
     for policy in &document.policies {
-        assert_eq!(policy.execution_mode, Some(ExecutionMode::DryRun), "{}", policy.id);
+        assert_eq!(
+            policy.execution_mode,
+            Some(ExecutionMode::DryRun),
+            "{}",
+            policy.id
+        );
     }
     for tenant in &document.tenants {
         for prefix in &tenant.prefixes {

@@ -26,7 +26,10 @@ fn the_shipped_mitigator_file_shares_the_guard_and_proposes_nothing() {
         Some(std::path::Path::new("/etc/wetechinetmon/guard.json"))
     );
     assert_eq!(file.guard, GuardConfig::default(), "no inline guard");
-    assert!(!file.proposals.enabled, "no proposals until an operator asks");
+    assert!(
+        !file.proposals.enabled,
+        "no proposals until an operator asks"
+    );
     assert!(
         file.gobgp.url.starts_with("http://127.0.0.1:"),
         "GoBGP's API is reached on loopback only"
