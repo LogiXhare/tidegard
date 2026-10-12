@@ -68,6 +68,11 @@ pub enum Permission {
     /// Move a mitigation through announcing, active, withdrawing and the
     /// ends. The mitigator only, never a human role.
     MitigationExecute,
+    /// Turn the deployment-wide kill switch on: `noc_lead` and above.
+    /// Stopping every mitigation is always safe to ask for.
+    MitigationKillSwitchEngage,
+    /// Turn it off again: platform administrators only.
+    MitigationKillSwitchRelease,
 }
 
 impl Permission {
@@ -107,6 +112,8 @@ impl Permission {
             MitigationWithdraw => "mitigation.withdraw",
             MitigationPropose => "mitigation.propose",
             MitigationExecute => "mitigation.execute",
+            MitigationKillSwitchEngage => "mitigation.kill_switch.engage",
+            MitigationKillSwitchRelease => "mitigation.kill_switch.release",
         }
     }
 }
@@ -269,6 +276,7 @@ impl PermissionResolver for FixedBundleResolver {
                 IncidentUpdate,
                 IncidentNoteRedact,
                 MitigationApprove,
+                MitigationKillSwitchEngage,
             ]);
             v
         };
@@ -284,6 +292,7 @@ impl PermissionResolver for FixedBundleResolver {
                     PlatformIncidentReadAll,
                     PlatformIncidentAdmin,
                     IncidentNoteCustomerVisible,
+                    MitigationKillSwitchRelease,
                 ]);
                 v
             }

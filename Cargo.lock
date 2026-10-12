@@ -2928,6 +2928,8 @@ dependencies = [
 name = "wetechinetmon-mitigator"
 version = "0.0.0"
 dependencies = [
+ "deadpool-postgres",
+ "prometheus",
  "prost",
  "prost-types",
  "protox",
@@ -2935,9 +2937,15 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-postgres",
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
+ "tracing",
+ "wetechinetmon-common",
+ "wetechinetmon-detector",
+ "wetechinetmon-incident",
+ "wetechinetmon-incident-postgres",
  "wetechinetmon-mitigation",
 ]
 

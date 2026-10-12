@@ -298,6 +298,60 @@ pub fn withdrawal(prefix: &Prefix, action: &Action) -> api::Path {
     }
 }
 
+/// What a mitigation announces, as JSON for its record: the evidence of
+/// exactly what was, or in dry-run would have been, sent.
+pub fn summary(
+    prefix: &Prefix,
+    action: &Action,
+    config: &RouteConfig,
+    dry_run: bool,
+) -> serde_json::Value {
+    let path = announcement(prefix, action, config);
+    let mut next_hop = None;
+    let mut communities = Vec::new();
+    let mut large = Vec::new();
+    for attribute in &path.pattrs {
+        match &attribute.attr {
+            Some(Attr::NextHop(n)) => next_hop = Some(n.next_hop.clone()),
+            Some(Attr::MpReach(m)) if action.flow().is_none() => {
+                next_hop = m.next_hops.first().cloned();
+            }
+            Some(Attr::Communities(c)) => {
+                communities = c
+                    .communities
+                    .iter()
+                    .map(|v| format!("{}:{}", v >> 16, v & 0xFFFF))
+                    .collect();
+            }
+            Some(Attr::LargeCommunities(l)) => {
+                large = l
+                    .communities
+                    .iter()
+                    .map(|c| format!("{}:{}:{}", c.global_admin, c.local_data1, c.local_data2))
+                    .collect();
+            }
+            _ => {}
+        }
+    }
+    let family = match (prefix.is_ipv4(), action.kind().is_flowspec()) {
+        (true, false) => "ipv4-unicast",
+        (false, false) => "ipv6-unicast",
+        (true, true) => "ipv4-flowspec",
+        (false, true) => "ipv6-flowspec",
+    };
+    serde_json::json!({
+        "family": family,
+        "prefix": prefix.to_string(),
+        "action": action.kind().as_str(),
+        "flow": action.flow(),
+        "bytes_per_second": action.bytes_per_second(),
+        "next_hop": next_hop,
+        "communities": communities,
+        "large_communities": large,
+        "dry_run": dry_run,
+    })
+}
+
 /// Whether a path read from GoBGP is WetechiNetMon's.
 pub fn is_owned(path: &api::Path, config: &RouteConfig) -> bool {
     let ownership = config.ownership();
@@ -570,6 +624,27 @@ mod tests {
             &announcement(&p("192.0.2.10/32"), &Action::Rtbh, &other_asn),
             &c
         ));
+    }
+
+    #[test]
+    fn the_summary_records_what_is_sent() {
+        let s = summary(&p("192.0.2.10/32"), &Action::Rtbh, &config(), true);
+        assert_eq!(s["family"], "ipv4-unicast");
+        assert_eq!(s["next_hop"], "192.0.2.254");
+        assert_eq!(
+            s["communities"],
+            serde_json::json!(["65535:666", "65001:777", "65535:65281"])
+        );
+        assert_eq!(s["large_communities"][0], "65001:5721677:1");
+        assert_eq!(s["dry_run"], true);
+        let fs = summary(
+            &p("2001:db8::/64"),
+            &Action::FlowspecDiscard(FlowMatch::default()),
+            &config(),
+            false,
+        );
+        assert_eq!(fs["family"], "ipv6-flowspec");
+        assert_eq!(fs["next_hop"], serde_json::Value::Null);
     }
 
     #[test]

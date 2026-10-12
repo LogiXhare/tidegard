@@ -10,7 +10,12 @@ gRPC API, generated from the vendored `.proto` files in `proto/`
   the ownership community, and reading a path back into its mitigation.
 - `gobgp`: the connection (plain HTTP to loopback only; TLS with a CA,
   and optionally a client certificate, anywhere else), announce,
-  withdraw, and the routes WetechiNetMon owns.
+  withdraw, the routes WetechiNetMon owns, and the peers.
+- `service` and the `wetechinetmon-mitigator` binary
+  ([ADR 0049](../../docs/architecture/decisions/0049-phase7d-mitigator-service.md)):
+  announcing approved mitigations, withdrawing them at their end or
+  under the kill switch, reconciliation, and proposals. `config`
+  describes its file.
 
 Nothing here decides whether to mitigate: that is the mitigation record,
 its approval and the safety guard (`crates/mitigation`).

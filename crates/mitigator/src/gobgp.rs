@@ -252,6 +252,27 @@ impl GoBgp {
         Ok(())
     }
 
+    /// GoBGP's peers: how many there are, and how many are established.
+    pub async fn peer_states(&mut self) -> Result<(usize, usize), GoBgpError> {
+        let mut stream = self
+            .client
+            .list_peer(api::ListPeerRequest::default())
+            .await?
+            .into_inner();
+        let (mut established, mut total) = (0, 0);
+        while let Some(response) = stream.message().await? {
+            total += 1;
+            let state = response
+                .peer
+                .and_then(|peer| peer.state)
+                .map(|state| state.session_state);
+            if state == Some(api::peer_state::SessionState::Established as i32) {
+                established += 1;
+            }
+        }
+        Ok((established, total))
+    }
+
     /// Every route in the global table that carries WetechiNetMon's
     /// ownership community. Another speaker's routes are never returned,
     /// so nothing here can touch them.
