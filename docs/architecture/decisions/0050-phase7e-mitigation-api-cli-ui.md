@@ -1,7 +1,7 @@
 # 0050. Phase 7E Mitigations in the API, CLI and UI
 
-Status: **Accepted** (7E-1, the API; 7E-2, the CLI; 7E-3, the UI);
-notifications follow in this ADR's later sections as they are built
+Status: **Accepted** (7E-1, the API; 7E-2, the CLI; 7E-3, the UI;
+7E-4, notifications)
 Date: 2026-10-12
 Deciders: Repository owner (BQ-14, 2026-10-12); the details under the
 delegation of 2026-10-05 to industry practice
@@ -115,6 +115,31 @@ follows one mitigation through its life:
 The stack is the API, the incident manager, the mitigator, PostgreSQL and
 `gobgpd`. It shares one guard, which allowlists only `203.0.113.0/24`.
 
+### Notifications (7E-4)
+
+- **From the outbox, as for incidents.** Every mitigation change writes
+  `mitigation.<state>`, and the kill switch writes
+  `mitigation.kill_switch_engaged` or `_released`. These were already
+  written in the same transaction as the change (ADR 0046). The notifier
+  now builds a message from each payload. The payload is a snapshot taken
+  at the time of the event, with no route attribute and nothing secret.
+- **BGP peers:** when the mitigator records its peers, it writes
+  `bgp.peer_down` in the same transaction for a session that was
+  established and is not any more, or has disappeared. It writes
+  `bgp.peer_up` for a known session that is established again. A peer
+  seen for the first time is not news. Peers are deployment-wide, so
+  these events have the tenant `platform`, the mitigator's own.
+- **Severity for routing:** each event kind has a fixed severity, because
+  a mitigation has none of its own. Losing protection or control is
+  critical (`failed`, `kill_switch_engaged`, `bgp.peer_down`). Needing
+  a decision or a newly active announcement is major. The rest are minor.
+- **Recorded where people look:** a mitigation's deliveries go on its
+  incident's timeline when it has an incident, so they count towards
+  that incident's `notification_status`.
+- **FU-64, in messages too:** an incident message now gives the
+  incident's real `mitigation_status`. It no longer says `none` because
+  nothing could act.
+
 ### Releasing the kill switch is host-only
 
 API tokens carry the four token roles, up to `noc_lead`, so no token
@@ -150,8 +175,13 @@ returns the incident.
   any tenant's `noc_lead` may engage the switch and read the peers.
   Right for the single-tenant deployments v1.0 targets (BQ-4); Phase 8
   confines both to the operator's own tenant.
-- The notifier still says `mitigation_status: none` in incident
-  messages; 7E-4 corrects it along with mitigation notifications.
+- `crates/notification/tests/mitigation_notices.rs` proves, against
+  PostgreSQL and loopback channels, that:
+  - a request reaches Slack and a webhook, with hostile text escaped, and
+    is recorded on its incident;
+  - the kill switch is told;
+  - a peer that goes down is told under `platform`;
+  - an incident's message says `pending_approval`.
 
 ## Alternatives considered
 

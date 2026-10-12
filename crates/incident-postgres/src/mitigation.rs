@@ -160,6 +160,56 @@ WHERE i.target_type = 'host'
 ORDER BY i.opened_at, i.incident_id
 LIMIT $3";
 
+/// The tenant a deployment-wide BGP peer event is routed under: the
+/// mitigator's own, as its platform authority names it.
+pub const PEER_EVENT_TENANT: &str = "platform";
+
+/// The version is the time, in microseconds: a peer has no other.
+const INSERT_PEER_OUTBOX: &str = "\
+INSERT INTO incident_outbox (
+    tenant_id, aggregate_type, aggregate_id, aggregate_version, event_type, payload
+) VALUES ($1, 'bgp_peer', $2,
+    (extract(epoch FROM clock_timestamp()) * 1000000)::bigint, $3, $4::text::jsonb)";
+
+/// A BGP session that went down or came back.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerEvent {
+    pub neighbor_address: String,
+    pub peer_asn: i64,
+    /// `bgp.peer_down` or `bgp.peer_up`.
+    pub event_type: &'static str,
+    /// `gone` when the peer is no longer configured.
+    pub session_state: String,
+    pub previous_state: String,
+}
+
+/// What changed between two snapshots. A peer seen for the first time is
+/// not news; one that was established and is not, or is gone, is down; one
+/// that was known and not established, and now is, is up again.
+pub fn peer_events(
+    before: &[(String, i64, String)],
+    now: &[(String, u32, &'static str)],
+) -> Vec<PeerEvent> {
+    let mut events = Vec::new();
+    for (address, asn, was) in before {
+        let current = now.iter().find(|(a, _, _)| a == address);
+        let state = current.map_or("gone", |(_, _, s)| *s);
+        let event_type = match (was.as_str() == "established", state == "established") {
+            (true, false) => "bgp.peer_down",
+            (false, true) => "bgp.peer_up",
+            _ => continue,
+        };
+        events.push(PeerEvent {
+            neighbor_address: address.clone(),
+            peer_asn: current.map_or(*asn, |(_, a, _)| i64::from(*a)),
+            event_type,
+            session_state: state.to_string(),
+            previous_state: was.clone(),
+        });
+    }
+    events
+}
+
 const INSERT_OUTBOX: &str = "\
 INSERT INTO incident_outbox (
     tenant_id, aggregate_type, aggregate_id, aggregate_version, event_type, payload
@@ -889,14 +939,35 @@ impl MitigationStore {
             .map_err(Into::into)
     }
 
-    /// Replaces the peer snapshot with what the mitigator sees now.
+    /// Replaces the peer snapshot with what the mitigator sees now, and in
+    /// the same transaction writes `bgp.peer_down` for every session that
+    /// was established and is not any more (or is gone), and `bgp.peer_up`
+    /// for a known session that is established again (ADR 0050). Peers are
+    /// deployment-wide, so their events carry the tenant
+    /// [`PEER_EVENT_TENANT`].
     pub async fn record_peers(
         &self,
         _platform: &PlatformAuthority,
         client: &mut Client,
         peers: &[(String, u32, &'static str)],
-    ) -> Result<(), MitigationStoreError> {
+    ) -> Result<Vec<PeerEvent>, MitigationStoreError> {
         let tx = client.transaction().await?;
+        let before: Vec<(String, i64, String)> = tx
+            .query(
+                "SELECT neighbor_address, peer_asn, session_state FROM bgp_peers FOR UPDATE",
+                &[],
+            )
+            .await?
+            .iter()
+            .map(|row| {
+                Ok::<_, tokio_postgres::Error>((
+                    row.try_get("neighbor_address")?,
+                    row.try_get("peer_asn")?,
+                    row.try_get("session_state")?,
+                ))
+            })
+            .collect::<Result<_, _>>()?;
+        let events = peer_events(&before, peers);
         tx.execute("DELETE FROM bgp_peers", &[]).await?;
         for (address, asn, state) in peers {
             tx.execute(
@@ -905,8 +976,26 @@ impl MitigationStore {
             )
             .await?;
         }
+        for event in &events {
+            tx.execute(
+                INSERT_PEER_OUTBOX,
+                &[
+                    &PEER_EVENT_TENANT,
+                    &event.neighbor_address,
+                    &event.event_type,
+                    &json!({
+                        "neighbor_address": event.neighbor_address,
+                        "peer_asn": event.peer_asn,
+                        "session_state": event.session_state,
+                        "previous_state": event.previous_state,
+                    })
+                    .to_string(),
+                ],
+            )
+            .await?;
+        }
         tx.commit().await?;
-        Ok(())
+        Ok(events)
     }
 
     /// The kill switch as it stands.
@@ -1435,5 +1524,35 @@ mod tests {
         for absent in ["next_hop", "communities", "large_communities"] {
             assert!(payload.get(absent).is_none(), "{absent}");
         }
+    }
+
+    #[test]
+    fn peer_events_are_only_real_changes() {
+        let before = [
+            ("192.0.2.1".to_string(), 64512, "established".to_string()),
+            ("192.0.2.2".to_string(), 64513, "established".to_string()),
+            ("192.0.2.3".to_string(), 64514, "active".to_string()),
+            ("192.0.2.4".to_string(), 64515, "established".to_string()),
+        ];
+        let now = [
+            ("192.0.2.1".to_string(), 64512, "established"),
+            ("192.0.2.3".to_string(), 64514, "established"),
+            ("192.0.2.4".to_string(), 64515, "idle"),
+            ("192.0.2.5".to_string(), 64516, "established"),
+        ];
+        let events: Vec<(String, &str, String)> = peer_events(&before, &now)
+            .into_iter()
+            .map(|e| (e.neighbor_address, e.event_type, e.session_state))
+            .collect();
+        let expect = |a: &str, e, s: &str| (a.to_string(), e, s.to_string());
+        assert_eq!(
+            events,
+            [
+                expect("192.0.2.2", "bgp.peer_down", "gone"),
+                expect("192.0.2.3", "bgp.peer_up", "established"),
+                expect("192.0.2.4", "bgp.peer_down", "idle"),
+            ],
+            "unchanged and newly seen peers are not news"
+        );
     }
 }

@@ -402,9 +402,19 @@ impl Mitigator {
         let peers = self.live()?.peers().await?;
         let established = peers.iter().filter(|(_, _, s)| *s == "established").count();
         let mut client = acquire(pool).await?;
-        self.store
+        let changes = self
+            .store
             .record_peers(&self.platform, &mut client, &peers)
             .await?;
+        for change in &changes {
+            tracing::warn!(
+                neighbor = %change.neighbor_address,
+                event = change.event_type,
+                state = %change.session_state,
+                was = %change.previous_state,
+                "a BGP session changed"
+            );
+        }
         self.metrics.record_peers(established, peers.len());
         Ok((established, peers.len()))
     }
