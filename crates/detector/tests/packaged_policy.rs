@@ -2,7 +2,9 @@
 //! compiles, uses only documentation prefixes, and never asks for
 //! mitigation.
 
-use wetechinetmon_detector::config::{load_policies, PolicyDocument};
+use std::time::Duration;
+
+use wetechinetmon_detector::config::{load_policies, parse_duration, PolicyDocument};
 use wetechinetmon_detector::ExecutionMode;
 
 const POLICY: &str = include_str!("../../../deployments/config/detection-policy.json");
@@ -13,6 +15,14 @@ fn the_shipped_policy_compiles_and_is_dry_run() {
     let document = PolicyDocument::from_json(POLICY).expect("detection-policy.json parses");
     assert!(!document.policies.is_empty());
     for policy in &document.policies {
+        // The collector's default WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS.
+        // A policy with another window is never evaluated.
+        assert_eq!(
+            parse_duration(&policy.window),
+            Ok(Duration::from_secs(5)),
+            "{}",
+            policy.id
+        );
         assert_eq!(
             policy.execution_mode,
             Some(ExecutionMode::DryRun),

@@ -8,7 +8,7 @@
       "tenant": "default",
       "scopeType": "host",
       "direction": "incoming",
-      "window": "10s",
+      "window": "5s",
       "thresholds": { "bps": "1G" },
       "triggerFor": "30s",
       "clearFor": "60s",

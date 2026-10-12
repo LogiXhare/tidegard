@@ -16,8 +16,10 @@ whether it is alive and whether it is ready, and NFR-2 requires both
 answers from every service. Only the API gave them: the collector, the
 incident manager, the notifier and the mitigator served `/metrics` alone.
 
-9A lands in three steps: health and readiness (9A-1), tarballs and
-systemd units (9A-2), then images and the Compose stack (9A-3).
+9A lands in steps: health and readiness (9A-1), tarballs and systemd
+units (9A-2), the collector's ClickHouse connection (9A-3a,
+[ADR 0053](0053-phase9a-collector-clickhouse-tls.md)), images (9A-3b),
+then the Compose stack (9A-3c).
 
 ## Decision
 
@@ -69,20 +71,51 @@ and `/readyz` tells an operator which instance is active.
   an empty `CapabilityBoundingSet`, `RestrictAddressFamilies` and a
   `SystemCallFilter` of `@system-service`.
 
-### Images and the Compose stack (9A-3)
+### Images (9A-3b)
 
-- One image per service on GHCR, `linux/amd64` and `linux/arm64`, built
-  from the same binaries as the tarballs, so what is tested is what is
-  shipped. The base is distroless `cc` (glibc, no shell), pinned by
-  digest, running as its `nonroot` user with a read-only root
-  filesystem.
+- One image per service, `linux/amd64` and `linux/arm64`, built from
+  the unpacked tarball by `deployments/docker/Dockerfile` (one target per
+  service), so what is tested is what is shipped. CI builds them natively
+  on each architecture in the `package` job. They are published to GHCR
+  only by the release pipeline (10A), never from a pull request.
+- The base is distroless `cc-debian13`: glibc and CA certificates, no
+  shell and no package manager. Distroless's Debian 12 images were
+  deprecated in August 2026. The base is pinned by digest, normally at
+  least two weeks old, and Dependabot proposes a new digest after the
+  same wait. A security fix overrides the wait: the first pin moved to a
+  newer digest because Trivy found a fixable High in the older one's
+  `libssl3t64` (CVE-2026-84782), although no WetechiNetMon binary links
+  OpenSSL.
+- Every image runs as distroless's `nonroot` user, by its number
+  (65532) so a runtime can verify it is not root, and works with a
+  read-only root filesystem, no capabilities and `no-new-privileges`.
+  CI checks the user of each image and runs one that way.
+- Inside a container the metrics address listens on all interfaces, so a
+  probe can reach it; publishing decides who can. The API image keeps the
+  loopback default: off loopback it needs TLS (ADR 0038), which the
+  deployment supplies.
 - The API image carries the web UI and sets `WETECHINETMON_API_WEB_ROOT`.
-- `deployments/docker-compose` holds the reference stack: PostgreSQL,
-  ClickHouse and the services, dry-run with BGP off. `gobgpd` is in an
-  opt-in profile, its API reachable only inside the Compose network.
 - CI scans every image with Trivy and fails on a fixable Critical or High
-  finding, lints Dockerfiles with hadolint and scripts with shellcheck,
-  and verifies the units with `systemd-analyze verify`.
+  finding. Trivy is installed from its release, pinned by version and
+  SHA-256, not through its GitHub Action, whose tags were replaced with
+  malicious ones in March 2026 (CVE-2026-33634). hadolint lints the
+  Dockerfile, pinned the same way.
+
+### The Compose stack (9A-3c)
+
+- `deployments/docker-compose` holds the reference stack: PostgreSQL,
+  ClickHouse and the services, dry-run with BGP off.
+- Containers reach each other over a network, not loopback, so every
+  connection between them uses TLS, as everywhere else: PostgreSQL,
+  ClickHouse ([ADR 0053](0053-phase9a-collector-clickhouse-tls.md)) and
+  the API. The certificates come from a CA the stack generates on first
+  start, kept in a Docker volume and never written to the repository.
+- `gobgpd` is not in the stack. Its API has no authentication, and
+  sharing it across a container network would weaken the loopback rule
+  ADR 0048 relies on. Mitigation with BGP enabled runs from the tarball,
+  beside `gobgpd` on the same host, as the
+  [mitigation installation guide](../../installation/mitigation.md)
+  describes. The Compose mitigator stays dry-run with BGP off.
 
 Kubernetes manifests and a Helm chart are not part of v1.0.0. Their
 directories say so.

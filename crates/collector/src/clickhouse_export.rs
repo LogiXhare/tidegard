@@ -145,81 +145,78 @@ impl ClickHouseExporters {
     /// Reads a full snapshot of `aggregator`'s current state and queues
     /// one row per tracked entry, per dimension, timestamped `now`.
     pub fn snapshot(&mut self, aggregator: &Aggregator, now: OffsetDateTime) {
-        self.total_ipv4.push(TotalTrafficRow {
-            timestamp: now,
-            counters: aggregator.total_ipv4_counters().into(),
-        });
-        self.total_ipv6.push(TotalTrafficRow {
-            timestamp: now,
-            counters: aggregator.total_ipv6_counters().into(),
-        });
+        self.total_ipv4.push(TotalTrafficRow::new(
+            now,
+            aggregator.total_ipv4_counters().into(),
+        ));
+        self.total_ipv6.push(TotalTrafficRow::new(
+            now,
+            aggregator.total_ipv6_counters().into(),
+        ));
 
         for (addr, counters) in aggregator.ipv4_hosts() {
-            self.host.push(HostTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                family: 4,
-                counters: (*counters).into(),
-            });
+            self.host.push(HostTrafficRow::new(
+                now,
+                addr.to_string(),
+                4,
+                (*counters).into(),
+            ));
         }
         for (addr, counters) in aggregator.ipv6_hosts() {
-            self.host.push(HostTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                family: 6,
-                counters: (*counters).into(),
-            });
+            self.host.push(HostTrafficRow::new(
+                now,
+                addr.to_string(),
+                6,
+                (*counters).into(),
+            ));
         }
 
         for ((addr, len), counters) in aggregator.ipv4_networks() {
-            self.network.push(NetworkTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                prefix_len: *len,
-                family: 4,
-                counters: (*counters).into(),
-            });
+            self.network.push(NetworkTrafficRow::new(
+                now,
+                addr.to_string(),
+                *len,
+                4,
+                (*counters).into(),
+            ));
         }
         for ((addr, len), counters) in aggregator.ipv6_networks() {
-            self.network.push(NetworkTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                prefix_len: *len,
-                family: 6,
-                counters: (*counters).into(),
-            });
+            self.network.push(NetworkTrafficRow::new(
+                now,
+                addr.to_string(),
+                *len,
+                6,
+                (*counters).into(),
+            ));
         }
 
         for (addr, counters) in aggregator.ipv4_slash24() {
-            self.slash24.push(Slash24TrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                counters: (*counters).into(),
-            });
+            self.slash24.push(Slash24TrafficRow::new(
+                now,
+                addr.to_string(),
+                (*counters).into(),
+            ));
         }
 
         for (hg, counters) in aggregator.hostgroups() {
-            self.hostgroup.push(HostgroupTrafficRow {
-                timestamp: now,
-                hostgroup: hg.clone(),
-                counters: (*counters).into(),
-            });
+            self.hostgroup.push(HostgroupTrafficRow::new(
+                now,
+                hg.clone(),
+                (*counters).into(),
+            ));
         }
 
         for (asn, counters) in aggregator.asns() {
-            self.asn.push(AsnTrafficRow {
-                timestamp: now,
-                asn: *asn,
-                counters: (*counters).into(),
-            });
+            self.asn
+                .push(AsnTrafficRow::new(now, *asn, (*counters).into()));
         }
 
         for (exporter, counters) in aggregator.exporters() {
-            self.exporter.push(ExporterTrafficRow {
-                timestamp: now,
-                exporter: exporter.to_string(),
-                counters: (*counters).into(),
-            });
+            self.exporter.push(ExporterTrafficRow::new(
+                now,
+                exporter.to_string(),
+                (*counters).into(),
+            ));
         }
     }
 

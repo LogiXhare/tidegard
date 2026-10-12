@@ -1,0 +1,4 @@
+# Made by setup.sh for this host; never committed (ADR 0052).
+tls/
+secrets/
+.env

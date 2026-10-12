@@ -3,13 +3,14 @@
 Status: Phase 3. Implemented in `crates/storage`, wired into
 `wetechinetmon-collector` in `crates/collector/src/clickhouse_export.rs`.
 
-**Not verified against a live server in this environment** — no Docker
-and no reachable ClickHouse instance were available while building this.
-The schema, batching, and retry *logic* are unit-tested (see
-`crates/storage`'s test suites, 13 tests); the actual network write path
-has not been exercised end-to-end here. Flagged explicitly, not hidden —
-verify against a real ClickHouse instance before relying on this in
-production.
+**Verified against a live server since Phase 9A-3.** Before then it
+was not, and the traffic rows' `#[serde(flatten)]` counters panicked
+the collector on its first export: RowBinary cannot encode them
+([ADR 0053](../architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)).
+CI now writes every row type to a real ClickHouse and reads it back
+(`crates/storage/tests/clickhouse_integration.rs`, in the PostgreSQL
+jobs), exports over TLS (`clickhouse_tls.rs`, in the Grafana job), and
+runs the collector against ClickHouse in the Compose stack.
 
 ## Enabling Export
 

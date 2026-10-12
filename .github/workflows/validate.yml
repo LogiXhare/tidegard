@@ -31,7 +31,8 @@ name: Validate
 #              a throwaway gobgpd on loopback (Phase 7E)
 #   package  — the release tarball, built natively on x86_64 and aarch64
 #              Ubuntu 22.04 and installed with its own install.sh and
-#              systemd units against a throwaway PostgreSQL (ADR 0052)
+#              systemd units against a throwaway PostgreSQL; then one image
+#              per service from it, run read-only and scanned (ADR 0052)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -229,6 +230,8 @@ jobs:
         run: |
           set -euo pipefail
           cargo test -p wetechinetmon-incident-postgres -p wetechinetmon-incident-manager -p wetechinetmon-collector -p wetechinetmon-api -p wetechinetmon-notification -p wetechinetmon-mitigator -- --nocapture 2>&1 | tee pg-test.log
+          # Every ClickHouse row type, against the service container (ADR 0053).
+          cargo test -p wetechinetmon-storage --test clickhouse_integration -- --nocapture 2>&1 | tee -a pg-test.log
           if grep -qE "skipping [a-z_]+: WETECHINETMON_[A-Z_]+ (or WETECHINETMON_[A-Z_]+ )?is not set" pg-test.log; then
             echo "A PostgreSQL test skipped even though the service container is up — failing."
             exit 1
@@ -549,7 +552,7 @@ jobs:
           tail -n 50 api.log manager.log mitigator.log "$RUNNER_TEMP/gobgp/gobgpd.log" || true
 
   package:
-    name: Package (${{ matrix.arch }} tarball, systemd install)
+    name: Package (${{ matrix.arch }} tarball, systemd, images, Compose)
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -558,8 +561,12 @@ jobs:
         include:
           - arch: x86_64
             runner: ubuntu-22.04
+            trivy_asset: Linux-64bit
+            trivy_sha256: 2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a
           - arch: aarch64
             runner: ubuntu-22.04-arm
+            trivy_asset: Linux-ARM64
+            trivy_sha256: b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5
     # The same throwaway credential as the other jobs; never a real database.
     services:
       postgres:
@@ -589,9 +596,19 @@ jobs:
               | sh -s -- -y --profile minimal
             echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
-      - name: Lint the shell scripts
+      - name: Lint the shell scripts and the Dockerfile
         if: matrix.arch == 'x86_64'
-        run: shellcheck scripts/*.sh deployments/systemd/install.sh
+        env:
+          HADOLINT_VERSION: 2.15.1
+          HADOLINT_SHA256: c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+        run: |
+          set -euo pipefail
+          shellcheck scripts/*.sh deployments/systemd/install.sh deployments/docker-compose/setup.sh
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/hadolint" \
+            "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-x86_64"
+          echo "$HADOLINT_SHA256  $RUNNER_TEMP/hadolint" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/hadolint"
+          "$RUNNER_TEMP/hadolint" deployments/docker/Dockerfile
       - name: Build the tarball
         run: bash scripts/package.sh "0.0.0-ci.${GITHUB_SHA::12}" dist
       - name: Install from the tarball, as an operator would
@@ -644,6 +661,118 @@ jobs:
           echo "::add-mask::$token"
           WETECHINETMON_API_URL=http://127.0.0.1:8080 WETECHINETMON_API_TOKEN="$token" \
             /opt/wetechinetmon/bin/wetechinetmonctl incidents list
+      # ADR 0052: one image per service, built from the tarball just
+      # installed, so what is scanned is what ships.
+      - name: Build the images from the tarball
+        run: |
+          set -euo pipefail
+          unpacked=$(echo "$RUNNER_TEMP"/wetechinetmon-*/)
+          for target in collector incident-manager api notifier mitigator; do
+            docker build -q -f deployments/docker/Dockerfile --target "$target" \
+              --build-arg VERSION="0.0.0-ci.${GITHUB_SHA::12}" \
+              -t "wetechinetmon-$target:ci" "$unpacked"
+            user=$(docker image inspect -f '{{.Config.User}}' "wetechinetmon-$target:ci")
+            [ "$user" = "65532:65532" ] || { echo "$target runs as '$user'"; exit 1; }
+          done
+          docker image ls 'wetechinetmon-*'
+      - name: Run an image with a read-only root filesystem
+        run: |
+          set -euo pipefail
+          docker run -d --name ci-collector --read-only --cap-drop ALL \
+            --security-opt no-new-privileges -p 127.0.0.1:19090:9090 wetechinetmon-collector:ci
+          for _ in $(seq 30); do
+            curl -sf http://127.0.0.1:19090/readyz >/dev/null && break
+            sleep 1
+          done
+          curl -sS --fail-with-body http://127.0.0.1:19090/readyz
+          docker rm -f ci-collector
+      # Trivy is installed from its release, pinned by version and SHA-256,
+      # not through its GitHub Action (CVE-2026-33634 replaced that action's
+      # tags in March 2026; v0.74.0 came months later and was never affected).
+      - name: Scan the images (Trivy, fixable Critical and High fail)
+        env:
+          TRIVY_VERSION: 0.74.0
+        run: |
+          set -euo pipefail
+          tarball="trivy_${TRIVY_VERSION}_${{ matrix.trivy_asset }}.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/$tarball"
+          echo "${{ matrix.trivy_sha256 }}  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" trivy
+          for target in collector incident-manager api notifier mitigator; do
+            "$RUNNER_TEMP/trivy" image --quiet --scanners vuln --ignore-unfixed \
+              --severity CRITICAL,HIGH --exit-code 1 "wetechinetmon-$target:ci"
+          done
+      # ADR 0052: the reference stack from the images just built, TLS
+      # between every container, and synthetic flows (flow-replay's local
+      # range, 10.0.0.0/8) that must end as an incident.
+      - name: The Compose stack, end to end
+        working-directory: deployments/docker-compose
+        run: |
+          set -euo pipefail
+          # The systemd install above holds the same ports.
+          sudo systemctl stop wetechinetmon-collector wetechinetmon-incident-manager \
+            wetechinetmon-api wetechinetmon-notifier wetechinetmon-mitigator
+          sudo ./setup.sh ci
+          cat > "$RUNNER_TEMP/ci-policy.json" <<'JSON'
+          {"schemaVersion": 1,
+           "tenants": [{"tenant": "default", "prefixes": ["10.0.0.0/8"]}],
+           "policies": [{"id": "ci-host-inbound", "name": "CI host inbound", "tenant": "default",
+             "scopeType": "host", "direction": "incoming", "window": "1s",
+             "thresholds": {"bps": "1M"}, "triggerFor": "2s", "clearFor": "5s",
+             "cooldown": "10s", "severity": "critical", "executionMode": "dryRun"}]}
+          JSON
+          {
+            echo "WETECHINETMON_IMAGE_PREFIX=wetechinetmon-"
+            echo "WETECHINETMON_LOCAL_PREFIXES=10.0.0.0/8@default"
+            echo "WETECHINETMON_DETECTION_WINDOW_SECS=1"
+            echo "WETECHINETMON_DETECTION_POLICY=$RUNNER_TEMP/ci-policy.json"
+          } >> .env
+          stat -c '%a %U %n' .env tls/*.key secrets/*
+          docker compose up -d --wait --wait-timeout 180 postgres clickhouse
+          docker compose up -d
+          for port in 9091 9090 9093 9094; do
+            for _ in $(seq 90); do
+              curl -sf "http://127.0.0.1:$port/readyz" >/dev/null && break
+              sleep 1
+            done
+            curl -sS --fail-with-body "http://127.0.0.1:$port/readyz"
+          done
+          for _ in $(seq 60); do
+            curl -sf --cacert tls/ca.pem https://127.0.0.1:8443/readyz >/dev/null && break
+            sleep 1
+          done
+          curl -sS --fail-with-body --cacert tls/ca.pem https://127.0.0.1:8443/readyz
+          echo
+          # No plaintext between containers: ClickHouse's plain ports are gone.
+          for port in 8123 9000; do
+            if docker compose exec -T clickhouse bash -c "</dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+              echo "ClickHouse listens on plaintext port $port"; exit 1
+            fi
+          done
+          cargo run -q -p wetechinetmon-flow-replay -- 127.0.0.1:2055 \
+            --pattern flood --duration-secs 20 --peak-bps 20000000
+          token=$(docker compose exec -T api wetechinetmon-api token create --tenant default \
+            --actor-id ci-viewer --role viewer --days 1 | awk '/^token:/ {print $2}')
+          [ -n "$token" ]
+          echo "::add-mask::$token"
+          for _ in $(seq 30); do
+            count=$(curl -sf --cacert tls/ca.pem -H "Authorization: Bearer $token" \
+              https://127.0.0.1:8443/api/v1/incidents \
+              | python3 -c 'import json, sys; print(len(json.load(sys.stdin)["items"]))')
+            [ "$count" -ge 1 ] && break
+            sleep 2
+          done
+          echo "incidents: $count"
+          [ "$count" -ge 1 ]
+          # The flows reached ClickHouse over TLS too (ADR 0053).
+          docker compose logs collector | grep -q "ClickHouse export enabled"
+      - name: Compose logs on failure
+        if: failure()
+        working-directory: deployments/docker-compose
+        run: |
+          docker compose logs --no-color --tail 80 || true
+          docker compose exec -T clickhouse tail -n 40 /var/log/clickhouse-server/clickhouse-server.err.log || true
       - name: systemd's exposure rating for each unit
         run: |
           for service in collector incident-manager api notifier mitigator; do
