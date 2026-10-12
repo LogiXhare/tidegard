@@ -125,7 +125,7 @@ call() {
 fingerprint() {
   for table in incidents incident_notes incident_audit incident_timeline incident_outbox \
     mitigations mitigation_history api_tokens; do
-    echo "$table $(sql "SELECT count(*) FROM $table" "${1:-$PG_DB}")"
+    echo "$table $(sql "SELECT count(*) FROM $table")"
   done
 }
 
