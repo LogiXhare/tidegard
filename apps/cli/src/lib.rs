@@ -1,4 +1,5 @@
-//! `wetechinetmonctl`: the incident CLI (Milestone 5E, ADR 0040).
+//! `wetechinetmonctl`: the incident CLI (Milestone 5E, ADR 0040), with
+//! mitigations, the kill switch and BGP since Phase 7E (ADR 0050).
 //!
 //! An API client and nothing more. Every command is one or two API
 //! requests; the CLI holds no business logic and never touches the
@@ -8,6 +9,7 @@ pub mod args;
 pub mod client;
 pub mod config;
 pub mod exit;
+mod mitigations;
 pub mod output;
 
 use std::io::{BufRead, Write};
@@ -16,7 +18,7 @@ use hyper::Method;
 use serde_json::{json, Value};
 use wetechinetmon_common::rfc3339::{parse_rfc3339, rfc3339};
 
-use crate::args::{Action, Command, IncidentRef, Invocation, OpenArgs, Output, Until};
+use crate::args::{is_uuid, Action, Command, IncidentRef, Invocation, OpenArgs, Output, Until};
 use crate::client::{Call, Client, Reply};
 use crate::config::Environment;
 
@@ -33,14 +35,14 @@ pub struct Io<'a> {
 
 /// Why a command stopped, already carrying its exit code.
 #[derive(Debug)]
-struct Stop {
+pub(crate) struct Stop {
     code: i32,
     /// For stderr; empty when the output already said it.
     message: String,
 }
 
 impl Stop {
-    fn new(code: i32, message: impl Into<String>) -> Self {
+    pub(crate) fn new(code: i32, message: impl Into<String>) -> Self {
         Stop {
             code,
             message: message.into(),
@@ -119,7 +121,7 @@ pub fn encode(value: &str) -> String {
     out
 }
 
-fn query_string(pairs: &[(String, String)]) -> String {
+pub(crate) fn query_string(pairs: &[(String, String)]) -> String {
     if pairs.is_empty() {
         return String::new();
     }
@@ -130,17 +132,9 @@ fn query_string(pairs: &[(String, String)]) -> String {
     format!("?{}", joined.join("&"))
 }
 
-fn is_uuid(text: &str) -> bool {
-    text.len() == 36
-        && text.char_indices().all(|(i, c)| match i {
-            8 | 13 | 18 | 23 => c == '-',
-            _ => c.is_ascii_hexdigit(),
-        })
-}
-
 /// Sends `call`; a non-success answer stops the command with its exit
 /// code, printing the problem document (verbatim under `--output json`).
-async fn fetch(
+pub(crate) async fn fetch(
     client: &Client,
     call: Call,
     io: &mut Io<'_>,
@@ -165,7 +159,7 @@ async fn fetch(
     Err(Stop::new(code, message))
 }
 
-fn get(path: String) -> Call {
+pub(crate) fn get(path: String) -> Call {
     Call {
         method: Method::GET,
         path,
@@ -174,14 +168,14 @@ fn get(path: String) -> Call {
     }
 }
 
-fn print_verbatim(io: &mut Io<'_>, body: &[u8]) {
+pub(crate) fn print_verbatim(io: &mut Io<'_>, body: &[u8]) {
     let _ = io.out.write_all(body);
     if !body.ends_with(b"\n") {
         let _ = writeln!(io.out);
     }
 }
 
-fn parse_json(body: &[u8]) -> Result<Value, Stop> {
+pub(crate) fn parse_json(body: &[u8]) -> Result<Value, Stop> {
     serde_json::from_slice(body).map_err(|_| {
         Stop::new(
             exit::FAILURE,
@@ -192,7 +186,7 @@ fn parse_json(body: &[u8]) -> Result<Value, Stop> {
 
 /// The incident's id: as given if it is one, else looked up by number in
 /// the caller's tenant (ADR 0040).
-async fn resolve_id(
+pub(crate) async fn resolve_id(
     client: &Client,
     incident: &IncidentRef,
     io: &mut Io<'_>,
@@ -341,13 +335,46 @@ async fn execute(client: &Client, invocation: &Invocation, io: &mut Io<'_>) -> R
             )
             .await
         }
+        Command::MitigationList { query } => mitigations::list(client, query, io, output).await,
+        Command::MitigationShow(mitigation) => {
+            mitigations::detail(client, mitigation, io, output).await
+        }
+        Command::MitigationHistory(mitigation) => {
+            mitigations::history(client, mitigation, io, output).await
+        }
+        Command::MitigationRequest(request) => {
+            mitigations::request(client, request, io, output).await
+        }
+        Command::MitigationChange {
+            mitigation,
+            action,
+            expected_version,
+            yes,
+        } => {
+            mitigations::change(
+                client,
+                mitigation,
+                action,
+                *expected_version,
+                *yes,
+                io,
+                output,
+            )
+            .await
+        }
+        Command::KillSwitchStatus => mitigations::kill_switch_status(client, io, output).await,
+        Command::KillSwitchEngage { reason, yes } => {
+            mitigations::kill_switch_engage(client, reason, *yes, io, output).await
+        }
+        Command::BgpRoutes => mitigations::bgp_routes(client, io, output).await,
+        Command::BgpPeers => mitigations::bgp_peers(client, io, output).await,
     }
 }
 
 /// One key per logical command: a UUIDv7, the same on every retry
 /// (`Client::send` resends the same `Call`), so a retried change the
 /// server already applied is replayed, never applied twice.
-fn idempotency_key(now_micros: i64) -> String {
+pub(crate) fn idempotency_key(now_micros: i64) -> String {
     let micros = u64::try_from(now_micros).unwrap_or(0);
     let timestamp = uuid::Timestamp::from_unix(
         uuid::NoContext,
@@ -394,12 +421,13 @@ fn confirmation(action: &Action, current: Option<&Value>, name: &str) -> Option<
 
 /// Asks `question`; only `y` or `yes` proceeds. Without a terminal there
 /// is no one to ask, and that is an error, never an assumed yes.
-fn confirm(io: &mut Io<'_>, question: &str, verb: &str) -> Result<(), Stop> {
+/// `command` names it in that error, such as `incidents close`.
+pub(crate) fn confirm(io: &mut Io<'_>, question: &str, command: &str) -> Result<(), Stop> {
     let Some(input) = io.input.as_mut() else {
         return Err(Stop::new(
             exit::USAGE,
             format!(
-                "Error: incidents {verb} asks for confirmation, and there is no terminal \
+                "Error: {command} asks for confirmation, and there is no terminal \
                  to ask. Pass --yes to confirm in advance.\n"
             ),
         ));
@@ -516,7 +544,7 @@ async fn change(
     let verb = action.verb();
     if let Some(question) = confirmation(action, current.as_ref(), &name) {
         if !yes {
-            confirm(io, &question, verb)?;
+            confirm(io, &question, &format!("incidents {verb}"))?;
         }
     }
     let call = Call {
@@ -557,7 +585,7 @@ async fn change(
     Ok(())
 }
 
-fn field_or(value: &Value, name: &str, fallback: &str) -> String {
+pub(crate) fn field_or(value: &Value, name: &str, fallback: &str) -> String {
     match &value[name] {
         Value::String(text) => output::clean(text),
         Value::Null => output::clean(fallback),

@@ -1,6 +1,7 @@
 //! The command line, parsed by hand (ADR 0040).
 //!
-//! `wetechinetmonctl [GLOBAL FLAGS] incidents <verb> [INCIDENT] [FLAGS]`.
+//! `wetechinetmonctl [GLOBAL FLAGS] <noun> <verb> [ARGUMENTS] [FLAGS]`, where
+//! the noun is `incidents`, `mitigations`, `kill-switch` or `bgp`.
 //! Flags may sit anywhere after the program name. An unknown flag, a
 //! missing value, a flag the verb does not take, or a stray argument is a
 //! usage error, never ignored: a misspelled flag must fail loudly, not run
@@ -149,6 +150,45 @@ impl Action {
     }
 }
 
+/// A mitigation's UUID, checked before it reaches a URL.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MitigationRef(pub String);
+
+/// `mitigations request`, field for field the API request (ADR 0050).
+/// There is no flag for a route attribute: those are the deployment's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MitigationRequestArgs {
+    pub prefix: String,
+    pub action: String,
+    pub reason: String,
+    pub duration: std::time::Duration,
+    /// An incident id or number, resolved before the request.
+    pub incident: Option<IncidentRef>,
+    pub protocol: Option<u8>,
+    pub source: Option<String>,
+    pub source_port: Option<u16>,
+    pub destination_port: Option<u16>,
+    pub bytes_per_second: Option<u64>,
+}
+
+/// A decision on one mitigation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MitigationAction {
+    Approve,
+    Reject { reason: String },
+    Withdraw { reason: String },
+}
+
+impl MitigationAction {
+    pub fn verb(&self) -> &'static str {
+        match self {
+            MitigationAction::Approve => "approve",
+            MitigationAction::Reject { .. } => "reject",
+            MitigationAction::Withdraw { .. } => "withdraw",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     Help,
@@ -183,6 +223,26 @@ pub enum Command {
         /// Answers the confirmation prompt in advance.
         yes: bool,
     },
+    /// `mitigations list`, with `live` and `limit` passed through.
+    MitigationList {
+        query: Vec<(String, String)>,
+    },
+    MitigationShow(MitigationRef),
+    MitigationHistory(MitigationRef),
+    MitigationRequest(MitigationRequestArgs),
+    MitigationChange {
+        mitigation: MitigationRef,
+        action: MitigationAction,
+        expected_version: Option<u64>,
+        yes: bool,
+    },
+    KillSwitchStatus,
+    KillSwitchEngage {
+        reason: String,
+        yes: bool,
+    },
+    BgpRoutes,
+    BgpPeers,
 }
 
 /// `incidents open`, field for field the API request.
@@ -213,7 +273,7 @@ fn usage(text: impl Into<String>) -> UsageError {
 }
 
 pub const USAGE: &str = "\
-Usage: wetechinetmonctl [--output table|wide|json] [--profile NAME] incidents <verb> ...
+Usage: wetechinetmonctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
 
 Reading:
   incidents list [--state S] [--severity S] [--priority P] [--direction D]
@@ -253,7 +313,28 @@ Changing (each reads the current version first unless --expected-version):
   --yes answers a confirmation in advance; without a terminal it is required.
   --expected-version N pins the version instead of reading it.
 
+Mitigations (BGP, ADR 0050):
+  mitigations list [--live] [--limit N]
+  mitigations show MITIGATION
+  mitigations history MITIGATION
+  mitigations request --prefix P --reason TEXT --for 30m
+                      --action rtbh|parent_prefix|flowspec_discard|flowspec_rate_limit
+                      [--incident INCIDENT] [--protocol N] [--source P]
+                      [--source-port N] [--destination-port N] [--rate BYTES_PER_SECOND]
+  mitigations approve MITIGATION                               (confirms)
+  mitigations reject MITIGATION --reason TEXT
+  mitigations withdraw MITIGATION --reason TEXT                (confirms)
+  kill-switch status
+  kill-switch engage --reason TEXT                             (confirms)
+  bgp routes
+  bgp peers
+
+  A request announces nothing: a noc_lead approves it, then the mitigator
+  announces it. Releasing the kill switch is host-only:
+  wetechinetmon-api kill-switch release, on the API host.
+
 INCIDENT is an incident id or number, such as WNM-2026-000123.
+MITIGATION is a mitigation id, as mitigations list shows it.
 --state, --severity and --priority repeat, or take a comma-separated list.
 
 Credentials are never flags. Set WETECHINETMON_API_TOKEN, or a profile in
@@ -289,7 +370,18 @@ const VALUE_FLAGS: &[(&str, &str)] = &[
     ("--target-scope", "target_scope"),
     ("--target", "target"),
     ("--address-family", "address_family"),
+    ("--prefix", "prefix"),
+    ("--action", "action"),
+    ("--incident", "incident"),
+    ("--protocol", "protocol"),
+    ("--source", "source"),
+    ("--source-port", "source_port"),
+    ("--destination-port", "destination_port"),
+    ("--rate", "rate"),
 ];
+
+/// Flags that take no value, as `(flag, name)`, besides `--yes`.
+const SWITCH_FLAGS: &[(&str, &str)] = &[("--live", "live")];
 
 /// `list` flags that may repeat or take a comma-separated list.
 const LIST_REPEATING: &[&str] = &["state", "severity", "priority"];
@@ -313,7 +405,10 @@ const CREDENTIAL_FLAGS: &[&str] = &["--token", "--api-token", "--password", "--s
 
 /// Flags the verb has not consumed yet.
 struct Flags {
+    /// The command's noun, for messages: `incidents`, `mitigations`, ...
+    noun: String,
     values: Vec<(String, String)>,
+    switches: Vec<String>,
     yes: bool,
 }
 
@@ -337,19 +432,47 @@ impl Flags {
 
     fn require(&mut self, name: &str, verb: &str) -> Result<String, UsageError> {
         self.take(name)?
-            .ok_or_else(|| usage(format!("incidents {verb} needs --{}", flag(name))))
+            .ok_or_else(|| usage(format!("{} {verb} needs --{}", self.noun, flag(name))))
+    }
+
+    /// Whether the switch `name` was given.
+    fn switch(&mut self, name: &str) -> bool {
+        let before = self.switches.len();
+        self.switches.retain(|given| given != name);
+        self.switches.len() != before
+    }
+
+    /// `name` as a number, if given.
+    fn number<T: std::str::FromStr>(
+        &mut self,
+        name: &str,
+        expected: &str,
+    ) -> Result<Option<T>, UsageError> {
+        match self.take(name)? {
+            Some(text) => text
+                .parse()
+                .map(Some)
+                .map_err(|_| usage(format!("--{} is {expected}", flag(name)))),
+            None => Ok(None),
+        }
     }
 
     /// Refuses whatever the verb did not consume.
     fn finish(self, verb: &str, allows_yes: bool) -> Result<bool, UsageError> {
-        if let Some((name, _)) = self.values.first() {
+        let noun = &self.noun;
+        let leftover = self
+            .values
+            .first()
+            .map(|(name, _)| name)
+            .or(self.switches.first());
+        if let Some(name) = leftover {
             return Err(usage(format!(
-                "--{} does not apply to incidents {verb}",
+                "--{} does not apply to {noun} {verb}",
                 flag(name)
             )));
         }
         if self.yes && !allows_yes {
-            return Err(usage(format!("--yes does not apply to incidents {verb}")));
+            return Err(usage(format!("--yes does not apply to {noun} {verb}")));
         }
         Ok(self.yes)
     }
@@ -390,7 +513,9 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
     };
     let mut words: Vec<String> = Vec::new();
     let mut flags = Flags {
+        noun: "incidents".to_string(),
         values: Vec::new(),
+        switches: Vec::new(),
         yes: false,
     };
     let mut rest = args.iter();
@@ -446,6 +571,16 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
                 }
             }
             "--profile" => global.profile = Some(value(name)?),
+            flag if SWITCH_FLAGS.iter().any(|(f, _)| *f == flag) => {
+                if inline.is_some() {
+                    return Err(usage(format!("{flag} takes no value")));
+                }
+                let (_, key) = SWITCH_FLAGS
+                    .iter()
+                    .find(|(f, _)| *f == flag)
+                    .expect("matched above");
+                flags.switches.push((*key).to_string());
+            }
             flag if flag.starts_with('-') && flag != "-" => {
                 let Some((_, key)) = VALUE_FLAGS.iter().find(|(f, _)| *f == flag) else {
                     return Err(usage(format!("unknown flag {flag}")));
@@ -462,6 +597,11 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
     }
 
     let words: Vec<&str> = words.iter().map(String::as_str).collect();
+    if let Some(noun @ ("mitigations" | "kill-switch" | "bgp")) = words.first().copied() {
+        flags.noun = noun.to_string();
+        let command = mitigation_command(&words, flags)?;
+        return Ok(Invocation { global, command });
+    }
     let reference = |id: &&str| IncidentRef((*id).to_string());
     let command = match words.as_slice() {
         [] => {
@@ -650,6 +790,119 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
         [other, ..] => return Err(usage(format!("unknown command {other}; see --help"))),
     };
     Ok(Invocation { global, command })
+}
+
+/// `mitigations`, `kill-switch` and `bgp` (ADR 0050).
+fn mitigation_command(words: &[&str], mut flags: Flags) -> Result<Command, UsageError> {
+    let mitigation = |id: &str| -> Result<MitigationRef, UsageError> {
+        if is_uuid(id) {
+            Ok(MitigationRef(id.to_ascii_lowercase()))
+        } else {
+            let shown: String = id
+                .chars()
+                .map(|c| if c.is_control() { ' ' } else { c })
+                .collect();
+            Err(usage(format!(
+                "{shown:?} is not a mitigation id; mitigations list shows them"
+            )))
+        }
+    };
+    let command = match words {
+        ["mitigations", "list"] => {
+            let mut query = Vec::new();
+            if flags.switch("live") {
+                query.push(("live".to_string(), "true".to_string()));
+            }
+            if let Some(limit) = flags.take("limit")? {
+                query.push(("limit".to_string(), limit));
+            }
+            flags.finish("list", false)?;
+            Command::MitigationList { query }
+        }
+        ["mitigations", "show", id] => {
+            flags.finish("show", false)?;
+            Command::MitigationShow(mitigation(id)?)
+        }
+        ["mitigations", "history", id] => {
+            flags.finish("history", false)?;
+            Command::MitigationHistory(mitigation(id)?)
+        }
+        ["mitigations", "request"] => {
+            let request = MitigationRequestArgs {
+                prefix: flags.require("prefix", "request")?,
+                action: flags.require("action", "request")?,
+                reason: flags.require("reason", "request")?,
+                duration: duration(&flags.require("for", "request")?)?,
+                incident: flags.take("incident")?.map(IncidentRef),
+                protocol: flags.number("protocol", "a protocol number from 0 to 255")?,
+                source: flags.take("source")?,
+                source_port: flags.number("source_port", "a port from 0 to 65535")?,
+                destination_port: flags.number("destination_port", "a port from 0 to 65535")?,
+                bytes_per_second: flags.number("rate", "a whole number of bytes per second")?,
+            };
+            flags.finish("request", false)?;
+            Command::MitigationRequest(request)
+        }
+        ["mitigations", verb @ ("approve" | "reject" | "withdraw"), id] => {
+            let action = match *verb {
+                "approve" => MitigationAction::Approve,
+                "reject" => MitigationAction::Reject {
+                    reason: flags.require("reason", verb)?,
+                },
+                _ => MitigationAction::Withdraw {
+                    reason: flags.require("reason", verb)?,
+                },
+            };
+            let expected_version = flags.number("expected_version", "a whole number")?;
+            let yes = flags.finish(verb, true)?;
+            Command::MitigationChange {
+                mitigation: mitigation(id)?,
+                action,
+                expected_version,
+                yes,
+            }
+        }
+        ["kill-switch", "status"] => {
+            flags.finish("status", false)?;
+            Command::KillSwitchStatus
+        }
+        ["kill-switch", "engage"] => {
+            let reason = flags.require("reason", "engage")?;
+            let yes = flags.finish("engage", true)?;
+            Command::KillSwitchEngage { reason, yes }
+        }
+        ["kill-switch", "release", ..] => {
+            return Err(usage(
+                "kill-switch release is host-only, and no API token may release it. On the \
+                 API host, run wetechinetmon-api kill-switch release --actor-id ID --reason TEXT",
+            ))
+        }
+        ["bgp", "routes"] => {
+            flags.finish("routes", false)?;
+            Command::BgpRoutes
+        }
+        ["bgp", "peers"] => {
+            flags.finish("peers", false)?;
+            Command::BgpPeers
+        }
+        [noun] => return Err(usage(format!("{noun} needs a verb; see --help"))),
+        [noun, verb, ..] => {
+            return Err(usage(format!(
+                "{noun} {verb}: unknown verb, or the wrong number of arguments; see --help"
+            )))
+        }
+        [] => unreachable!("a noun was matched"),
+    };
+    Ok(command)
+}
+
+/// A UUID in its hyphenated form.
+pub fn is_uuid(text: &str) -> bool {
+    text.len() == 36
+        && text.char_indices().all(|(i, c)| match i {
+            8 | 13 | 18 | 23 => c == '-',
+            _ => c.is_ascii_hexdigit(),
+        })
 }
 
 fn is_change_verb(verb: &str) -> bool {
@@ -994,6 +1247,120 @@ mod tests {
         ] {
             assert!(run(line).is_err(), "{line} should be refused");
         }
+    }
+
+    #[test]
+    fn mitigation_commands_parse() {
+        const M: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
+        assert_eq!(
+            run("mitigations list --live --limit 5").unwrap().command,
+            Command::MitigationList {
+                query: vec![("live".into(), "true".into()), ("limit".into(), "5".into())]
+            }
+        );
+        assert_eq!(
+            run(&format!("mitigations show {}", M.to_uppercase()))
+                .unwrap()
+                .command,
+            Command::MitigationShow(MitigationRef(M.into()))
+        );
+        assert_eq!(
+            run(&format!("mitigations history {M}")).unwrap().command,
+            Command::MitigationHistory(MitigationRef(M.into()))
+        );
+        let Command::MitigationRequest(request) = run(
+            "mitigations request --prefix 203.0.113.9/32 --action flowspec_rate_limit \
+             --reason flood --for 30m --incident WNM-2026-000123 --protocol 17 \
+             --destination-port 53 --rate 125000",
+        )
+        .unwrap()
+        .command
+        else {
+            panic!("not a request")
+        };
+        assert_eq!(request.duration, std::time::Duration::from_secs(1_800));
+        assert_eq!(
+            request.incident,
+            Some(IncidentRef("WNM-2026-000123".into()))
+        );
+        assert_eq!(
+            (
+                request.protocol,
+                request.destination_port,
+                request.bytes_per_second
+            ),
+            (Some(17), Some(53), Some(125_000))
+        );
+        assert_eq!(
+            run(&format!(
+                "mitigations withdraw {M} --reason over --expected-version 4 --yes"
+            ))
+            .unwrap()
+            .command,
+            Command::MitigationChange {
+                mitigation: MitigationRef(M.into()),
+                action: MitigationAction::Withdraw {
+                    reason: "over".into()
+                },
+                expected_version: Some(4),
+                yes: true,
+            }
+        );
+        assert_eq!(
+            run("kill-switch engage --reason storm -y").unwrap().command,
+            Command::KillSwitchEngage {
+                reason: "storm".into(),
+                yes: true
+            }
+        );
+        assert_eq!(
+            run("kill-switch status").unwrap().command,
+            Command::KillSwitchStatus
+        );
+        assert_eq!(run("bgp routes").unwrap().command, Command::BgpRoutes);
+        assert_eq!(run("bgp peers -o json").unwrap().command, Command::BgpPeers);
+    }
+
+    #[test]
+    fn mitigation_mistakes_are_refused() {
+        const M: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
+        for line in [
+            "mitigations".to_string(),
+            "mitigations show".to_string(),
+            "mitigations show WNM-2026-000123".to_string(),
+            "mitigations show ../incidents".to_string(),
+            format!("mitigations show {M} --live"),
+            "mitigations list --live=true".to_string(),
+            "mitigations list --yes".to_string(),
+            "incidents list --live".to_string(),
+            "mitigations request --prefix 203.0.113.9/32 --action rtbh --reason r".to_string(),
+            "mitigations request --prefix 203.0.113.9/32 --action rtbh --for 1h".to_string(),
+            "mitigations request --prefix 203.0.113.9/32 --action rtbh --reason r --for 1h \
+             --next-hop 192.0.2.1"
+                .to_string(),
+            "mitigations request --prefix 203.0.113.9/32 --action rtbh --reason r --for 1h \
+             --protocol 300"
+                .to_string(),
+            "mitigations request --prefix 203.0.113.9/32 --action rtbh --reason r --for 1h --yes"
+                .to_string(),
+            format!("mitigations reject {M}"),
+            format!("mitigations withdraw {M}"),
+            format!("mitigations approve {M} --reason r"),
+            format!("mitigations approve {M} --expected-version x"),
+            "kill-switch engage".to_string(),
+            "kill-switch release --reason r".to_string(),
+            "kill-switch status --yes".to_string(),
+            "bgp routes --limit 5".to_string(),
+            "bgp neighbors".to_string(),
+        ] {
+            assert!(run(&line).is_err(), "{line} should be refused");
+        }
+        let release = run("kill-switch release").unwrap_err();
+        assert!(release.0.contains("host-only"), "{}", release.0);
+        let wrong = run("mitigations reject X --reason r").unwrap_err();
+        assert!(wrong.0.contains("not a mitigation id"), "{}", wrong.0);
+        let missing = run("kill-switch engage").unwrap_err();
+        assert_eq!(missing.0, "kill-switch engage needs --reason");
     }
 
     #[test]

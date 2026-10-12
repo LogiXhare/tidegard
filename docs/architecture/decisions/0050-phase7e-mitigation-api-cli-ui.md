@@ -1,7 +1,7 @@
 # 0050. Phase 7E Mitigations in the API, CLI and UI
 
-Status: **Accepted** (7E-1, the API); the CLI, the UI and notifications
-follow in this ADR's later sections as they are built
+Status: **Accepted** (7E-1, the API; 7E-2, the CLI); the UI and
+notifications follow in this ADR's later sections as they are built
 Date: 2026-10-12
 Deciders: Repository owner (BQ-14, 2026-10-12); the details under the
 delegation of 2026-10-05 to industry practice
@@ -51,6 +51,40 @@ constant `mitigation_status` and `notification_status` with the truth
   guard's refusals keep their codes; another tenant's prefix is
   `mitigation.not_allowlisted`, as a prefix nobody owns.
 
+### The CLI (7E-2)
+
+`wetechinetmonctl` gains three nouns, each one or two API requests and
+nothing more:
+
+| Command | API |
+|---|---|
+| `mitigations list [--live] [--limit N]` | `GET /mitigations` |
+| `mitigations show` and `history MITIGATION` | `GET /mitigations/{id}` and `/history` |
+| `mitigations request --prefix --action --reason --for [--incident] [flow flags] [--rate]` | `POST /mitigations` |
+| `mitigations approve`, `reject` and `withdraw MITIGATION` | `POST /mitigations/{id}/...` |
+| `kill-switch status` and `engage --reason` | `GET` and `PUT /mitigation-controls/kill-switch` |
+| `bgp routes` and `bgp peers` | `GET /bgp/routes` and `/bgp/peers` |
+
+- **Asking first:** approving (it will be announced), withdrawing (the
+  protection ends) and engaging the kill switch. These follow ADR 0040's
+  rules: `--yes` answers in advance, and with no terminal and no `--yes`
+  nothing is sent. Requesting and rejecting announce nothing, so they
+  do not ask.
+- **Versions:** a decision reads the mitigation's version, and the
+  question shows its action, prefix and requester, unless
+  `--expected-version` pins the version and `--yes` answers in advance. A
+  retried decision the server already applied is refused as a `409`,
+  never applied twice.
+- **No route attributes:** there are no flags for them, and an unknown
+  flag is a usage error.
+- **A mitigation id must be a UUID** before it is put in a URL. An
+  incident number given to `--incident` is resolved in the caller's
+  tenant first.
+- **`kill-switch release`** is a usage error that names the host command.
+- **`bgp peers`** writes a warning to stderr when the newest snapshot is
+  more than five minutes old. That is five times the mitigator's default
+  reconciliation interval. JSON output stays verbatim.
+
 ### Releasing the kill switch is host-only
 
 API tokens carry the four token roles, up to `noc_lead`, so no token
@@ -78,6 +112,10 @@ returns the incident.
 - `apps/api/tests/mitigations.rs` proves the whole API against
   PostgreSQL, the kill switch's host-only release, and both statuses.
   `tenant_isolation.rs` covers the five `{mitigation_id}` operations.
+- `apps/cli/tests/mitigation_commands.rs` pins the CLI against a
+  stand-in API, which records every request. A request carries one
+  key and a resolved incident. A decision is never sent unconfirmed, a
+  conflict is not re-issued, and an old peer snapshot is called out.
 - **FU-65:** the kill switch and the BGP peers are deployment-wide, and
   any tenant's `noc_lead` may engage the switch and read the peers.
   Right for the single-tenant deployments v1.0 targets (BQ-4); Phase 8

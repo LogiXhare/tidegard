@@ -51,7 +51,7 @@ Keep the file readable only by you, because it holds a token.
 ## Commands
 
 ```text
-wetechinetmonctl [--output table|wide|json] [--profile NAME] incidents <verb> ...
+wetechinetmonctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
 
 incidents list [--state S] [--severity S] [--priority P] [--direction D]
                [--target-type T] [--sort opened_at|last_detected_at]
@@ -81,6 +81,21 @@ incidents export INCIDENT [--file PATH]     (a new file; never overwritten)
 incidents open --title T --severity S --target-scope host|prefix|slash24|hostgroup_total
                --target X --direction incoming|outgoing|internal
                [--priority P] [--description TEXT] [--address-family 4|6]
+
+mitigations list [--live] [--limit N]
+mitigations show MITIGATION
+mitigations history MITIGATION
+mitigations request --prefix P --reason TEXT --for 30m
+                    --action rtbh|parent_prefix|flowspec_discard|flowspec_rate_limit
+                    [--incident INCIDENT] [--protocol N] [--source P]
+                    [--source-port N] [--destination-port N] [--rate BYTES_PER_SECOND]
+mitigations approve MITIGATION                 (confirms)
+mitigations reject MITIGATION --reason TEXT
+mitigations withdraw MITIGATION --reason TEXT  (confirms)
+kill-switch status
+kill-switch engage --reason TEXT               (confirms)
+bgp routes
+bgp peers
 ```
 
 ### Changing an incident safely
@@ -92,6 +107,29 @@ incidents open --title T --severity S --target-scope host|prefix|slash24|hostgro
 
 `INCIDENT` is the incident's id or its number, such as `WNM-2026-000123`.
 A number is looked up in your tenant.
+
+### Mitigations
+
+BGP mitigations are described in
+[ADR 0050](../../docs/architecture/decisions/0050-phase7e-mitigation-api-cli-ui.md).
+The CLI talks only to the API. It never talks to GoBGP.
+
+- **A request announces nothing.** A `noc_lead` approves it, and then the
+  mitigator announces it. Unless the deployment allows it, you cannot
+  approve your own request. There is no flag for a next hop or a
+  community, because route attributes are the deployment's.
+- **Approving, withdrawing and engaging the kill switch ask first.** They
+  follow the same rules as an incident: `--yes` answers in advance, the
+  version is read unless `--expected-version` pins it, and a `409` exits `4`.
+- **Releasing the kill switch is not a CLI command.** No API token may
+  release it. On the API host, run
+  `wetechinetmon-api kill-switch release --actor-id ID --reason TEXT`.
+- **`bgp peers` warns when the snapshot is old.** The mitigator records
+  its peers each time it reconciles. If the newest record is more than
+  five minutes old, the mitigator has probably stopped, and the sessions
+  shown may no longer be up.
+
+`MITIGATION` is a mitigation id, as shown by `mitigations list`.
 
 ### Output formats
 
