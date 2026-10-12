@@ -12,6 +12,7 @@
 #[path = "../../incident-postgres/tests/support/mod.rs"]
 mod support;
 
+use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -29,6 +30,7 @@ use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
 use wetechinetmon_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
 use wetechinetmon_incident_postgres::pool::PoolPolicy;
+use wetechinetmon_incident_postgres::retry::RetryPolicy;
 use wetechinetmon_incident_postgres::service::IncidentPersistence;
 use wetechinetmon_notification::config::parse_file;
 use wetechinetmon_notification::hmac::signature;
@@ -38,6 +40,29 @@ use wetechinetmon_notification::worker::Notifier;
 const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
 const HOOK_SECRET: &str = "a-test-signing-secret";
 const BOT_TOKEN: &str = "123456:test-token";
+
+/// Everything logged at DEBUG and above, for the secret check (T-36).
+#[derive(Clone, Default)]
+struct Capture(Arc<Mutex<Vec<u8>>>);
+
+impl Write for Capture {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Capture {
+    type Writer = Capture;
+
+    fn make_writer(&'a self) -> Capture {
+        self.clone()
+    }
+}
 
 #[derive(Clone, Default)]
 struct Mock {
@@ -50,12 +75,17 @@ async fn receive(
     Path(channel): Path<String>,
     headers: HeaderMap,
     body: Bytes,
-) -> StatusCode {
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
     if channel == "flaky" && mock.flaky_down.load(Ordering::SeqCst) {
-        return StatusCode::SERVICE_UNAVAILABLE;
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    if channel == "redirect" {
+        // An attempt to bounce the notifier somewhere else (T-35).
+        return (StatusCode::FOUND, [("location", "/redirected")]).into_response();
     }
     mock.received.lock().unwrap().push((channel, headers, body));
-    StatusCode::OK
+    StatusCode::OK.into_response()
 }
 
 async fn serve(mock: Mock) -> u16 {
@@ -133,6 +163,15 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
         .get(0);
 
     // --- Channels, all on loopback ---
+    let logs = Capture::default();
+    tracing::subscriber::set_global_default(
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .with_ansi(false)
+            .with_writer(logs.clone())
+            .finish(),
+    )
+    .expect("the only subscriber in this test binary");
     let mock = Mock::default();
     mock.flaky_down.store(true, Ordering::SeqCst);
     let port = serve(mock.clone()).await;
@@ -148,7 +187,7 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
     let flaky = secret("flaky", format!("http://127.0.0.1:{port}/flaky"));
     let hook = secret("hook", HOOK_SECRET.to_string());
     let bot = secret("bot", BOT_TOKEN.to_string());
-    let file = parse_file(&format!(
+    let config = format!(
         r#"{{
             "channels": {{
                 "noc-slack": {{"kind": "slack", "url_file": "{slack}", "allow_private": true}},
@@ -156,17 +195,18 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
                 "ops-hook": {{"kind": "webhook", "url": "http://127.0.0.1:{port}/hook", "secret_file": "{hook}", "allow_private": true}},
                 "noc-tg": {{"kind": "telegram", "bot_token_file": "{bot}", "chat_id": "-1001", "api_base": "http://127.0.0.1:{port}", "allow_private": true}},
                 "flaky": {{"kind": "slack", "url_file": "{flaky}", "allow_private": true}},
-                "outsider": {{"kind": "webhook", "url": "http://localhost:{port}/hook", "secret_file": "{hook}", "allow_private": true}}
+                "outsider": {{"kind": "webhook", "url": "http://localhost:{port}/hook", "secret_file": "{hook}", "allow_private": true}},
+                "bouncer": {{"kind": "webhook", "url": "http://127.0.0.1:{port}/redirect", "secret_file": "{hook}", "allow_private": true}}
             }},
             "routes": [{{"tenant": "{tenant}", "events": ["incident.opened"], "min_severity": "minor",
-                         "channels": ["noc-slack", "noc-teams", "ops-hook", "noc-tg", "flaky", "outsider"]}}],
+                         "channels": ["noc-slack", "noc-teams", "ops-hook", "noc-tg", "flaky", "outsider", "bouncer"]}}],
             "allowed_hosts": ["127.0.0.1"],
             "ca_file": "/nonexistent/unused-for-http.pem",
             "ui_base_url": "https://noc.example.net"
         }}"#,
         tenant = scope.tenant
-    ))
-    .unwrap();
+    );
+    let file = parse_file(&config).unwrap();
 
     let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
         &url,
@@ -196,13 +236,22 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
     )
     .unwrap();
 
-    // --- First pass: four delivered, one failing, one refused ---
+    // --- First pass: four delivered, one failing, two refused ---
     let report = notifier.run_once(&pool).await.unwrap();
     assert_eq!(report.delivered, 4, "{report:?}");
     assert_eq!(report.failed, 1, "{report:?}");
     assert_eq!(
-        report.refused, 1,
-        "localhost is not on the allowlist: {report:?}"
+        report.refused, 2,
+        "localhost is off the allowlist, and a redirect is not followed: {report:?}"
+    );
+    assert!(
+        !mock
+            .received
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(channel, _, _)| channel == "redirected"),
+        "the redirect was not followed"
     );
     assert_eq!(
         report.retrying, 1,
@@ -294,10 +343,10 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
             .filter(|payload| payload.contains(&format!("\"{outcome}\"")))
             .count()
     };
-    assert_eq!(outcomes.len(), 7, "{outcomes:?}");
+    assert_eq!(outcomes.len(), 8, "{outcomes:?}");
     assert_eq!(count("delivered"), 5, "{outcomes:?}");
     assert_eq!(count("failed"), 1, "{outcomes:?}");
-    assert_eq!(count("refused"), 1, "{outcomes:?}");
+    assert_eq!(count("refused"), 2, "{outcomes:?}");
     let version: i64 = client
         .query_one("SELECT version FROM incidents", &[])
         .await
@@ -308,8 +357,85 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
         "a notification record bumps no version"
     );
 
+    // --- T-36: no channel secret reaches the log ---
+    let logged = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    assert!(
+        logged.contains("a notification failed"),
+        "the capture works"
+    );
+    for secret in [
+        HOOK_SECRET.to_string(),
+        BOT_TOKEN.to_string(),
+        format!("127.0.0.1:{port}/slack"),
+        format!("127.0.0.1:{port}/teams"),
+    ] {
+        assert!(
+            !logged.contains(&secret),
+            "a channel secret reached the log"
+        );
+    }
+
     // --- Nothing more to do ---
     let report = notifier.run_once(&pool).await.unwrap();
     assert_eq!(report.claimed, 0);
+
+    // --- Repeated failures dead-letter ---
+    // A restarted notifier with a retry limit of two. The row has failed
+    // once already, so the next failure is its last.
+    mock.flaky_down.store(true, Ordering::SeqCst);
+    client
+        .execute(
+            "UPDATE incident_outbox SET status = 'retrying', available_at = now() \
+             WHERE event_type = 'incident.opened'",
+            &[],
+        )
+        .await
+        .unwrap();
+    let (metrics, _) = NotifierMetrics::new().unwrap();
+    let mut restarted = Notifier::new(
+        "notifier-test".into(),
+        OutboxConsumer::new(
+            &platform,
+            "notifier-test",
+            OutboxPolicy {
+                retry: RetryPolicy {
+                    max_attempts: 2,
+                    ..policy.retry
+                },
+                ..policy
+            },
+        ),
+        IncidentPersistence::new(
+            Arc::new(UuidV7IncidentGenerator::new()),
+            Arc::new(TestClock::new()),
+        ),
+        parse_file(&config).unwrap(),
+        Duration::from_secs(300),
+        metrics,
+    )
+    .unwrap();
+    let report = restarted.run_once(&pool).await.unwrap();
+    assert_eq!(report.failed, 1, "{report:?}");
+    assert_eq!(report.dead_lettered, 1, "{report:?}");
+    assert_eq!(report.retrying, 0, "{report:?}");
+    let status: String = client
+        .query_one(
+            "SELECT status FROM incident_outbox WHERE event_type = 'incident.opened'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(status, "dead_letter");
+    let dead: i64 = client
+        .query_one(
+            "SELECT count(*) FROM incident_dead_letter WHERE event_type = 'incident.opened'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(dead, 1);
+    assert_eq!(restarted.run_once(&pool).await.unwrap().claimed, 0);
     std::fs::remove_dir_all(dir).unwrap();
 }

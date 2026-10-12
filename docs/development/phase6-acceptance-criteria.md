@@ -5,7 +5,8 @@ Status: **Defined 2026-10-11, before any Phase 6 code.** Part of the
 
 As in Phase 5, the criteria are written before the work starts, so the
 work is judged against them rather than the other way round. Each one is
-assessed at the end of Phase 6 with the test or check that proves it.
+assessed at the end of Phase 6 with the test or check that proves it:
+see the [Gate 2 assessment](phase6-gate2-assessment.md).
 
 ## Gate 1 — Planning accepted
 

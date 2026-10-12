@@ -1,6 +1,6 @@
 # Incident Threat Tests
 
-Status: **Phase 5F security review**, 2026-10-05; T-08 updated in Phase 6D, 2026-10-12.
+Status: **Phase 5F security review**, 2026-10-05; Phase 6 threats T-30 to T-41 added, and T-08 updated, 2026-10-12.
 
 This maps each threat in the [threat model](incident-threat-model.md) to
 the tests that prove its control. Gate 2 requires that every threat has a
@@ -67,17 +67,29 @@ jobs must show the test as `ok`, and it must not have skipped.
 | T-27 Corrupted or hand-crafted row | Met | `crates/incident/src/reconstitute.rs` (table-driven refusals); `crates/incident-postgres/tests/incident_row_mapping.rs` |
 | T-28 TLS downgrade | Met | `crates/incident-postgres/tests/tls_connector.rs` `tls_connections_verify_the_chain_and_the_host_name`; `apps/api/src/server.rs` `plaintext_is_refused_off_loopback_and_allowed_on_it`; `apps/cli/src/config.rs` `plaintext_only_to_loopback_and_tls_needs_a_ca` |
 | T-29 Outbox lease starvation | Met | `crates/incident-postgres/tests/outbox_and_retention.rs`; `crates/incident-postgres/tests/outbox_concurrency.rs` `outbox_claims_stay_disjoint_survive_crashes_and_count_attempts_once` |
+| T-30 Cross-site request forgery | Met (6C) | `apps/api/tests/sessions.rs` (no header or a wrong one is `403 api.csrf_rejected`, audited, and changes nothing); `apps/web/e2e/lifecycle.spec.ts` (a cookie request without the header, in a real browser) |
+| T-31 Session fixation and theft | Met (6C) | `apps/api/tests/sessions.rs` (a planted id is never honoured; idle and absolute expiry; revocation and sign-out end it; no secret logged) |
+| T-32 Clickjacking | Met (6D) | `apps/api/tests/web.rs`, `apps/api/src/web.rs` (`X-Frame-Options: DENY`, `frame-ancestors 'none'`); `apps/web/e2e/lifecycle.spec.ts` |
+| T-33 Path traversal in file serving | Met (6D) | `apps/api/src/web.rs` `pages_get_the_index_and_assets_only_their_own_files`; `apps/api/tests/web.rs` |
+| T-34 Compromised npm dependency | Met, as implemented (6D) | A process control rather than a test: the **Web UI** CI job (`npm ci --ignore-scripts`, `npm audit`, the licence check, no inline code) and Dependabot's 14-day cooldown. Residual: a malicious release older than the cooldown and unknown to advisories. |
+| T-35 SSRF through a destination | Met (6E) | `crates/notification/src/destination.rs` (every non-public range refused; allowlist exact or true subdomain; plain HTTP refused); `crates/notification/tests/delivery.rs`, `email.rs` (an unlisted host is refused before connecting) |
+| T-36 Channel secret leakage | Met (6E) | `crates/notification/tests/delivery.rs` (no secret in the log, in another channel's message, or on the timeline); `destination.rs` (paths redacted) |
+| T-37 Notification storm | Met (6E) | `crates/notification/src/limits.rs` `a_burst_is_cut_at_the_limit_and_refills`, `a_duplicate_is_held_back_for_the_window_only` |
+| T-38 Forged or replayed webhook | Met (6E) | `crates/notification/src/hmac.rs` (RFC 4231); `crates/notification/tests/delivery.rs` (the receiver verifies the signature) |
+| T-39 Content injection into a channel | Met (6E) | `crates/notification/src/message.rs` `hostile_titles_cannot_mention_link_or_format`; `crates/notification/src/email.rs`, `tests/email.rs` (no injected header or recipient) |
+| T-40 Cross-tenant traffic disclosure | Met (6B) | `apps/api/tests/tenant_isolation.rs` (another tenant's `noc_lead` gets `404` on every traffic endpoint); `apps/api/tests/traffic.rs` |
+| T-41 Query injection into ClickHouse | Met (6B) | `apps/api/src/clickhouse.rs` `every_request_is_read_only_bounded_and_parameterised`; `apps/api/tests/traffic.rs` (hostile dimensions are `400`) |
 
 ## Summary
 
 | Status | Count |
 |---|---|
-| Met | 26 |
-| Met, as implemented | 2 (T-03, T-18) |
+| Met | 37 |
+| Met, as implemented | 3 (T-03, T-18, T-34) |
 | Partial | 1 (T-21 → FU-60) |
 | Deferred | 0 |
 
-One of the 29 threats is partial, so the Gate 2 criterion "every threat
+One of the 41 threats is partial, so the Gate 2 criterion "every threat
 has a passing test" is not fully met. T-21 needs a user directory, which
 arrives with Phase 8. Being named as assignee grants nothing, and a test
 proves it.

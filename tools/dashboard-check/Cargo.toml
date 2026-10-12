@@ -13,3 +13,4 @@ wetechinetmon-storage = { path = "../../crates/storage" }
 [dev-dependencies]
 wetechinetmon-collector = { path = "../../crates/collector" }
 wetechinetmon-incident-manager = { path = "../../crates/incident-manager" }
+wetechinetmon-notification = { path = "../../crates/notification" }

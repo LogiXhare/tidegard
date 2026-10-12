@@ -15,6 +15,9 @@ a guide to handling network incidents, which is what the product is for.
 | `wetechinetmon-incident-manager` | The correlation worker (inbox to incidents), the incident timers, retention, and the depth gauges | `/metrics` on `WETECHINETMON_INCIDENT_METRICS_BIND` (default `0.0.0.0:9091`); JSON logs |
 | `wetechinetmon-api` | The REST API | `GET /healthz` (process up), `GET /readyz` (database answers); JSON logs with `X-Request-Id` |
 | `wetechinetmonctl` | The CLI, which goes through the API only | — |
+| NOC UI (`apps/web`) | The browser UI, served by the API from `WETECHINETMON_API_WEB_ROOT`; signs in with a token, then a session cookie | The browser console; the API's log |
+| `wetechinetmon-notifier` | Consumes the outbox and delivers notifications ([ADR 0045](../architecture/decisions/0045-phase6e-notification-delivery.md)) | `/metrics` on `WETECHINETMON_NOTIFY_METRICS_BIND` (default `127.0.0.1:9093`); JSON logs |
+| Grafana | Your own; the dashboards in `grafana/dashboards` | The **WetechiNetMon** folder |
 | PostgreSQL | All incident state | `pg_stat_activity`, its own log |
 
 Configuration for each part is in its README:
@@ -22,6 +25,9 @@ Configuration for each part is in its README:
 - [incident manager](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/incident-manager)
 - [API](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/api)
 - [CLI](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/cli)
+- [notifier](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/notification)
+- [NOC UI](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/web)
+- [Grafana provisioning](https://github.com/LogiXhare/wetechi-netmon/tree/main/grafana/provisioning)
 
 ## Health
 
@@ -57,6 +63,13 @@ groups:
         expr: increase(wetechinetmon_incident_job_runs_total{result="failed"}[30m]) > 0
       - alert: IncidentManagerDown
         expr: up{job="wetechinetmon-incident-manager"} == 0
+        for: 2m
+      - alert: NotificationsFailing
+        expr: increase(wetechinetmon_notifier_notifications_total{result="failed"}[15m]) > 0
+      - alert: NotificationsRefused
+        expr: increase(wetechinetmon_notifier_notifications_total{result="refused"}[15m]) > 0
+      - alert: NotifierDown
+        expr: up{job="wetechinetmon-notifier"} == 0
         for: 2m
       - alert: IncidentTimelinePressure
         expr: wetechinetmon_incident_timeline_pressure > 40000
@@ -172,14 +185,56 @@ ORDER BY processed_at DESC LIMIT 50;
 
 ## Outbox
 
-Every incident change writes an `incident_outbox` row for future
-consumers. Notification (Phase 6) and mitigation (Phase 7) will be those
-consumers. **Phase 5 has none.** So `outbox_pending` rises with every
-change, and retention removes only published rows. Do not alert on it
-yet.
+Every incident change writes an `incident_outbox` row. The notifier is
+its consumer: it marks each row published once every channel the routes
+name has it, or retrying while one fails. Without a notifier running,
+`outbox_pending` only rises, and retention removes published rows only.
+With one running, a pending count that keeps rising means the notifier is
+down or stuck: check `NotifierDown` and its log.
 
-Growth is roughly one row per change, so it is small for incident
-volumes. Watch the table size if your volume is unusual (FU-62).
+## Notifications
+
+Each attempt is on the incident's timeline as `notification_result`,
+with the channel's name and `delivered`, `failed` or `refused`.
+
+| You see | Meaning | Do |
+|---|---|---|
+| `failed` | A timeout, a connection failure, `429` or `5xx`. Retried through the outbox backoff, to that channel only | Check the service's status. At the retry limit the message dead-letters: see [Dead letters](#dead-letters) |
+| `refused` | A `4xx`, or the destination failed the SSRF checks | The log says which. A webhook URL that was revoked, a host not on `allowed_hosts`, or a host that resolves to a private address |
+| `duplicate` (metric only) | The same event for the same incident went to that channel in the dedup window | Nothing |
+| `rate_limited` (metric only) | The channel's per-minute limit was reached; the message was dropped | A storm. Look at what is flapping. Raise the limit only if the channel can take it |
+
+**Rotating a secret.** Write the new Slack or Teams URL, Telegram token,
+webhook secret or SMTP password to its file, then restart the notifier.
+Nothing else holds a copy.
+
+**A receiver asks whether a webhook is genuine.** It should compute
+`sha256=` and the HMAC-SHA-256 of `"{X-WNM-Timestamp}.{body}"` with the
+shared secret, compare it to `X-WNM-Signature` in constant time, and
+refuse a timestamp more than five minutes old.
+
+## Sessions and the UI
+
+- **Sign someone out everywhere:** revoke their token
+  (`wetechinetmon-api token revoke --token-id ...`). Every session made
+  from it ends at its next request.
+- **Sign everyone out:** `DELETE FROM api_sessions;`. Tokens are
+  untouched; people sign in again.
+- A session ends after 30 minutes idle or 12 hours, whichever is first.
+- `403 api.csrf_rejected` in the API log, or `session.csrf_rejected` in
+  `incident_audit`, means a cookie request without the page's CSRF
+  value. From the UI that is a bug; from elsewhere, a forgery attempt.
+- A blank page with Content-Security-Policy errors in the browser console
+  means the build holds inline code or the UI is served from another
+  origin. Serve `apps/web/dist` through the API, as built.
+
+## Traffic in the UI
+
+Only the tenant named by `WETECHINETMON_API_TRAFFIC_TENANT` sees traffic
+([ADR 0042](../architecture/decisions/0042-phase6b-traffic-read-api.md)).
+Anyone else gets `404` and an overview with incidents alone. `503` from
+`/api/v1/traffic/*` means ClickHouse is unreachable; incidents keep
+working.
 
 ## PostgreSQL unavailable
 
@@ -264,6 +319,7 @@ database only moves the bottleneck.
 
 - **Mitigate.** Phase 5 has no such capability, and a test proves that
   no crate in the workspace could do it.
-- **Notify.** No delivery exists.
+- **Notify anywhere not configured.** The notifier sends only to the
+  channels and hosts its file allows.
 - **Edit history.** The timeline and the audit trail are append-only.
 - **Delete one tenant's audit trail.** There is no such operation.

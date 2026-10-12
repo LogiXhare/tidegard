@@ -40,3 +40,5 @@ lettre = { version = "0.11.23", default-features = false, features = ["builder",
 # Local mock channels for the tests: nothing leaves the machine.
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 wetechinetmon-detector = { path = "../detector" }
+# tests/delivery.rs captures the log to prove no channel secret reaches it.
+tracing-subscriber.workspace = true
