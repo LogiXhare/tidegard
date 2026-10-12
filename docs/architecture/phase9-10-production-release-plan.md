@@ -103,7 +103,7 @@ published in [capacity planning](../operations/capacity-planning.md),
 replacing "No sustained-throughput benchmark has been run". FU-12 is
 closed with numbers.
 
-**Progress:** 9B-1 ([ADR 0054](decisions/0054-phase9b-load-and-soak.md)) wrote the pass criteria before any run, added `flow-replay --rate` and `scripts/load_test.py`, and ran the load test in the benchmark workflow. On the reference runner the whole collector took 200,000 records a second with no loss, 13 MiB peak memory and under half a core; the 100,000 step meets every criterion. The figures, with their machine and what they do not cover, are in [capacity planning](../operations/capacity-planning.md#flow-pipeline-measured). FU-12 is closed. API latency (9B-2) and the five-hour soak (9B-3) follow.
+**Progress:** 9B-1 ([ADR 0054](decisions/0054-phase9b-load-and-soak.md)) wrote the pass criteria before any run, added `flow-replay --rate` and `scripts/load_test.py`, and ran the load test in the benchmark workflow. On the reference runner the whole collector took 200,000 records a second with no loss, 13 MiB peak memory and under half a core; the 100,000 step meets every criterion. The figures, with their machine and what they do not cover, are in [capacity planning](../operations/capacity-planning.md#flow-pipeline-measured). FU-12 is closed. 9B-2 measured the API with 10,000 incidents the pipeline itself created and 16 clients at their read quotas: p99 of 23 ms for the incident list, 107 ms for an incident's detail and 20 ms for the mitigation list, with no errors, within the 250 ms budget that NFR-1 now states. The five-hour soak (9B-3) follows.
 
 ### 9C — Backup, restore, upgrade and rollback
 
