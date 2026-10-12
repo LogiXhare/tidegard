@@ -203,6 +203,8 @@ the guard file.
 
 ## 7. Check the installation
 
+- `curl -fsS http://127.0.0.1:9094/readyz` answers `200` on the active
+  mitigator once a pass succeeds. A standby answers `503`.
 - `curl -fsS http://127.0.0.1:9094/metrics | grep wetechinetmon_mitigator`
   shows the mitigator's gauges.
 - `wetechinetmonctl kill-switch status` says `released`.

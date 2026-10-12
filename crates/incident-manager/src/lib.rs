@@ -29,6 +29,7 @@ use std::time::Duration;
 use deadpool_postgres::Pool;
 use tokio::sync::watch;
 use tokio::time::MissedTickBehavior;
+use wetechinetmon_common::metrics_server::Readiness;
 use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
 use wetechinetmon_incident::clock::SystemClock;
 use wetechinetmon_incident::correlation::TenantId;
@@ -100,14 +101,16 @@ pub async fn run(
     let (metrics, registry) = ManagerMetrics::new()?;
     let registry = Arc::new(registry);
     let metrics_bind = config.metrics_bind;
+    let readiness = Readiness::new();
+    let served = readiness.clone();
     let metrics_server = tokio::spawn(async move {
         if let Err(error) =
-            wetechinetmon_common::metrics_server::serve(metrics_bind, registry).await
+            wetechinetmon_common::metrics_server::serve(metrics_bind, registry, served).await
         {
             tracing::error!(error = %error, "metrics server exited with an error");
         }
     });
-    let result = run_with_metrics(config, metrics, shutdown).await;
+    let result = run_with_metrics(config, metrics, readiness, shutdown).await;
     metrics_server.abort();
     result
 }
@@ -115,6 +118,7 @@ pub async fn run(
 async fn run_with_metrics(
     config: Config,
     metrics: ManagerMetrics,
+    readiness: Readiness,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<RunReport, StartupError> {
     let (pool, transport) = database::connect(&config)?;
@@ -167,7 +171,11 @@ async fn run_with_metrics(
             &context.pool,
             config.worker_idle,
             stopped(stop_rx.clone()),
-            |outcome| observe_batch(&context.metrics, outcome),
+            |outcome| {
+                // Ready while correlation batches succeed (ADR 0052).
+                readiness.set(outcome.is_ok());
+                observe_batch(&context.metrics, outcome);
+            },
         ),
         housekeeping(&context, &config, stopped(stop_rx)),
     );

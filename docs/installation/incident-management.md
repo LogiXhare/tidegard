@@ -223,6 +223,11 @@ lists, and restart Grafana.
 
 - `curl -fsS http://127.0.0.1:8080/readyz` answers `200` once the API
   reaches the database.
+- `curl -fsS http://127.0.0.1:9091/readyz` answers `200` once the
+  incident manager's first correlation batch succeeds, so after the
+  migrations. Every service except the API answers `/healthz` and
+  `/readyz` on its metrics address
+  ([ADR 0052](../architecture/decisions/0052-phase9a-packaging.md)).
 - `curl -fsS http://127.0.0.1:9091/metrics | grep wetechinetmon_incident_inbox_pending`
   shows the incident manager's gauges.
 - `curl -fsS http://127.0.0.1:9093/metrics` answers once the notifier

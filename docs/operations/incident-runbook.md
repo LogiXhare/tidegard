@@ -12,11 +12,11 @@ a guide to handling network incidents, which is what the product is for.
 | Part | Does | Where to look |
 |---|---|---|
 | Collector | Runs the detector. Writes each detection event to `detection_event_inbox` through a bounded queue that never blocks detection ([ADR 0035](../architecture/decisions/0035-phase5c-detection-event-inbox.md)) | Its log; the detector's metrics ([detection monitoring](detection-monitoring.md)) |
-| `wetechinetmon-incident-manager` | The correlation worker (inbox to incidents), the incident timers, retention, and the depth gauges | `/metrics` on `WETECHINETMON_INCIDENT_METRICS_BIND` (default `0.0.0.0:9091`); JSON logs |
+| `wetechinetmon-incident-manager` | The correlation worker (inbox to incidents), the incident timers, retention, and the depth gauges | `/metrics`, `/healthz` and `/readyz` (ready while correlation batches succeed) on `WETECHINETMON_INCIDENT_METRICS_BIND` (default `0.0.0.0:9091`); JSON logs |
 | `wetechinetmon-api` | The REST API | `GET /healthz` (process up), `GET /readyz` (database answers); JSON logs with `X-Request-Id` |
 | `wetechinetmonctl` | The CLI, which goes through the API only | — |
 | NOC UI (`apps/web`) | The browser UI, served by the API from `WETECHINETMON_API_WEB_ROOT`; signs in with a token, then a session cookie | The browser console; the API's log |
-| `wetechinetmon-notifier` | Consumes the outbox and delivers notifications ([ADR 0045](../architecture/decisions/0045-phase6e-notification-delivery.md)) | `/metrics` on `WETECHINETMON_NOTIFY_METRICS_BIND` (default `127.0.0.1:9093`); JSON logs |
+| `wetechinetmon-notifier` | Consumes the outbox and delivers notifications ([ADR 0045](../architecture/decisions/0045-phase6e-notification-delivery.md)) | `/metrics`, `/healthz` and `/readyz` (ready while outbox batches succeed) on `WETECHINETMON_NOTIFY_METRICS_BIND` (default `127.0.0.1:9093`); JSON logs |
 | Grafana | Your own; the dashboards in `grafana/dashboards` | The **WetechiNetMon** folder |
 | PostgreSQL | All incident state | `pg_stat_activity`, its own log |
 

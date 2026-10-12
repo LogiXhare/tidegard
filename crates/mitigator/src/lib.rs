@@ -19,6 +19,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use wetechinetmon_common::metrics_server::Readiness;
 use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
 use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
@@ -64,8 +65,12 @@ pub async fn run(
     let (metrics, registry) = metrics::MitigatorMetrics::new()?;
     let registry = Arc::new(registry);
     let bind = config.metrics_bind;
+    let readiness = Readiness::new();
+    let served = readiness.clone();
     let server = tokio::spawn(async move {
-        if let Err(error) = wetechinetmon_common::metrics_server::serve(bind, registry).await {
+        if let Err(error) =
+            wetechinetmon_common::metrics_server::serve(bind, registry, served).await
+        {
             tracing::error!(error = %error, "the metrics server stopped");
         }
     });
@@ -146,7 +151,11 @@ pub async fn run(
             }
             next_reconcile = Instant::now() + reconcile_every;
         }
-        let wait = match mitigator.run_once(&pool).await {
+        let outcome = mitigator.run_once(&pool).await;
+        // Ready while passes succeed; a standby never gets here, so it
+        // stays not ready (ADR 0052).
+        readiness.set(outcome.is_ok());
+        let wait = match outcome {
             Ok(_) => config.file.poll_interval(),
             Err(error) => {
                 tracing::warn!(error = %error, "a mitigator pass failed");

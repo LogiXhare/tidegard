@@ -92,14 +92,18 @@ pub async fn run_until(
     let registry = Arc::new(registry);
 
     let metrics_addr = config.metrics_bind;
+    let readiness = metrics_server::Readiness::new();
+    let served = readiness.clone();
     let metrics_server = tokio::spawn(async move {
-        if let Err(err) = metrics_server::serve(metrics_addr, registry).await {
+        if let Err(err) = metrics_server::serve(metrics_addr, registry, served).await {
             tracing::error!(error = %err, "metrics server exited with an error");
         }
     });
 
     let socket = Arc::new(UdpSocket::bind(config.bind).await?);
     tracing::info!(bind = %config.bind, "IPFIX collector listening");
+    // Bound means flows are received; nothing later in startup can fail.
+    readiness.set(true);
 
     let prefix_report = build_registry(&config.local_prefixes).unwrap_or_else(|errors| {
         // A prefix-config error is a startup-quality problem, but Phase 3

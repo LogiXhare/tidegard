@@ -31,6 +31,7 @@ ends.
 | `increase(wetechinetmon_mitigator_actions_total{result="error"}[10m]) > 0` | The mitigator's pass failed: the database or GoBGP | The mitigator's log |
 | `increase(wetechinetmon_mitigator_reconcile_total[1h]) > 0` | Reconciliation withdrew a stale route or restored a lost one | See [Stale routes](#stale-routes) |
 | The metrics endpoint is down | No mitigator is running: approved mitigations wait | Start it; nothing is lost |
+| `/readyz` on every mitigator answers `503` | None holds the lock, or the active one's passes fail | One instance should answer `200`; a standby answers `503` by design. Check the log of the one that should be active |
 
 The notifier tells channels about `mitigation.failed`,
 `mitigation.kill_switch_engaged` and `bgp.peer_down` if routes send
