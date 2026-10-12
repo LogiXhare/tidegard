@@ -24,7 +24,8 @@ name: Validate
 #              containers, to run every dashboard query for real (ADR 0041)
 #   web      — Node, for the NOC UI in apps/web (ADR 0044)
 #   e2e      — the UI in a real browser against the real API, incident
-#              manager and PostgreSQL (Phase 6D-4)
+#              manager and PostgreSQL (Phase 6D-4), and the mitigator with
+#              a throwaway gobgpd on loopback (Phase 7E)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -356,6 +357,7 @@ jobs:
 
   e2e:
     name: Web end-to-end (Playwright, real API and PostgreSQL)
+    # The check keeps its name; it covers GoBGP too since Phase 7E.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # The same throwaway database as the postgres job; nothing here is a
@@ -382,8 +384,12 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
-      - name: Build the API and the incident manager
-        run: cargo build -p wetechinetmon-api -p wetechinetmon-incident-manager
+      - name: Build the API, the incident manager and the mitigator
+        run: cargo build -p wetechinetmon-api -p wetechinetmon-incident-manager -p wetechinetmon-mitigator
+      # The BGP lab (ADR 0048): gobgpd's API on loopback, its BGP port
+      # closed, so no route leaves the runner.
+      - name: Start GoBGP for the mitigator
+        run: bash scripts/start-gobgpd.sh
       - name: Build the UI and install the browser
         working-directory: apps/web
         run: |
@@ -409,8 +415,32 @@ jobs:
           [ -n "$token" ] || { echo "no token was created"; exit 1; }
           echo "::add-mask::$token"
           echo "E2E_TOKEN=$token" >> "$GITHUB_ENV"
+          # A second person, for the four-eyes rule: requests, never approves.
+          operator=$(WETECHINETMON_API_DATABASE_URL="$DATABASE" target/debug/wetechinetmon-api \
+            token create --tenant acme --actor-id e2e-operator --role senior_operator --days 1 \
+            | awk '/^token:/ {print $2}')
+          [ -n "$operator" ] || { echo "no operator token was created"; exit 1; }
+          echo "::add-mask::$operator"
+          echo "E2E_OPERATOR_TOKEN=$operator" >> "$GITHUB_ENV"
+          # One guard for the API and the mitigator (ADR 0050): announcing for
+          # real, but only TEST-NET-3, and only for acme.
+          cat > "$RUNNER_TEMP/guard.json" <<'JSON'
+          {"dry_run": false, "bgp_enabled": true,
+           "allowlist": [{"prefix": "203.0.113.0/24", "tenant": "acme", "actions": ["rtbh"]}]}
+          JSON
+          cat > "$RUNNER_TEMP/mitigator.json" <<JSON
+          {"guard_file": "$RUNNER_TEMP/guard.json",
+           "routes": {"local_asn": 65001, "rtbh_next_hop_ipv4": "192.0.2.1",
+                      "rtbh_next_hop_ipv6": "2001:db8::1"},
+           "gobgp": {"url": "http://127.0.0.1:50051"},
+           "poll_interval_ms": 500, "reconcile_interval_seconds": 5}
+          JSON
+          WETECHINETMON_MITIGATOR_DATABASE_URL="$DATABASE" \
+            WETECHINETMON_MITIGATOR_CONFIG="$RUNNER_TEMP/mitigator.json" \
+            target/debug/wetechinetmon-mitigator > mitigator.log 2>&1 &
           WETECHINETMON_API_DATABASE_URL="$DATABASE" \
             WETECHINETMON_API_WEB_ROOT=apps/web/dist \
+            WETECHINETMON_API_MITIGATION_GUARD_FILE="$RUNNER_TEMP/guard.json" \
             target/debug/wetechinetmon-api > api.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf "$E2E_BASE_URL/readyz" >/dev/null && break
@@ -429,7 +459,7 @@ jobs:
       - name: Logs on failure
         if: failure()
         run: |
-          tail -n 50 api.log manager.log || true
+          tail -n 50 api.log manager.log mitigator.log "$RUNNER_TEMP/gobgp/gobgpd.log" || true
 
   docs:
     name: Docs (Markdown, YAML, links, MkDocs)

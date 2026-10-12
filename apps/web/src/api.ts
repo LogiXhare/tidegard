@@ -320,3 +320,110 @@ export async function exporters(): Promise<Exporter[] | null> {
   return list === null ? null : list.items;
 }
 
+// --- Mitigations (ADR 0050). The API records and decides; the mitigator
+// announces. Nothing here speaks to GoBGP. ---
+
+export interface FlowMatch {
+  protocol?: number;
+  source?: string;
+  source_port?: number;
+  destination_port?: number;
+}
+
+export interface Mitigation {
+  mitigation_id: string;
+  tenant_id: string;
+  incident_id: string | null;
+  prefix: string;
+  action: string;
+  flow: FlowMatch | null;
+  bytes_per_second: number | null;
+  reason: string;
+  duration_seconds: number;
+  state: string;
+  version: number;
+  requested_by: string;
+  approved_by: string | null;
+  dry_run: boolean | null;
+  withdrawal_cause: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  approved_at: string | null;
+  active_since: string | null;
+  expires_at: string | null;
+  ended_at: string | null;
+}
+
+/** What a request carries. There is no route attribute: those are the deployment's. */
+export interface MitigationRequest {
+  prefix: string;
+  action: string;
+  reason: string;
+  duration_seconds: number;
+  incident_id?: string;
+  flow?: FlowMatch;
+  bytes_per_second?: number;
+}
+
+export interface KillSwitch {
+  engaged: boolean;
+  version: number;
+  changed_at: string | null;
+  changed_by: string | null;
+  reason: string | null;
+}
+
+export interface BgpPeer {
+  neighbor_address: string;
+  peer_asn: number;
+  session_state: string;
+  updated_at: string;
+}
+
+const mitigationPath = (id: string) => `/api/v1/mitigations/${encodeURIComponent(id)}`;
+
+export async function listMitigations(live: boolean): Promise<Mitigation[]> {
+  const query = new URLSearchParams({ limit: "200", live: String(live) });
+  const list = await request<{ items: Mitigation[] }>("GET", `/api/v1/mitigations?${query.toString()}`);
+  return list.items;
+}
+
+export function requestMitigation(body: MitigationRequest): Promise<Mitigation> {
+  return request<Mitigation>("POST", "/api/v1/mitigations", body, {
+    "Idempotency-Key": idempotencyKey(),
+  });
+}
+
+/** Approve, reject or withdraw, with the version the operator saw. */
+export function decideMitigation(
+  id: string,
+  decision: "approve" | "reject" | "withdraw",
+  version: number,
+  reason?: string,
+): Promise<Mitigation> {
+  return request<Mitigation>(
+    "POST",
+    `${mitigationPath(id)}/${decision}`,
+    { expected_version: version, ...(reason === undefined ? {} : { reason }) },
+    { "Idempotency-Key": idempotencyKey() },
+  );
+}
+
+export function getKillSwitch(): Promise<KillSwitch> {
+  return request<KillSwitch>("GET", "/api/v1/mitigation-controls/kill-switch");
+}
+
+/** Engages only: releasing is host-only, and no session may do it. */
+export function engageKillSwitch(reason: string): Promise<KillSwitch> {
+  return request<KillSwitch>("PUT", "/api/v1/mitigation-controls/kill-switch", {
+    engaged: true,
+    reason,
+  });
+}
+
+export async function bgpPeers(): Promise<BgpPeer[]> {
+  const list = await request<{ items: BgpPeer[] }>("GET", "/api/v1/bgp/peers");
+  return list.items;
+}
+

@@ -1,6 +1,6 @@
 # 0050. Phase 7E Mitigations in the API, CLI and UI
 
-Status: **Accepted** (7E-1, the API; 7E-2, the CLI); the UI and
+Status: **Accepted** (7E-1, the API; 7E-2, the CLI; 7E-3, the UI);
 notifications follow in this ADR's later sections as they are built
 Date: 2026-10-12
 Deciders: Repository owner (BQ-14, 2026-10-12); the details under the
@@ -84,6 +84,36 @@ nothing more:
 - **`bgp peers`** writes a warning to stderr when the newest snapshot is
   more than five minutes old. That is five times the mitigator's default
   reconciliation interval. JSON output stays verbatim.
+
+### The UI (7E-3)
+
+A **Mitigations** page in the NOC UI:
+
+- **The list:** live or all, refreshed every 5 seconds so the mitigator's
+  progress shows. Each row offers only what the role allows.
+- **Requesting:** a form with the prefix, the action, the minutes and the
+  reason. A FlowSpec match and rate appear only for the FlowSpec actions.
+  There are no route attributes. An incident on a host links to the form
+  with its prefix and id filled in.
+- **Asking first:** as the CLI does, before approving, withdrawing and
+  engaging the kill switch. Each decision sends the version seen and a
+  fresh idempotency key. A `409` reloads the page and explains why.
+- **The kill switch:** shown as a banner in words, not only in colour.
+  Engaging it takes a reason and a confirmation. Release is never offered.
+- **BGP peers:** a NOC lead also sees GoBGP's peers. If the mitigator has
+  not reported them for five minutes, the page says so.
+
+**The exit criterion runs in CI.** `apps/web/e2e/mitigation.spec.ts`
+follows one mitigation through its life:
+
+1. A `senior_operator` requests it.
+2. A `noc_lead` approves it.
+3. The mitigator announces it to a real `gobgpd`, with its BGP port closed,
+   and the row turns `active`.
+4. The lead withdraws it, and it ends `withdrawn`.
+
+The stack is the API, the incident manager, the mitigator, PostgreSQL and
+`gobgpd`. It shares one guard, which allowlists only `203.0.113.0/24`.
 
 ### Releasing the kill switch is host-only
 

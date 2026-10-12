@@ -2,6 +2,7 @@ import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
 import { IncidentDetail } from "./pages/IncidentDetail";
 import { Incidents } from "./pages/Incidents";
+import { Mitigations } from "./pages/Mitigations";
 import { Overview } from "./pages/Overview";
 import { SignIn } from "./pages/SignIn";
 import { useSession } from "./session";
@@ -23,7 +24,8 @@ export function App() {
           <NavLink to="/" end>
             Overview
           </NavLink>{" "}
-          <NavLink to="/incidents">Incidents</NavLink>
+          <NavLink to="/incidents">Incidents</NavLink>{" "}
+          <NavLink to="/mitigations">Mitigations</NavLink>
         </nav>
         <p className="who">
           <span>{session.actor_id}</span> · <span>{session.role}</span> ·{" "}
@@ -38,6 +40,7 @@ export function App() {
           <Route path="/" element={<Overview />} />
           <Route path="/incidents" element={<Incidents />} />
           <Route path="/incidents/:incidentId" element={<IncidentDetail />} />
+          <Route path="/mitigations" element={<Mitigations />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -17,6 +17,7 @@ import {
   whoAmI,
 } from "../api";
 import type { Incident, Note, TimelineEntry, WhoAmI } from "../api";
+import { ReasonControl } from "../components/ReasonControl";
 import { Severity } from "../components/Severity";
 
 /** Operator moves the state machine allows, from each state. */
@@ -45,6 +46,15 @@ const CLOSURE_REASONS = [
   "no_action_required",
   "other",
 ];
+
+/** Prefills the mitigation form with the attacked host and this incident. */
+function mitigateQuery(incident: Incident): string {
+  const length = incident.target_id.includes(":") ? 128 : 32;
+  return new URLSearchParams({
+    incident: incident.incident_id,
+    prefix: `${incident.target_id}/${length}`,
+  }).toString();
+}
 
 function describe(failure: unknown): string {
   if (failure instanceof ApiError) {
@@ -141,6 +151,13 @@ export function IncidentDetail() {
         <p className="safety">
           Mitigation: <strong>{incident.mitigation_status}</strong> · Notification:{" "}
           <strong>{incident.notification_status}</strong>
+          {can("mitigation.request") && incident.target_type === "host" && (
+            <>
+              {" "}
+              ·{" "}
+              <Link to={`/mitigations?${mitigateQuery(incident)}`}>Request a mitigation</Link>
+            </>
+          )}
         </p>
       </header>
 
@@ -285,40 +302,6 @@ export function IncidentDetail() {
         </ol>
       </section>
     </article>
-  );
-}
-
-function ReasonControl({
-  label,
-  busy,
-  initial = "",
-  onSubmit,
-}: {
-  label: string;
-  busy: boolean;
-  initial?: string;
-  onSubmit: (text: string) => void;
-}) {
-  const [text, setText] = useState(initial);
-  return (
-    <form
-      className="inline"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(text.trim());
-        setText("");
-      }}
-    >
-      <input
-        aria-label={label}
-        value={text}
-        maxLength={16000}
-        onChange={(event) => setText(event.target.value)}
-      />
-      <button type="submit" disabled={busy || text.trim() === ""}>
-        {label}
-      </button>
-    </form>
   );
 }
 
