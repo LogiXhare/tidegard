@@ -321,6 +321,244 @@ pub fn notes(list: &Value) -> String {
     out
 }
 
+/// One field per line, names aligned.
+fn fields(lines: Vec<(&str, String)>) -> String {
+    let width = lines.iter().map(|(name, _)| name.len()).max().unwrap_or(0);
+    let mut out = String::new();
+    for (name, value) in lines {
+        out.push_str(&format!("{name:<width$}  {value}\n"));
+    }
+    out
+}
+
+/// A mitigation's action with its FlowSpec match and rate, if any.
+fn mitigation_action(m: &Value) -> String {
+    let mut text = field(m, "action");
+    if let Some(flow) = m["flow"].as_object().filter(|flow| !flow.is_empty()) {
+        let parts: Vec<String> = ["protocol", "source", "source_port", "destination_port"]
+            .iter()
+            .filter_map(|name| {
+                flow.get(*name)
+                    .filter(|v| !v.is_null())
+                    .map(|v| format!("{name}={}", clean(&v.to_string().replace('"', ""))))
+            })
+            .collect();
+        text.push_str(&format!(" [{}]", parts.join(" ")));
+    }
+    if !m["bytes_per_second"].is_null() {
+        text.push_str(&format!(" at {} B/s", field(m, "bytes_per_second")));
+    }
+    text
+}
+
+/// `mitigations list`.
+pub fn mitigation_list(page: &Value, wide: bool, now_micros: i64) -> String {
+    let empty = Vec::new();
+    let items = page["items"].as_array().unwrap_or(&empty);
+    if items.is_empty() {
+        return "No mitigations.\n".to_string();
+    }
+    let mut headers = vec![
+        "ID",
+        "STATE",
+        "ACTION",
+        "PREFIX",
+        "AGE",
+        "EXPIRES",
+        "REQUESTED BY",
+    ];
+    if wide {
+        headers.extend(["APPROVED BY", "DRY RUN", "INCIDENT", "REASON"]);
+    }
+    let rows: Vec<Vec<String>> = items
+        .iter()
+        .map(|m| {
+            let mut row = vec![
+                field(m, "mitigation_id"),
+                field(m, "state"),
+                field(m, "action"),
+                field(m, "prefix"),
+                age(m["created_at"].as_str().unwrap_or_default(), now_micros),
+                field(m, "expires_at"),
+                field(m, "requested_by"),
+            ];
+            if wide {
+                row.push(field(m, "approved_by"));
+                row.push(field(m, "dry_run"));
+                row.push(field(m, "incident_id"));
+                row.push(truncate(
+                    m["reason"].as_str().unwrap_or_default(),
+                    TITLE_WIDTH,
+                ));
+            }
+            row
+        })
+        .collect();
+    columns(&headers, &rows)
+}
+
+/// `mitigations show`: one field per line; times the API leaves null
+/// are left out.
+pub fn mitigation(m: &Value, now_micros: i64) -> String {
+    let mut lines = vec![
+        ("Id", field(m, "mitigation_id")),
+        ("State", field(m, "state")),
+        ("Action", mitigation_action(m)),
+        ("Prefix", field(m, "prefix")),
+        ("Reason", field(m, "reason")),
+        ("Duration", format!("{}s", field(m, "duration_seconds"))),
+        ("Requested by", field(m, "requested_by")),
+        ("Approved by", field(m, "approved_by")),
+        (
+            "Created",
+            format!(
+                "{} ({} ago)",
+                field(m, "created_at"),
+                age(m["created_at"].as_str().unwrap_or_default(), now_micros)
+            ),
+        ),
+    ];
+    for (label, name) in [
+        ("Approved", "approved_at"),
+        ("Active since", "active_since"),
+        ("Expires", "expires_at"),
+        ("Ended", "ended_at"),
+        ("Incident", "incident_id"),
+        ("Dry run", "dry_run"),
+        ("Withdrawn by", "withdrawal_cause"),
+        ("Last error", "last_error"),
+    ] {
+        if !m[name].is_null() {
+            lines.push((label, field(m, name)));
+        }
+    }
+    if let Some(route) = m["route"].as_object() {
+        lines.push(("Route", clean(&Value::Object(route.clone()).to_string())));
+    }
+    lines.push(("Version", field(m, "version")));
+    fields(lines)
+}
+
+/// `mitigations history`, oldest first as the API returns it.
+pub fn mitigation_history(page: &Value) -> String {
+    let empty = Vec::new();
+    let items = page["items"].as_array().unwrap_or(&empty);
+    if items.is_empty() {
+        return "Nothing recorded.\n".to_string();
+    }
+    let rows: Vec<Vec<String>> = items
+        .iter()
+        .map(|entry| {
+            let from = match &entry["from_state"] {
+                Value::String(state) => format!("{} → ", clean(state)),
+                _ => String::new(),
+            };
+            vec![
+                field(entry, "version"),
+                field(entry, "occurred_at"),
+                format!("{from}{}", field(entry, "to_state")),
+                field(entry, "actor"),
+                field(entry, "detail"),
+            ]
+        })
+        .collect();
+    columns(&["VERSION", "TIME", "CHANGE", "ACTOR", "DETAIL"], &rows)
+}
+
+/// `kill-switch status` and `engage`.
+pub fn kill_switch(k: &Value, now_micros: i64) -> String {
+    let state = if k["engaged"] == true {
+        "ENGAGED: nothing is announced, and live mitigations are withdrawn"
+    } else {
+        "released"
+    };
+    let mut lines = vec![("Kill switch", state.to_string())];
+    if let Some(at) = k["changed_at"].as_str() {
+        lines.push((
+            "Changed",
+            format!("{} ({} ago)", clean(at), age(at, now_micros)),
+        ));
+        lines.push(("Changed by", field(k, "changed_by")));
+        lines.push(("Reason", field(k, "reason")));
+    }
+    lines.push(("Version", field(k, "version")));
+    fields(lines)
+}
+
+/// `bgp routes`.
+pub fn bgp_routes(page: &Value, wide: bool) -> String {
+    let empty = Vec::new();
+    let items = page["items"].as_array().unwrap_or(&empty);
+    if items.is_empty() {
+        return "No routes announced.\n".to_string();
+    }
+    let mut headers = vec!["PREFIX", "ACTION", "STATE", "EXPIRES", "MITIGATION"];
+    if wide {
+        headers.push("ROUTE");
+    }
+    let rows: Vec<Vec<String>> = items
+        .iter()
+        .map(|r| {
+            let mut row = vec![
+                field(r, "prefix"),
+                field(r, "action"),
+                field(r, "state"),
+                field(r, "expires_at"),
+                field(r, "mitigation_id"),
+            ];
+            if wide {
+                row.push(clean(&r["route"].to_string()));
+            }
+            row
+        })
+        .collect();
+    columns(&headers, &rows)
+}
+
+/// How old a peer snapshot may be before it is called stale: well past
+/// the mitigator's default reconciliation interval of a minute.
+pub const STALE_PEERS_SECONDS: i64 = 300;
+
+/// `bgp peers`.
+pub fn bgp_peers(page: &Value, _wide: bool, now_micros: i64) -> String {
+    let empty = Vec::new();
+    let items = page["items"].as_array().unwrap_or(&empty);
+    if items.is_empty() {
+        return "No BGP peers reported. Is the mitigator running with BGP enabled?\n".to_string();
+    }
+    let rows: Vec<Vec<String>> = items
+        .iter()
+        .map(|p| {
+            vec![
+                field(p, "neighbor_address"),
+                field(p, "peer_asn"),
+                field(p, "session_state"),
+                age(p["updated_at"].as_str().unwrap_or_default(), now_micros),
+            ]
+        })
+        .collect();
+    columns(&["NEIGHBOR", "ASN", "SESSION", "SEEN"], &rows)
+}
+
+/// A warning when the newest peer snapshot is old: the mitigator writes
+/// it at every reconciliation, so an old one means it has stopped, not
+/// that the sessions are still up.
+pub fn stale_peers(page: &Value, now_micros: i64) -> Option<String> {
+    let newest = page["items"]
+        .as_array()?
+        .iter()
+        .filter_map(|p| parse_rfc3339(p["updated_at"].as_str()?))
+        .max()?;
+    let seconds = (now_micros - newest) / 1_000_000;
+    (seconds > STALE_PEERS_SECONDS).then(|| {
+        format!(
+            "Warning: the mitigator last reported its peers {} ago. It may have stopped; \
+             these sessions may no longer be as shown.",
+            age(&wetechinetmon_common::rfc3339::rfc3339(newest), now_micros)
+        )
+    })
+}
+
 /// A problem document for stderr: the stable code, then what is known.
 pub fn problem(document: &Value) -> String {
     let code = document["error"].as_str().unwrap_or("unknown");
@@ -394,6 +632,65 @@ mod tests {
             incident_list(&json!({"items": []}), false, NOW),
             "No incidents.\n"
         );
+    }
+
+    #[test]
+    fn mitigations_render_and_stay_clean() {
+        let m = json!({
+            "mitigation_id": "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d", "state": "active",
+            "action": "flowspec_rate_limit", "prefix": "203.0.113.9/32",
+            "flow": {"protocol": 17, "destination_port": 53}, "bytes_per_second": 125000,
+            "reason": "dns\u{1b}[2J flood", "duration_seconds": 1800,
+            "requested_by": "operator:u_1", "approved_by": "operator:u_2",
+            "created_at": "2023-11-14T22:07:20Z", "expires_at": "2023-11-14T22:37:20Z",
+            "dry_run": false, "incident_id": null, "version": 4,
+            "route": {"next_hop": "192.0.2.1"}
+        });
+        let shown = mitigation(&m, NOW);
+        assert!(
+            shown.contains("flowspec_rate_limit [protocol=17 destination_port=53] at 125000 B/s"),
+            "{shown}"
+        );
+        assert!(shown.contains("Dry run       false"), "{shown}");
+        assert!(!shown.contains("Incident"), "a null field is left out");
+        assert!(!shown.contains('\u{1b}'), "{shown:?}");
+        let table = mitigation_list(&json!({"items": [m]}), false, NOW);
+        assert!(table.starts_with("ID  "), "{table}");
+        assert!(
+            table.contains("active  flowspec_rate_limit  203.0.113.9/32  6m"),
+            "{table}"
+        );
+        assert_eq!(
+            mitigation_list(&json!({"items": []}), false, NOW),
+            "No mitigations.\n"
+        );
+        let history = mitigation_history(&json!({"items": [
+            {"version": 1, "occurred_at": "t1", "from_state": null, "to_state": "requested", "actor": "operator:u_1", "detail": null},
+            {"version": 2, "occurred_at": "t2", "from_state": "requested", "to_state": "approved", "actor": "operator:u_2", "detail": null}
+        ]}));
+        assert!(history.contains("requested → approved"), "{history}");
+    }
+
+    #[test]
+    fn the_kill_switch_and_stale_peers_say_so() {
+        let engaged = kill_switch(
+            &json!({"engaged": true, "version": 2, "changed_at": "2023-11-14T22:07:20Z",
+                    "changed_by": "operator:lead", "reason": "storm"}),
+            NOW,
+        );
+        assert!(engaged.contains("ENGAGED"), "{engaged}");
+        assert!(engaged.contains("6m ago"), "{engaged}");
+        let released = kill_switch(&json!({"engaged": false, "version": 1}), NOW);
+        assert!(released.contains("released") && !released.contains("Changed"));
+
+        let fresh = json!({"items": [{"neighbor_address": "192.0.2.254", "peer_asn": 64512,
+                                      "session_state": "established", "updated_at": "2023-11-14T22:12:20Z"}]});
+        assert!(bgp_peers(&fresh, false, NOW).contains("192.0.2.254  64512  established  1m"));
+        assert_eq!(stale_peers(&fresh, NOW), None);
+        let old = json!({"items": [{"neighbor_address": "192.0.2.254", "peer_asn": 64512,
+                                    "session_state": "established", "updated_at": "2023-11-14T21:13:20Z"}]});
+        assert!(stale_peers(&old, NOW).unwrap().contains("1h ago"));
+        assert_eq!(stale_peers(&json!({"items": []}), NOW), None);
     }
 
     #[test]
