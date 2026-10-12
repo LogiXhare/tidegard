@@ -123,6 +123,8 @@ closed with numbers.
 **Exit:** backup, restore, upgrade from v0.9.0 and rollback each run
 round-trip in CI, not only on paper (the Phase 9 acceptance criterion).
 
+**Progress:** 9C-1 ([ADR 0055](decisions/0055-phase9c-backup-upgrade-rollback.md)) gives ClickHouse a backup: its own `BACKUP TABLE ... TO File()` and `RESTORE`, proven in the Grafana job by filling every table, backing up, dropping, restoring, comparing each table's rows and hash, and writing every row type into the restored copy. 9C-2 tags v0.9.0 at `7ca8223` and adds the `upgrade` job: v0.9.0's own services fill a database (incidents from a flood, an acknowledgement, a note, a dry-run mitigation request), the candidate upgrades it and must serve the same data and open new incidents, and a rollback restores the pre-upgrade backup and starts v0.9.0 again on it. Disaster recovery from an empty runner (9C-3) follows.
+
 ### 9D — Security review and fuzzing
 
 - **A review of the whole product**, extending the incident threat model
