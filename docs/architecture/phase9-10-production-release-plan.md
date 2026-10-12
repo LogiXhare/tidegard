@@ -76,7 +76,7 @@ High finding. The reserved `deployments/` directories either hold real
 content or say plainly that they are not part of v1.0.0 (Kubernetes and
 Helm are not).
 
-**Progress:** 9A-1 ([ADR 0052](decisions/0052-phase9a-packaging.md)) gives every service `/healthz` and `/readyz` on its metrics address, as NFR-2 requires. The collector is ready once its socket is bound, the incident manager and the notifier while their batches succeed, and the mitigator while it holds the lock and its passes succeed, so a standby is not ready. The e2e job waits on the incident manager's and the mitigator's `/readyz`. Tarballs and systemd units (9A-2) and images and Compose (9A-3) follow.
+**Progress:** 9A-1 ([ADR 0052](decisions/0052-phase9a-packaging.md)) gives every service `/healthz` and `/readyz` on its metrics address, as NFR-2 requires. The collector is ready once its socket is bound, the incident manager and the notifier while their batches succeed, and the mitigator while it holds the lock and its passes succeed, so a standby is not ready. The e2e job waits on the incident manager's and the mitigator's `/readyz`. 9A-2 adds `scripts/package.sh`, which builds `wetechinetmon-<version>-linux-<arch>.tar.gz` with the six binaries, the web UI, hardened units, one system user per service and the example settings, and `install.sh`, which installs it and never overwrites a setting. CI builds the tarball natively on x86_64 and aarch64 Ubuntu 22.04, installs it, verifies the units, and starts every service until each is ready. The shipped guard is the fresh install's, dry-run with BGP off, which a test asserts. Images and Compose (9A-3) follow.
 
 ### 9B — Load and soak
 

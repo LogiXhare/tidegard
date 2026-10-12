@@ -28,6 +28,9 @@ name: Validate
 #   e2e      — the UI in a real browser against the real API, incident
 #              manager and PostgreSQL (Phase 6D-4), and the mitigator with
 #              a throwaway gobgpd on loopback (Phase 7E)
+#   package  — the release tarball, built natively on x86_64 and aarch64
+#              Ubuntu 22.04 and installed with its own install.sh and
+#              systemd units against a throwaway PostgreSQL (ADR 0052)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -486,6 +489,111 @@ jobs:
         if: failure()
         run: |
           tail -n 50 api.log manager.log mitigator.log "$RUNNER_TEMP/gobgp/gobgpd.log" || true
+
+  package:
+    name: Package (${{ matrix.arch }} tarball, systemd install)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ADR 0052: built natively on 22.04, so glibc 2.35 is the floor.
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    # The same throwaway credential as the other jobs; never a real database.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wetechinetmon
+          POSTGRES_PASSWORD: wetechinetmon_test_only
+          POSTGRES_DB: wetechinetmon
+        ports:
+          - 55432:5432
+        options: >-
+          --tmpfs /var/lib/postgresql/data
+          --health-cmd "pg_isready -U wetechinetmon -d wetechinetmon"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      # The arm64 image does not always carry a Rust toolchain.
+      - name: Rust toolchain
+        run: |
+          if ! command -v cargo >/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+      - name: Lint the shell scripts
+        if: matrix.arch == 'x86_64'
+        run: shellcheck scripts/*.sh deployments/systemd/install.sh
+      - name: Build the tarball
+        run: bash scripts/package.sh "0.0.0-ci.${GITHUB_SHA::12}" dist
+      - name: Install from the tarball, as an operator would
+        run: |
+          set -euo pipefail
+          tar -xzf dist/wetechinetmon-*.tar.gz -C "$RUNNER_TEMP"
+          unpacked=$(echo "$RUNNER_TEMP"/wetechinetmon-*/)
+          sudo "$unpacked/install.sh"
+          # A second run keeps every installed setting.
+          sudo "$unpacked/install.sh" | tee second-run.log
+          grep -q "kept     /etc/wetechinetmon/guard.json" second-run.log
+          ! grep -q "^created" second-run.log
+          # Secrets are root's alone; each JSON file is its reader's.
+          sudo stat -c '%a %U %G %n' /etc/wetechinetmon/* | tee modes.log
+          [ "$(grep -c '^600 root root .*\.env$' modes.log)" -eq 5 ]
+          grep -q '^640 root wetechinetmon-guard /etc/wetechinetmon/guard.json$' modes.log
+          id wetechinetmon-api | grep -q wetechinetmon-guard
+          sudo systemd-analyze verify /etc/systemd/system/wetechinetmon-*.service
+          # Point every service at the CI database.
+          sudo sed -i \
+            's/host=127.0.0.1 user=wetechinetmon password=CHANGE_ME/host=127.0.0.1 port=55432 user=wetechinetmon password=wetechinetmon_test_only/' \
+            /etc/wetechinetmon/*.env
+      - name: Start every service and wait until each is ready
+        run: |
+          set -euo pipefail
+          ready() {
+            for _ in $(seq 60); do
+              curl -sf "http://127.0.0.1:$1/readyz" >/dev/null && return 0
+              sleep 1
+            done
+            curl -sS --fail-with-body "http://127.0.0.1:$1/readyz"
+          }
+          # The incident manager applies the migrations first.
+          sudo systemctl start wetechinetmon-incident-manager
+          ready 9091
+          sudo systemctl start wetechinetmon-api wetechinetmon-collector \
+            wetechinetmon-notifier wetechinetmon-mitigator
+          for port in 8080 9090 9093 9094; do ready "$port"; done
+          curl -sf http://127.0.0.1:9090/healthz
+          # The NOC UI is served from the installed share/web.
+          curl -sf http://127.0.0.1:8080/ | grep -q '<title>WetechiNetMon NOC</title>'
+          # The packaged mitigator runs dry-run with BGP off.
+          sudo journalctl -u wetechinetmon-mitigator --no-pager \
+            | grep '"the mitigator is active"' | grep -q 'bgp_enabled.*false'
+          # The CLI reaches the API with a token the host command issued.
+          token=$(sudo env WETECHINETMON_API_DATABASE_URL="host=127.0.0.1 port=55432 user=wetechinetmon password=wetechinetmon_test_only dbname=wetechinetmon" \
+            /opt/wetechinetmon/bin/wetechinetmon-api token create --tenant default \
+            --actor-id ci-viewer --role viewer --days 1 | awk '/^token:/ {print $2}')
+          [ -n "$token" ]
+          echo "::add-mask::$token"
+          WETECHINETMON_API_URL=http://127.0.0.1:8080 WETECHINETMON_API_TOKEN="$token" \
+            /opt/wetechinetmon/bin/wetechinetmonctl incidents list
+      - name: systemd's exposure rating for each unit
+        run: |
+          for service in collector incident-manager api notifier mitigator; do
+            systemd-analyze security --no-pager "wetechinetmon-$service.service" | tail -n 1
+          done
+      - name: Logs on failure
+        if: failure()
+        run: sudo journalctl -u 'wetechinetmon-*' --no-pager -n 200 || true
 
   docs:
     name: Docs (Markdown, YAML, links, MkDocs)

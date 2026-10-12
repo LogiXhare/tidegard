@@ -1,13 +1,20 @@
 # Installation
 
-Status: Phase 7F.
+Status: Phase 9A.
 
+- **From the release tarball:** `install.sh` puts the binaries, the web
+  UI, one system user per service, the example settings and hardened
+  systemd units in place
+  ([systemd deployment](https://github.com/LogiXhare/wetechi-netmon/tree/main/deployments/systemd)).
+  Then follow the guides below from the database onward.
 - [Incident Management](incident-management.md): a single-node
-  installation built from source, with the collector, the incident
-  manager, the API and the CLI against PostgreSQL.
+  installation with the collector, the incident manager, the API and the
+  CLI against PostgreSQL. It builds from source; with the tarball, skip
+  the build.
 - [BGP Mitigation](mitigation.md): the mitigator and its `gobgpd`, added
   to that installation, turned on in stages from dry-run.
 
-Packaged releases, container images and Kubernetes manifests come later
-([roadmap](../roadmap.md)). For a contributor setup, see
-[local setup](../development/local-setup.md).
+Container images and a Docker Compose stack follow in Phase 9A-3.
+Kubernetes manifests and a Helm chart are not part of v1.0.0
+([ADR 0052](../architecture/decisions/0052-phase9a-packaging.md)). For a
+contributor setup, see [local setup](../development/local-setup.md).

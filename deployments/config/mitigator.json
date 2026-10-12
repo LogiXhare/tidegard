@@ -1,0 +1,10 @@
+{
+  "guard_file": "/etc/wetechinetmon/guard.json",
+  "routes": {
+    "local_asn": 64512,
+    "rtbh_next_hop_ipv4": "192.0.2.1",
+    "rtbh_next_hop_ipv6": "2001:db8::1"
+  },
+  "gobgp": { "url": "http://127.0.0.1:50051" },
+  "proposals": { "enabled": false }
+}

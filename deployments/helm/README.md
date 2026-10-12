@@ -2,7 +2,7 @@
 
 **Status:** Reserved — not yet implemented.
 
-**Planned for:** Phase 9-10 (see [../../docs/roadmap.md](../../docs/roadmap.md)).
+**Not part of v1.0.0** ([ADR 0052](../../docs/architecture/decisions/0052-phase9a-packaging.md)). v1.0.0 ships tarballs with systemd units, container images and a Docker Compose stack. Kubernetes support is a later decision.
 
 Helm chart packaging of the Kubernetes deployment.
 

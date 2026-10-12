@@ -1,0 +1,7 @@
+{
+  "channels": {},
+  "routes": [],
+  "allowed_hosts": [],
+  "ca_file": "/etc/ssl/certs/ca-certificates.crt",
+  "ui_base_url": null
+}
