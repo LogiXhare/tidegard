@@ -117,6 +117,8 @@ pub mod connect;
 /// Tenant-scoped, permission-checked reads for the API (5D, ADR 0038).
 pub mod queries;
 
+pub mod mitigation;
+
 /// Never called. Exists only so every probed dependency's crate root is
 /// referenced by name, forcing the compiler to actually resolve and link
 /// each one rather than merely list it in `Cargo.toml`.
