@@ -57,6 +57,25 @@ What the run was, so it is not read as more:
   [benchmark workflow](https://github.com/LogiXhare/wetechi-netmon/blob/main/.github/workflows/benchmark.yml)
   does.
 
+## API latency, measured
+
+Run [38298540619](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38298540619)
+on the same runner type, 2026-10-13 (ADR 0054, 9B-2). The database held
+10,000 incidents, made by the pipeline itself: a flood to 10,000 hosts
+through the collector, the inbox and the incident manager. Sixteen
+clients, each a different actor, called the API for 60 seconds, each
+just under its read quota of 120 a minute.
+
+| Endpoint | Requests | Errors | p50 | p95 | p99 |
+|---|---:|---:|---:|---:|---:|
+| Incident list (100 a page) | 583 | 0 | 5.7 ms | 11.9 ms | 23.4 ms |
+| Incident detail | 588 | 0 | 11.6 ms | 23.9 ms | 107.1 ms |
+| Mitigation list | 589 | 0 | 4.2 ms | 8.2 ms | 20.4 ms |
+
+Every p99 is under ADR 0054's 250 ms, with no error response. The
+request rate is what the quota allows 16 actors, about 32 a second, not
+the API's ceiling; PostgreSQL ran beside the API on the same machine.
+
 ## Memory Sizing (Aggregator)
 
 Each aggregation dimension's worst-case memory is bounded by
@@ -245,10 +264,10 @@ defines what will actually be measured at Milestone 5B-5.
 - The flow pipeline **is** measured, above, for one shape of traffic.
   Many exporters, small datagrams, IPv6 and high host cardinality are
   not yet.
-- The five-hour soak and the API latency under load (ADR 0054, 9B-2 and
-  9B-3) are reported separately when they have run.
+- API latency **is** measured, above, at the request rate the quotas
+  allow. The five-hour soak (9B-3) is reported when it has run.
 - PostgreSQL latency and throughput for the incident database **are**
   measured, above. Index growth beyond 10,000 incidents, and latency
   through the HTTP API, are not.
 
-The soak and the API latency are the remaining Phase 9B measurements.
+The soak is the remaining Phase 9B measurement.
