@@ -96,3 +96,4 @@ yet:
 | [0052](0052-phase9a-packaging.md) | Phase 9A Packaging | Accepted |
 | [0053](0053-phase9a-collector-clickhouse-tls.md) | Phase 9A The Collector's ClickHouse Connection | Accepted |
 | [0054](0054-phase9b-load-and-soak.md) | Phase 9B Load and Soak Tests | Accepted |
+| [0055](0055-phase9c-backup-upgrade-rollback.md) | Phase 9C Backup, Restore, Upgrade and Rollback | Accepted |

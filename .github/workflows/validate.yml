@@ -33,6 +33,9 @@ name: Validate
 #              Ubuntu 22.04 and installed with its own install.sh and
 #              systemd units against a throwaway PostgreSQL; then one image
 #              per service from it, run read-only and scanned (ADR 0052)
+#   upgrade  — v0.9.0 and the candidate, built side by side: v0.9.0 fills a
+#              database, the candidate upgrades it, and a restore rolls it
+#              back (ADR 0055)
 #   docs     — needs Node + Python
 #   history  — needs full history (fetch-depth: 0), which the others do not
 #
@@ -297,6 +300,11 @@ jobs:
           </clickhouse>
           XML
           printf '%s\n' "$CLICKHOUSE_PASSWORD" > "$dir/password"
+          # Backups to /backups only (the 9C drill, ADR 0055).
+          mkdir -p "$RUNNER_TEMP/ch-backups"
+          chmod 0777 "$RUNNER_TEMP/ch-backups"
+          printf '%s\n' '<clickhouse><backups><allowed_path>/backups/</allowed_path></backups></clickhouse>' \
+            > "$dir/backups.xml"
           {
             echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_URL=https://localhost:8443"
             echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_CA=$dir/ca.pem"
@@ -311,6 +319,8 @@ jobs:
             -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
             -v "$dir/tls.xml:/etc/clickhouse-server/config.d/tls.xml:ro" \
             -v "$dir:/etc/clickhouse-server/tls:ro" \
+            -v "$dir/backups.xml:/etc/clickhouse-server/config.d/backups.xml:ro" \
+            -v "$RUNNER_TEMP/ch-backups:/backups" \
             clickhouse/clickhouse-server:26.8.24.9
           docker run -d --name prometheus --network wnm prom/prometheus:v3.13.4
           for _ in $(seq 60); do
@@ -341,6 +351,11 @@ jobs:
           cargo test -p wetechinetmon-storage --test clickhouse_tls -- --nocapture 2>&1 | tee tls-test.log
           ! grep -q "skipping exports_over_verified_tls_with_credentials" tls-test.log
           grep -q "test exports_over_verified_tls_with_credentials ... ok" tls-test.log
+      - name: ClickHouse backup and restore drill (ADR 0055)
+        env:
+          CLICKHOUSE_URL: http://127.0.0.1:8123
+          DRILL_WORK_DIR: ${{ runner.temp }}/clickhouse-drill
+        run: bash scripts/clickhouse-backup-restore-drill.sh
       - name: Start Grafana with the shipped dashboards
         run: |
           set -euo pipefail
@@ -781,6 +796,54 @@ jobs:
       - name: Logs on failure
         if: failure()
         run: sudo journalctl -u 'wetechinetmon-*' --no-pager -n 200 || true
+
+  upgrade:
+    name: Upgrade from v0.9.0 and rollback (ADR 0055)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # A throwaway database, as in the PostgreSQL jobs; nothing is a secret.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wetechinetmon_test
+          POSTGRES_PASSWORD: wetechinetmon_test_only
+          POSTGRES_DB: wetechinetmon_upgrade_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_upgrade_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the candidate
+        run: cargo build -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-api -p wetechinetmon-flow-replay
+      - name: Build v0.9.0
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth 1 origin tag v0.9.0
+          git worktree add "$RUNNER_TEMP/v0.9.0" v0.9.0
+          CARGO_TARGET_DIR="$RUNNER_TEMP/v0.9.0-target" cargo build \
+            --manifest-path "$RUNNER_TEMP/v0.9.0/Cargo.toml" \
+            -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-api
+      - name: Upgrade and rollback drill
+        env:
+          OLD_BIN: ${{ runner.temp }}/v0.9.0-target/debug
+          NEW_BIN: ${{ github.workspace }}/target/debug
+          REPLAY: ${{ github.workspace }}/target/debug/flow-replay
+          PG_TOOL: docker exec -i ${{ job.services.postgres.id }}
+          PG_HOST: 127.0.0.1
+          PG_PORT: "55432"
+          PG_USER: wetechinetmon_test
+          PG_PASSWORD: wetechinetmon_test_only
+          PG_DB: wetechinetmon_upgrade_test
+          WORK: ${{ runner.temp }}/upgrade-drill
+        run: bash scripts/upgrade-rollback-drill.sh
+      - name: Logs on failure
+        if: failure()
+        run: tail -n 40 "$RUNNER_TEMP"/upgrade-drill/*.log || true
 
   docs:
     name: Docs (Markdown, YAML, links, MkDocs)
