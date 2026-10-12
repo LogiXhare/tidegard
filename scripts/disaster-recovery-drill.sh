@@ -99,13 +99,17 @@ ready http://127.0.0.1:8080
 ready http://127.0.0.1:9090
 
 echo "dr: checking what came back"
-token=$(sudo env WETECHINETMON_API_DATABASE_URL="$url" /opt/wetechinetmon/bin/wetechinetmon-api \
-  token create --tenant default --actor-id dr-check --role viewer --days 1 | awk '/^token:/ {print $2}')
-[ -n "$token" ]
-total=$(curl -sS --fail-with-body -H "Authorization: Bearer $token" \
-  "http://127.0.0.1:8080/api/v1/incidents?limit=1&include_total=true" \
-  | python3 -c 'import json, sys; print(json.load(sys.stdin)["total"])')
-[ "$total" = "$expected" ]
+fail() { echo "dr: $*" >&2; exit 1; }
+created=$(sudo env WETECHINETMON_API_DATABASE_URL="$url" /opt/wetechinetmon/bin/wetechinetmon-api \
+  token create --tenant default --actor-id dr-check --role viewer --days 1 2>&1) \
+  || fail "no token could be issued: $created"
+token=$(echo "$created" | awk '/^token:/ {print $2}')
+[ -n "$token" ] || fail "token create printed no token: $created"
+page=$(curl -sS -H "Authorization: Bearer $token" \
+  "http://127.0.0.1:8080/api/v1/incidents?limit=1&include_total=true")
+total=$(echo "$page" | python3 -c 'import json, sys; print(json.load(sys.stdin)["total"])') \
+  || fail "the incident list answered: $page"
+[ "$total" = "$expected" ] || fail "the API counts $total incidents; $expected were restored"
 echo "dr: the API serves all $total incidents"
 WETECHINETMON_API_URL=http://127.0.0.1:8080 WETECHINETMON_API_TOKEN="$token" \
   /opt/wetechinetmon/bin/wetechinetmonctl incidents list > /dev/null
