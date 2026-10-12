@@ -1,6 +1,6 @@
 # Risk Register
 
-Status: Phase 7 planning, R25–R29 added
+Status: Phases 9 and 10 planning, R30–R34 added
 Last updated: 2026-10-12
 
 Scale: Likelihood (L) and Impact (I) rated Low/Medium/High. This register
@@ -38,6 +38,11 @@ phase-summary requirement.
 | R27 | GoBGP's gRPC API has no authentication, so anyone who reaches it can announce routes | M | H | Loopback by default; TLS with a configured CA required off loopback; the runbook says never to expose it ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7C) |
 | R28 | gRPC brings a new dependency tree (`tonic`, `prost`, `h2`) | M | M | Reviewed in the 7C ADR, pinned, and confined to `crates/mitigator` by the dependency closure test ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7C) |
 | R29 | GoBGP's API changes between releases | M | M | The `.proto` files are vendored from one pinned release, and CI runs that release ([Phase 7 plan](architecture/phase7-bgp-mitigation-lab-plan.md), 7C) |
+| R30 | Load figures from a 4-vCPU hosted runner are read as a promise for production hardware | M | M | Every figure is published with its machine and run link and described as a floor; the capacity guide says how to measure on one's own hardware ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9B) |
+| R31 | A compromised workflow or dependency signs and publishes a malicious release | L | H | Actions pinned by SHA, least-privilege tokens, publishing inside an approval-gated environment, tags only from `main`, and verifiable build provenance ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 10A) |
+| R32 | Container base images bring known vulnerabilities | M | M | A minimal base, a Trivy gate in CI, Dependabot for base images, and a rebuild for every release ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9A) |
+| R33 | An upgrade from v0.9.0 loses or corrupts data | L | H | A mandatory backup before upgrading, an upgrade test with real data in CI, and a rollback proven by restore ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9C) |
+| R34 | The repository becoming permanently public exposes something in its history | L | H | A full-history gitleaks scan and a review of the history before v1.0.0 ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9D) |
 
 ## Review Trigger
 

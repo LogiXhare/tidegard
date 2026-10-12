@@ -26,14 +26,15 @@ documentation. See [docs/acceptance-criteria.md](docs/acceptance-criteria.md).
 | v0.7.0 | Phase 6: Grafana and native UI | ✅ Complete (2026-10-12) |
 | v0.8.0 | Phase 6 (cont.): Notification integrations | ✅ Complete (2026-10-12) |
 | v0.9.0 | Phase 7: BGP mitigation lab | ✅ Complete (2026-10-12) |
-| v1.0.0 | Phase 10: Production-ready single-tenant release | Not started |
+| — | Phase 9: Production hardening | Planned (2026-10-12) |
+| v1.0.0 | Phase 10: Production-ready single-tenant release | Planned (2026-10-12) |
 | v1.1.0 | Phase 8: Multi-tenancy | Not started |
 | v1.2.0 | Phase 8 (cont.): Enterprise authentication | Not started |
 | v2.0.0 | Future: Distributed high-availability architecture | Not started |
 
-Note: Phase 8 (multi-tenancy/enterprise auth) vs. the v1.0.0 cut has an
-open sequencing question — see
-[docs/blocking-questions.md — BQ-4](docs/blocking-questions.md).
+Phase 8 (multi-tenancy and enterprise authentication) follows v1.0.0, as
+[BQ-4](docs/blocking-questions.md) decided. Phases 9 and 10 are planned in
+[docs/architecture/phase9-10-production-release-plan.md](docs/architecture/phase9-10-production-release-plan.md).
 
 ## Editions (proposed, not built pre-v1.0)
 

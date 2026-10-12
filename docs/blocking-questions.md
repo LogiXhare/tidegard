@@ -1,7 +1,7 @@
 # Blocking Questions
 
-Status: Phase 7 planning — **BQ-4 and BQ-13 to BQ-15 resolved**
-2026-10-12. No Phase 7 decision remains outstanding.
+Status: Phases 9 and 10 planning — **BQ-3 and BQ-16 to BQ-18 resolved**
+2026-10-12. No decision blocking v1.0.0 remains outstanding.
 Last updated: 2026-10-12
 
 ## Decision summary
@@ -10,7 +10,7 @@ Last updated: 2026-10-12
 |---|---|---|---|
 | BQ-1 | Project licence | Resolved — Apache-2.0 | — |
 | BQ-2 | Grafana bundling | **Resolved 2026-10-11** — external only | — |
-| BQ-3 | Reference hardware and traffic rates | Open | Benchmarking |
+| BQ-3 | Reference hardware and traffic rates | **Resolved 2026-10-12** — 100,000 records/s on the `ubuntu-latest` runner | — |
 | BQ-4 | Phase 8 before or after v1.0.0 | **Resolved 2026-10-12** — after | — |
 | BQ-5 | Incident identity (UUID vs ADR 0009) | **Resolved 2026-08-22** — UUIDv7, conditional | Was 5A |
 | BQ-6 | Mitigation states in the incident machine | **Resolved 2026-08-22** — excluded | Was 5A |
@@ -23,6 +23,9 @@ Last updated: 2026-10-12
 | BQ-13 | How WetechiNetMon talks to GoBGP | **Resolved 2026-10-12** — gRPC to an external `gobgpd` | — |
 | BQ-14 | How a mitigation starts | **Resolved 2026-10-12** — request or proposal, then approval | — |
 | BQ-15 | Which mitigation actions Phase 7 builds | **Resolved 2026-10-12** — RTBH, parent prefix, FlowSpec discard and rate-limit | — |
+| BQ-16 | How v1.0.0 is published and signed | **Resolved 2026-10-12** — public release, cosign keyless | — |
+| BQ-17 | Automatic mitigation in v1.0.0 | **Resolved 2026-10-12** — no, manual approval stays | — |
+| BQ-18 | A real-traffic pilot before v1.0.0 | **Resolved 2026-10-12** — no, lab and synthetic only | — |
 
 These are the only questions treated as genuinely blocking for Phase 1+
 architecture and legal posture. Per master prompt §31, minor questions are
@@ -79,6 +82,15 @@ load/soak testing can produce meaningful pass/fail criteria, WeTechi
 Solutions needs to supply (or approve a proposed) target flow-record rate,
 exporter count, and hardware profile — otherwise "production-ready" at
 v1.0.0 has no objective bar.
+
+**Resolved 2026-10-12.** The target stays the 100,000 normalized flow
+records a second that [capacity planning](operations/capacity-planning.md)
+already sets. The reference machine is GitHub's `ubuntu-latest` hosted
+runner, and every published figure names the machine and links its run.
+Anyone can repeat the measurement, and a runner is described as a floor,
+not a promise for other hardware. Soak runs last six hours, the longest a
+hosted job may run. See the
+[Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md).
 
 ## BQ-4: Does Phase 8 (multi-tenancy/RBAC) land before or after the v1.0.0 release cut?
 
@@ -435,3 +447,34 @@ large communities, a configurable next hop, `NO_EXPORT` and
 a scrubbing centre, waits for a later phase: a mistake there sends traffic
 somewhere it should not go. AS-path prepend is built only if the 7C ADR
 finds a lab use for it.
+
+## BQ-16: How is v1.0.0 published and signed?
+
+The master prompt requires signed artifacts, an SBOM and a GitHub
+release. The options were a public release signed keylessly through
+GitHub's identity, a private release signed with a key the owner holds,
+or building everything and deciding on publication later.
+
+**Resolved 2026-10-12.** A public GitHub release under Apache-2.0, and
+the repository stays public from v1.0.0 on. Artifacts and container
+images are signed with Sigstore cosign, keyless, through GitHub's OIDC
+identity, and carry build provenance attestations. No long-lived signing
+key exists to leak; the signatures enter Sigstore's public transparency
+log, as a public release intends.
+
+## BQ-17: Does v1.0.0 start mitigations without approval?
+
+BQ-14 deferred automatic execution to Phase 9 or 10.
+
+**Resolved 2026-10-12. No.** Every announcement in v1.0.0 still needs an
+approver. Detection may propose. Automatic execution is reconsidered
+after real deployments, with its own allowlist and rate limits.
+
+## BQ-18: Is there a real-traffic pilot before v1.0.0?
+
+A detect-only pilot fed by one of the owner's routers would give a soak
+with real traffic.
+
+**Resolved 2026-10-12. No.** Phases 9 and 10 use lab and synthetic
+traffic only, and change nothing on a live network. A pilot is the
+owner's to run after the release.
