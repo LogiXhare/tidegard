@@ -1,0 +1,23 @@
+<!--
+  ClickHouse in the WetechiNetMon reference stack (ADR 0052, ADR 0053):
+  HTTPS on 8443 only. Every plaintext listener is removed, so nothing on
+  the container network can reach ClickHouse without TLS.
+-->
+<clickhouse>
+  <http_port remove="1"/>
+  <tcp_port remove="1"/>
+  <mysql_port remove="1"/>
+  <postgresql_port remove="1"/>
+  <interserver_http_port remove="1"/>
+  <https_port>8443</https_port>
+  <openSSL>
+    <server>
+      <certificateFile>/etc/wetechinetmon/tls/clickhouse.crt</certificateFile>
+      <privateKeyFile>/etc/wetechinetmon/tls/clickhouse.key</privateKeyFile>
+      <verificationMode>none</verificationMode>
+      <loadDefaultCAFile>false</loadDefaultCAFile>
+      <disableProtocols>sslv2,sslv3,tlsv1,tlsv1_1</disableProtocols>
+      <preferServerCiphers>true</preferServerCiphers>
+    </server>
+  </openSSL>
+</clickhouse>
