@@ -4,11 +4,13 @@
 //! and docs/integrations/clickhouse.md.
 
 pub mod batch;
+pub mod connection;
 pub mod retry;
 pub mod schema;
 pub mod writer;
 
 pub use batch::{BatchConfig, BatchQueue};
+pub use connection::{ClickHouseSettings, ConnectionError};
 pub use retry::{EnqueueOutcome, RequeueOutcome, RetryConfig, RetryQueue};
 pub use schema::DetectionEventRow;
 pub use writer::{run_migrations, ClickHouseWriter, FlushReport};

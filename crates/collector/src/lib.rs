@@ -170,7 +170,7 @@ pub async fn run_until(
                     }
                     None => Vec::new(),
                 };
-                let clickhouse_sink = config.clickhouse_url.as_ref().map(|_| {
+                let clickhouse_sink = config.clickhouse.as_ref().map(|_| {
                     Arc::new(detection::ClickHouseEventSink::new(
                         config.detection_event_buffer,
                     ))
@@ -242,21 +242,27 @@ pub async fn run_until(
     // docs/integrations/clickhouse.md. A connection/migration failure at
     // startup disables export for this run rather than crashing the
     // collector; decode/normalize/aggregate remains useful without it.
-    let mut clickhouse_exporters = match &config.clickhouse_url {
-        Some(url) => {
-            let client = wetechinetmon_storage::Client::default().with_url(url);
-            match wetechinetmon_storage::run_migrations(&client).await {
-                Ok(()) => {
-                    tracing::info!(url, "ClickHouse export enabled, migrations applied");
-                    Some(clickhouse_export::ClickHouseExporters::new(
-                        client,
-                        Instant::now(),
-                    ))
-                }
+    let mut clickhouse_exporters = match &config.clickhouse {
+        Some(settings) => {
+            let url = settings.display_url();
+            match settings.connect() {
                 Err(err) => {
-                    tracing::error!(url, error = %err, "ClickHouse migration failed; export disabled for this run");
+                    tracing::error!(url, error = %err, "ClickHouse cannot be reached; export disabled for this run");
                     None
                 }
+                Ok(client) => match wetechinetmon_storage::run_migrations(&client).await {
+                    Ok(()) => {
+                        tracing::info!(url, "ClickHouse export enabled, migrations applied");
+                        Some(clickhouse_export::ClickHouseExporters::new(
+                            client,
+                            Instant::now(),
+                        ))
+                    }
+                    Err(err) => {
+                        tracing::error!(url, error = %err, "ClickHouse migration failed; export disabled for this run");
+                        None
+                    }
+                },
             }
         }
         None => None,

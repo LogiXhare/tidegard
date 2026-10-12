@@ -61,12 +61,28 @@ provides `bgpSourceAsNumber`/`bgpDestinationAsNumber`). Default `10000`.
 
 | Field | Value |
 |---|---|
-| Type | ClickHouse HTTP URL, e.g. `http://localhost:8123` |
+| Type | ClickHouse HTTP URL with a host and a port only: `http://127.0.0.1:8123`, or `https://clickhouse.example.net:8443` |
 | Default | Unset — ClickHouse export entirely disabled |
-| Security implications | No authentication is configured by this project — set up ClickHouse-side access control (user/password, network policy) yourself; see [../integrations/clickhouse.md](../integrations/clickhouse.md) |
+| Security implications | Plain `http://` is accepted only for a loopback host; anything else needs `https://` and `WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE`, or the collector refuses to start ([ADR 0053](../architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)). Credentials never go in the URL: use the two settings below |
 | Related metrics | `wetechinetmon_collector_clickhouse_rows_written_total`, `wetechinetmon_collector_clickhouse_write_failures_total`, `wetechinetmon_collector_clickhouse_retry_queue_dropped_total` |
 | Verification | Check collector startup logs for `ClickHouse export enabled, migrations applied`; if migrations fail, export is disabled for that run and an error is logged — not a crash |
 | Troubleshooting | See [../integrations/clickhouse.md](../integrations/clickhouse.md) |
+
+## `WETECHINETMON_COLLECTOR_CLICKHOUSE_USER` and `_PASSWORD_FILE`
+
+| Field | Value |
+|---|---|
+| Type | A ClickHouse user name; a path to a file holding its password (one line) |
+| Default | Unset — ClickHouse's `default` user, with no password |
+| Security implications | Give the collector its own ClickHouse user, allowed to create and insert into its tables and nothing else. The password file should be readable by the collector alone |
+
+## `WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE`
+
+| Field | Value |
+|---|---|
+| Type | Path to the PEM bundle that signed ClickHouse's certificate |
+| Default | Unset — required for `https://` |
+| Security implications | The server certificate is verified against this bundle alone, never the system's roots |
 
 ## Full Reference Example
 

@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 use wetechinetmon_classifier::PrefixConfigEntry;
 use wetechinetmon_incident_postgres::connect::TlsFiles;
+use wetechinetmon_storage::ClickHouseSettings;
 
 const DEFAULT_BIND: &str = "0.0.0.0:2055";
 const DEFAULT_METRICS_BIND: &str = "0.0.0.0:9090";
@@ -38,6 +39,9 @@ const MAX_ASNS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_MAX_ASNS";
 const INACTIVITY_TTL_SECS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_INACTIVITY_TTL_SECS";
 const SAMPLING_GLOBAL_DEFAULT_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_SAMPLING_GLOBAL_DEFAULT";
 const CLICKHOUSE_URL_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_CLICKHOUSE_URL";
+const CLICKHOUSE_USER_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_CLICKHOUSE_USER";
+const CLICKHOUSE_PASSWORD_FILE_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE";
+const CLICKHOUSE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE";
 const DETECTION_POLICY_FILE_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE";
 const DETECTION_WINDOW_SECS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS";
 const DETECTION_MAX_SCOPES_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_DETECTION_MAX_SCOPES";
@@ -74,10 +78,11 @@ pub struct Config {
     /// Global-default sampling rate (lowest priority tier — see
     /// docs/architecture/aggregation.md sampling-correction section).
     pub sampling_global_default: Option<u32>,
-    /// ClickHouse HTTP URL (e.g. `http://localhost:8123`). ClickHouse
-    /// export is entirely disabled when unset — see
+    /// Where ClickHouse is and how to reach it: plain HTTP to loopback
+    /// only, otherwise TLS with a CA bundle (ADR 0053). ClickHouse export
+    /// is entirely disabled when unset — see
     /// docs/integrations/clickhouse.md.
-    pub clickhouse_url: Option<String>,
+    pub clickhouse: Option<ClickHouseSettings>,
     /// Path to a detection policy document. **Detection is entirely off
     /// when unset** — no policies means nothing to detect against, and
     /// silently detecting nothing is better expressed as detecting
@@ -139,7 +144,23 @@ impl Config {
             parse_u64_or_default(INACTIVITY_TTL_SECS_ENV_VAR, DEFAULT_INACTIVITY_TTL_SECS)?;
         let sampling_global_default = parse_optional_u32(SAMPLING_GLOBAL_DEFAULT_ENV_VAR)?;
         let local_prefixes = parse_local_prefixes(LOCAL_PREFIXES_ENV_VAR)?;
-        let clickhouse_url = env_value(CLICKHOUSE_URL_ENV_VAR)?;
+        let clickhouse = match env_value(CLICKHOUSE_URL_ENV_VAR)? {
+            Some(url) if !url.trim().is_empty() => {
+                let settings = ClickHouseSettings {
+                    url,
+                    user: env_value(CLICKHOUSE_USER_ENV_VAR)?,
+                    password_file: env_value(CLICKHOUSE_PASSWORD_FILE_ENV_VAR)?.map(PathBuf::from),
+                    ca_file: env_value(CLICKHOUSE_CA_FILE_ENV_VAR)?.map(PathBuf::from),
+                };
+                settings
+                    .validate()
+                    .map_err(|error| ConfigError::ClickHouse {
+                        detail: error.to_string(),
+                    })?;
+                Some(settings)
+            }
+            _ => None,
+        };
         let detection_policy_file = env_value(DETECTION_POLICY_FILE_ENV_VAR)?;
         let detection_window_secs =
             parse_u64_or_default(DETECTION_WINDOW_SECS_ENV_VAR, DEFAULT_DETECTION_WINDOW_SECS)?;
@@ -175,7 +196,7 @@ impl Config {
             max_asns,
             inactivity_ttl_secs,
             sampling_global_default,
-            clickhouse_url,
+            clickhouse,
             detection_policy_file,
             detection_window_secs,
             detection_max_scopes,
@@ -313,6 +334,8 @@ pub enum ConfigError {
     },
     #[error("incomplete incident database TLS configuration: {detail}")]
     Incomplete { detail: &'static str },
+    #[error("{detail}")]
+    ClickHouse { detail: String },
 }
 
 #[cfg(test)]
@@ -336,6 +359,9 @@ mod tests {
         INACTIVITY_TTL_SECS_ENV_VAR,
         SAMPLING_GLOBAL_DEFAULT_ENV_VAR,
         CLICKHOUSE_URL_ENV_VAR,
+        CLICKHOUSE_USER_ENV_VAR,
+        CLICKHOUSE_PASSWORD_FILE_ENV_VAR,
+        CLICKHOUSE_CA_FILE_ENV_VAR,
         INCIDENT_DATABASE_URL_ENV_VAR,
         INCIDENT_DATABASE_CA_FILE_ENV_VAR,
         INCIDENT_DATABASE_CLIENT_CERT_FILE_ENV_VAR,
@@ -360,7 +386,7 @@ mod tests {
         assert_eq!(config.max_hosts, DEFAULT_MAX_HOSTS);
         assert!(config.local_prefixes.is_empty());
         assert_eq!(config.sampling_global_default, None);
-        assert_eq!(config.clickhouse_url, None);
+        assert_eq!(config.clickhouse, None);
         assert_eq!(config.incident_database, None);
 
         clear_all();
@@ -390,15 +416,37 @@ mod tests {
     }
 
     #[test]
-    fn clickhouse_url_is_read_when_set() {
+    fn clickhouse_is_read_and_plaintext_stays_on_loopback() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         clear_all();
         std::env::set_var(CLICKHOUSE_URL_ENV_VAR, "http://localhost:8123");
-
         let config = Config::from_env().unwrap();
         assert_eq!(
-            config.clickhouse_url.as_deref(),
-            Some("http://localhost:8123")
+            config.clickhouse.map(|settings| settings.url),
+            Some("http://localhost:8123".to_string())
+        );
+
+        // ADR 0053: off loopback, plain HTTP stops the collector at start.
+        std::env::set_var(CLICKHOUSE_URL_ENV_VAR, "http://clickhouse:8123");
+        assert!(matches!(
+            Config::from_env(),
+            Err(ConfigError::ClickHouse { .. })
+        ));
+        // TLS without a CA bundle too.
+        std::env::set_var(CLICKHOUSE_URL_ENV_VAR, "https://clickhouse:8443");
+        assert!(matches!(
+            Config::from_env(),
+            Err(ConfigError::ClickHouse { .. })
+        ));
+        std::env::set_var(CLICKHOUSE_CA_FILE_ENV_VAR, "/etc/ca.pem");
+        std::env::set_var(CLICKHOUSE_USER_ENV_VAR, "collector");
+        std::env::set_var(CLICKHOUSE_PASSWORD_FILE_ENV_VAR, "/etc/ch-password");
+        let settings = Config::from_env().unwrap().clickhouse.unwrap();
+        assert_eq!(settings.user.as_deref(), Some("collector"));
+        assert_eq!(settings.ca_file, Some(PathBuf::from("/etc/ca.pem")));
+        assert_eq!(
+            settings.password_file,
+            Some(PathBuf::from("/etc/ch-password"))
         );
 
         clear_all();

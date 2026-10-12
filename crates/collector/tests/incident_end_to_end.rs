@@ -167,7 +167,7 @@ fn collector_config(url: &str, bind: SocketAddr, policy_file: &std::path::Path) 
         max_asns: 100,
         inactivity_ttl_secs: 300,
         sampling_global_default: None,
-        clickhouse_url: None,
+        clickhouse: None,
         detection_policy_file: Some(policy_file.display().to_string()),
         detection_window_secs: 1,
         detection_max_scopes: 1_000,

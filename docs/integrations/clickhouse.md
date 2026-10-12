@@ -14,8 +14,18 @@ production.
 ## Enabling Export
 
 ```bash
-export WETECHINETMON_COLLECTOR_CLICKHOUSE_URL=http://localhost:8123
+# On the same host: plain HTTP is allowed to loopback only.
+export WETECHINETMON_COLLECTOR_CLICKHOUSE_URL=http://127.0.0.1:8123
+# Anywhere else: TLS, verified against your CA bundle (ADR 0053).
+export WETECHINETMON_COLLECTOR_CLICKHOUSE_URL=https://clickhouse.example.net:8443
+export WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE=/etc/wetechinetmon/tls/ca.pem
+export WETECHINETMON_COLLECTOR_CLICKHOUSE_USER=wetechinetmon_collector
+export WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=/etc/wetechinetmon/clickhouse-password
 ```
+
+The collector refuses to start with `http://` to another host, or with
+`https://` and no CA bundle. A URL holding credentials, a path or a query
+is refused too.
 
 Unset (the default): ClickHouse export is entirely disabled, and nothing
 else about the collector's behavior changes — decode/normalize/classify/
