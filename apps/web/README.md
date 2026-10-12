@@ -21,6 +21,21 @@ allows. Each action sends the version they saw, so a change someone else
 made first is refused and the page reloads. Closing, reopening, lowering
 severity and redacting a note ask first, as the CLI does.
 
+The mitigations page
+([ADR 0050](../../docs/architecture/decisions/0050-phase7e-mitigation-api-cli-ui.md))
+lists the tenant's mitigations, live or all, and refreshes every 5
+seconds. It also lets you:
+
+- request a mitigation. An incident on a host links to the form with the
+  incident and prefix filled in.
+- approve, reject or withdraw a mitigation. Approving and withdrawing ask
+  first.
+- engage the kill switch, after a confirmation. Releasing it is host-only,
+  so the page never offers it.
+
+A NOC lead also sees GoBGP's peers, with a warning when the mitigator
+has not reported them for five minutes. The page talks only to the API.
+
 ## Building and serving
 
 ```sh
@@ -51,7 +66,7 @@ For development, `npm run dev` serves the UI on Vite's port and proxies
 | `npm run build` | A production build with no inline script or style |
 | `npm audit` | No known high or critical vulnerability |
 | `npm run licences` | Every licence is on the allowlist, stricter for what ships |
-| `npm run e2e` | Playwright, against a running stack: `E2E_BASE_URL` and `E2E_TOKEN` (a noc_lead token) |
+| `npm run e2e` | Playwright, against a running stack: `E2E_BASE_URL`, `E2E_TOKEN` (a noc_lead token) and `E2E_OPERATOR_TOKEN` (a senior_operator token); the mitigation test also needs the mitigator and gobgpd |
 
 CI runs all of them in the **Web UI** job.
 

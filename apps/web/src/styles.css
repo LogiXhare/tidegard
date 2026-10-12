@@ -296,3 +296,49 @@ ul.plain li {
 .chart .key.ipv6 {
   color: var(--major);
 }
+
+/* Mitigations (ADR 0050). The kill switch is told by words as well as by
+   colour. */
+.kill-switch {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.kill-switch.engaged {
+  border-color: var(--critical);
+}
+
+form.request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+form.request h3,
+form.request p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+form.request fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+td.decide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
