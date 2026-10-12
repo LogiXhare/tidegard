@@ -115,6 +115,8 @@ The only code that speaks to GoBGP:
 **Exit:** the adapter is tested against a real `gobgpd` in CI: each
 action is announced and withdrawn, and its attributes read back.
 
+**Progress:** 7C ([ADR 0048](decisions/0048-phase7c-gobgp-adapter.md)) adds `crates/mitigator` with GoBGP v4.9.0's `.proto` files vendored and checksummed, compiled by `protox` and `tonic-prost-build` without `protoc`. Paths carry the deployment's attributes and an ownership large community; listing returns only owned paths and reads each back to its mitigation's key. Plain HTTP reaches loopback only; elsewhere, TLS with a CA and an optional client certificate. The dependency closure test confines gRPC to the mitigator. CI starts a pinned, checksummed `gobgpd` on loopback in the `rust` job, and `tests/gobgp_lab.rs` announces, reads back and withdraws every action.
+
 ### 7D — The mitigator service
 
 `wetechinetmon-mitigator`, a process like the notifier:

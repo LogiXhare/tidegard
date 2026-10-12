@@ -89,3 +89,4 @@ yet:
 | [0045](0045-phase6e-notification-delivery.md) | Phase 6E Notification Delivery | Accepted |
 | [0046](0046-phase7a-mitigation-record.md) | Phase 7A The Mitigation Record | Accepted |
 | [0047](0047-phase7b-safety-guard.md) | Phase 7B The Safety Guard | Accepted |
+| [0048](0048-phase7c-gobgp-adapter.md) | Phase 7C The GoBGP Adapter | Accepted |

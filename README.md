@@ -157,7 +157,7 @@ quick-start walkthrough are not written yet.*
 wetechi-netmon/
 ├── .github/          CI, issue/PR templates, CODEOWNERS, Dependabot
 ├── apps/             api and cli (Phase 5); web, the NOC UI (Phase 6)
-├── crates/           Rust service crates — 12 populated with real,
+├── crates/           Rust service crates — 13 populated with real,
 │                     tested code (see Cargo.toml); the rest remain
 │                     README-only placeholders for later phases
 ├── deployments/       docker-compose, kubernetes, helm, systemd — reserved
@@ -175,7 +175,7 @@ wetechi-netmon/
 └── prompts/          the governing master prompt for this project
 ```
 
-`crates/` (12 of them), `apps/api`, `apps/cli`, `apps/web`, `tools/flow-replay/` and `tools/dashboard-check/` carry real, tested
+`crates/` (13 of them), `apps/api`, `apps/cli`, `apps/web`, `tools/flow-replay/` and `tools/dashboard-check/` carry real, tested
 source (see `Cargo.toml`'s `[workspace] members`). Every still-empty
 directory contains a `README.md` explaining what it is reserved for and
 which phase populates it — see [docs/roadmap.md](docs/roadmap.md).

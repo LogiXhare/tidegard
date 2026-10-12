@@ -11,6 +11,7 @@ members = [
     "crates/incident-manager",
     "crates/notification",
     "crates/mitigation",
+    "crates/mitigator",
     "crates/storage",
     "crates/collector",
     "apps/api",

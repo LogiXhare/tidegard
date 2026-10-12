@@ -1,14 +1,22 @@
-# Mitigation Controller
+# wetechinetmon-mitigator
 
-**Status:** Reserved — not yet implemented.
+The only code in WetechiNetMon that speaks to GoBGP
+([ADR 0048](../../docs/architecture/decisions/0048-phase7c-gobgp-adapter.md)).
+GoBGP runs as its own process, `gobgpd`; this crate is a client of its
+gRPC API, generated from the vendored `.proto` files in `proto/`
+(GoBGP v4.9.0) with `protox`, so no `protoc` is needed.
 
-**Planned for:** Phase 7 (see [../../docs/roadmap.md](../../docs/roadmap.md)).
+- `route`: the deployment's route attributes, the path for each action,
+  the ownership community, and reading a path back into its mitigation.
+- `gobgp`: the connection (plain HTTP to loopback only; TLS with a CA,
+  and optionally a client certificate, anywhere else), announce,
+  withdraw, and the routes WetechiNetMon owns.
 
-GoBGP-integrated RTBH/FlowSpec mitigation, dry-run and disabled by default. See docs/functional-requirements.md (FR-6) and docs/security-principles.md.
+Nothing here decides whether to mitigate: that is the mitigation record,
+its approval and the safety guard (`crates/mitigation`).
 
-This directory is intentionally a placeholder as of Phase 1
-(repository and documentation foundation). No production code has been
-added here yet, per `prompts/CLAUDE_MASTER_PROMPT.md`. Do not implement
-functionality in this directory ahead of its scheduled phase without an
-explicit decision recorded in `docs/roadmap.md` and, where applicable, an
-architecture decision record under `docs/architecture/decisions/`.
+```sh
+cargo test -p wetechinetmon-mitigator
+# The lab test needs a throwaway gobgpd on loopback:
+WETECHINETMON_GOBGP_TEST_ENDPOINT=http://127.0.0.1:50051 cargo test -p wetechinetmon-mitigator --test gobgp_lab
+```
