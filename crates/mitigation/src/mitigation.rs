@@ -13,6 +13,7 @@ use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident::id::IncidentId;
 
 use crate::action::Action;
+use crate::guard::GuardRefusal;
 use crate::prefix::Prefix;
 use crate::state::MitigationState;
 
@@ -154,6 +155,9 @@ pub enum MitigationError {
     Duplicate,
     #[error("the mitigation has changed since version {0}")]
     VersionConflict(u64),
+    /// The safety guard said no (ADR 0047).
+    #[error("{0}")]
+    Refused(GuardRefusal),
 }
 
 impl MitigationError {
@@ -167,6 +171,7 @@ impl MitigationError {
             MitigationError::Invalid(_) => "mitigation.invalid",
             MitigationError::Duplicate => "mitigation.duplicate",
             MitigationError::VersionConflict(_) => "mitigation.version_conflict",
+            MitigationError::Refused(refusal) => refusal.code(),
         }
     }
 }

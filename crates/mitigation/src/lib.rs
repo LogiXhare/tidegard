@@ -1,4 +1,4 @@
-//! WetechiNetMon's mitigation domain — Phase 7A
+//! WetechiNetMon's mitigation domain — Phases 7A and 7B
 //! ([ADR 0046](../../../docs/architecture/decisions/0046-phase7a-mitigation-record.md)).
 //!
 //! The record of a mitigation and the commands that move it, separate from
@@ -8,11 +8,13 @@
 //! alone (`crates/mitigator`, 7C).
 
 pub mod action;
+pub mod guard;
 pub mod mitigation;
 pub mod prefix;
 pub mod state;
 
 pub use action::{Action, ActionKind, FlowMatch};
+pub use guard::{Guard, GuardConfig, GuardRefusal};
 pub use mitigation::{
     ApprovalPolicy, Mitigation, MitigationError, MitigationId, MitigationRecord, MitigationRequest,
     Transition, WithdrawalCause,
