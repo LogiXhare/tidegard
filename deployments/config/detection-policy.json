@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "tenants": [{ "tenant": "default", "prefixes": ["192.0.2.0/24"] }],
+  "policies": [
+    {
+      "id": "host-inbound-bps",
+      "name": "Inbound traffic to one host",
+      "tenant": "default",
+      "scopeType": "host",
+      "direction": "incoming",
+      "window": "10s",
+      "thresholds": { "bps": "1G" },
+      "triggerFor": "30s",
+      "clearFor": "60s",
+      "cooldown": "300s",
+      "severity": "major",
+      "executionMode": "dryRun"
+    }
+  ]
+}
