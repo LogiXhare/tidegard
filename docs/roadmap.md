@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: Phases 0–7 complete
+Status: Phases 0–7 complete; Phases 9 and 10 planned
 Last updated: 2026-10-12
 
 This roadmap mirrors the phased delivery model and versioning plan in the
@@ -24,8 +24,8 @@ an explicit decision record, a commit, and updated documentation.
 | Phase 7 | v0.9.0 | BGP mitigation lab — ✅ complete |
 | Phase 8 | v1.1.0 | Multi-tenancy |
 | Phase 8 (cont.) | v1.2.0 | Enterprise authentication |
-| Phase 9 | — | Production hardening (feeds into v1.0.0) |
-| Phase 10 | v1.0.0 | Production-ready single-tenant release |
+| Phase 9 | — | Production hardening (feeds into v1.0.0) — planned |
+| Phase 10 | v1.0.0 | Production-ready single-tenant release — planned |
 | Future | v2.0.0 | Distributed high-availability architecture |
 
 Note: the master prompt's phase list (0–10) and version list (v0.1.0–v2.0.0)
@@ -136,6 +136,22 @@ than configured — see
 
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
+
+## Phases 9 and 10: Production Hardening and v1.0.0 — Planned
+
+Planned on 2026-10-12, with the owner's decisions on BQ-3 and BQ-16 to
+BQ-18. Phase 8 (multi-tenancy) follows v1.0.0 (BQ-4), so Phase 9 comes
+next. Phase 9 has four milestones: packaging (9A), load and soak tests
+on the `ubuntu-latest` runner against the 100,000 records a second
+target (9B), backup, restore, upgrade and rollback proven in CI (9C), and
+a security review with a fuzzing report (9D). Phase 10 adds the signed
+release pipeline (10A), the release documentation (10B) and v1.0.0
+itself (10C), after the owner signs off the production and security
+checklists. v1.0.0 is a public GitHub release signed with cosign
+keyless; it adds no automatic mitigation, and nothing is tested against
+a real network. See the
+[Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md)
+and its [acceptance criteria](development/phase9-10-acceptance-criteria.md).
 
 ## Phase 7: BGP Mitigation Lab — Complete
 

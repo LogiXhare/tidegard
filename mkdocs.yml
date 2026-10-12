@@ -83,6 +83,7 @@ nav:
       - Phase 5B PostgreSQL Persistence Plan: architecture/phase5b-postgresql-persistence-plan.md
       - Phase 6 Plan (Dashboards, UI, Notifications): architecture/phase6-dashboards-ui-notifications-plan.md
       - Phase 7 Plan (BGP Mitigation Lab): architecture/phase7-bgp-mitigation-lab-plan.md
+      - Phases 9 and 10 Plan (Production Hardening and v1.0.0): architecture/phase9-10-production-release-plan.md
       - Incident Security Model: architecture/incident-security-model.md
       - Incident API Design: architecture/incident-api-plan.md
       - Incident CLI Plan: architecture/incident-cli-plan.md
@@ -146,3 +147,4 @@ nav:
       - Phase 6 Gate 2 Assessment: development/phase6-gate2-assessment.md
       - Phase 7 Acceptance Criteria: development/phase7-acceptance-criteria.md
       - Phase 7 Gate 2 Assessment: development/phase7-gate2-assessment.md
+      - Phases 9 and 10 Acceptance Criteria: development/phase9-10-acceptance-criteria.md
