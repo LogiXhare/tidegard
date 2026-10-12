@@ -9,8 +9,8 @@ network service providers.
 
 > **Project status: Development Preview.** Phases 0–5 are complete, with
 > real, tested Rust source: collector, aggregator, detector, and incident
-> management with PostgreSQL persistence, a REST API and a CLI. There is
-> no packaged release, no web UI, no notification delivery, and
+> management with PostgreSQL persistence, a REST API, a CLI, a web NOC UI,
+> Grafana dashboards and notifications. There is no packaged release, and
 > mitigation is not implemented. See [Project Status](#project-status)
 > below before evaluating this as a production-ready product.
 
@@ -57,8 +57,8 @@ delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–5 are merged to
 - No production BGP or FlowSpec mitigation execution — automated
   mitigation is disabled and dry-run by default at every layer,
   permanently (see [Security](#security) below).
-- No notification delivery is implemented (Phase 6).
-- No web UI is implemented yet (Phase 6).
+- Notifications are delivered only to the destinations an operator
+  allows, and every message says nothing was mitigated.
 - APIs, schemas, and storage architecture may still change.
 - Production use is not yet recommended unless explicitly supported by
   WeTechi Solutions.
@@ -142,22 +142,21 @@ preview documentation, run Markdown/YAML validation). Installation
 guides for Docker Compose, Kubernetes/Helm, and bare-metal Ubuntu will be
 published once the corresponding phase ships a deployable service.
 
-*Screenshots and a quick-start walkthrough will be added once the web
-application and NOC UI exist (Phase 6) — placeholder only, no
-screenshots exist yet.*
+*The NOC UI is in [apps/web](apps/web/README.md); screenshots and a
+quick-start walkthrough are not written yet.*
 
 ## Repository Layout
 
 ```text
 wetechi-netmon/
 ├── .github/          CI, issue/PR templates, CODEOWNERS, Dependabot
-├── apps/             api and cli (Phase 5); web reserved for Phase 6
-├── crates/           Rust service crates — 10 populated with real,
+├── apps/             api and cli (Phase 5); web, the NOC UI (Phase 6)
+├── crates/           Rust service crates — 11 populated with real,
 │                     tested code (see Cargo.toml); the rest remain
 │                     README-only placeholders for later phases
 ├── deployments/       docker-compose, kubernetes, helm, systemd — reserved
 ├── docs/             product, architecture, and operational documentation
-├── grafana/          dashboards, provisioning — reserved, Phase 6
+├── grafana/          dashboards and provisioning (Phase 6)
 ├── database/         reserved; incident migrations live in crates/incident-postgres
 ├── tests/            integration, replay, performance, security, fixtures
 ├── tools/            flow-generator, flow-replay, diagnostics, migration
@@ -170,7 +169,7 @@ wetechi-netmon/
 └── prompts/          the governing master prompt for this project
 ```
 
-`crates/` (10 of them), `apps/api`, `apps/cli` and `tools/flow-replay/` carry real, tested
+`crates/` (11 of them), `apps/api`, `apps/cli`, `apps/web`, `tools/flow-replay/` and `tools/dashboard-check/` carry real, tested
 source (see `Cargo.toml`'s `[workspace] members`). Every still-empty
 directory contains a `README.md` explaining what it is reserved for and
 which phase populates it — see [docs/roadmap.md](docs/roadmap.md).

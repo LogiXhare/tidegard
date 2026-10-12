@@ -26,6 +26,21 @@ pub enum ChannelKind {
     Slack,
     Teams,
     Telegram,
+    /// SMTP, with STARTTLS or implicit TLS.
+    Email,
+}
+
+/// How an SMTP connection is secured.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SmtpTls {
+    /// Port 587: plain, then upgraded; refused if the server cannot.
+    #[default]
+    Starttls,
+    /// Port 465: TLS from the first byte.
+    Implicit,
+    /// No TLS: only with `allow_private`, for a relay on the same network.
+    None,
 }
 
 impl ChannelKind {
@@ -35,6 +50,7 @@ impl ChannelKind {
             ChannelKind::Slack => "slack",
             ChannelKind::Teams => "teams",
             ChannelKind::Telegram => "telegram",
+            ChannelKind::Email => "email",
         }
     }
 }
@@ -55,6 +71,16 @@ pub struct ChannelSpec {
     pub bot_token_file: Option<PathBuf>,
     pub chat_id: Option<String>,
     pub api_base: Option<String>,
+    /// Email: the relay, how it is secured, the sign-in, and the envelope.
+    pub smtp_host: Option<String>,
+    pub smtp_port: Option<u16>,
+    #[serde(default)]
+    pub smtp_tls: SmtpTls,
+    pub username: Option<String>,
+    pub password_file: Option<PathBuf>,
+    pub from: Option<String>,
+    #[serde(default)]
+    pub to: Vec<String>,
     /// Allows plain HTTP and private addresses: for a receiver inside the
     /// operator's network, or a test.
     #[serde(default)]
@@ -200,6 +226,13 @@ pub fn parse_file(text: &str) -> Result<File, ConfigError> {
                 spec.url_file.is_some() && spec.url.is_none()
             }
             ChannelKind::Telegram => spec.bot_token_file.is_some() && spec.chat_id.is_some(),
+            ChannelKind::Email => {
+                spec.smtp_host.is_some()
+                    && spec.from.is_some()
+                    && !spec.to.is_empty()
+                    && spec.username.is_some() == spec.password_file.is_some()
+                    && (spec.smtp_tls != SmtpTls::None || spec.allow_private)
+            }
         };
         if !ok {
             return Err(ConfigError::File(format!(
@@ -210,6 +243,8 @@ pub fn parse_file(text: &str) -> Result<File, ConfigError> {
                     ChannelKind::Slack | ChannelKind::Teams =>
                         "url_file (the URL is the secret), and no url",
                     ChannelKind::Telegram => "bot_token_file and chat_id",
+                    ChannelKind::Email =>
+                        "smtp_host, from and to; username and password_file together; and smtp_tls none only with allow_private",
                 }
             )));
         }
@@ -335,6 +370,31 @@ mod tests {
             (FILE.replace("\"ca_file\"", "\"ca\""), "an unknown field"),
         ] {
             assert!(parse_file(&broken).is_err(), "{why}");
+        }
+    }
+
+    #[test]
+    fn an_email_channel_needs_its_envelope_and_tls() {
+        let with = |channel: &str| {
+            FILE.replace(
+                "\"tg\": {",
+                &format!("\"mail\": {channel},\n            \"tg\": {{"),
+            )
+        };
+        let good = r#"{"kind": "email", "smtp_host": "smtp.example.net", "from": "noc@example.net", "to": ["oncall@example.net"], "username": "noc", "password_file": "/run/secrets/smtp"}"#;
+        let file = parse_file(&with(good)).unwrap();
+        assert_eq!(
+            file.channels["mail"].smtp_tls,
+            SmtpTls::Starttls,
+            "TLS by default"
+        );
+        for bad in [
+            r#"{"kind": "email", "smtp_host": "smtp.example.net", "from": "noc@example.net", "to": []}"#,
+            r#"{"kind": "email", "from": "noc@example.net", "to": ["a@example.net"]}"#,
+            r#"{"kind": "email", "smtp_host": "smtp.example.net", "from": "noc@example.net", "to": ["a@example.net"], "username": "noc"}"#,
+            r#"{"kind": "email", "smtp_host": "smtp.example.net", "from": "noc@example.net", "to": ["a@example.net"], "smtp_tls": "none"}"#,
+        ] {
+            assert!(parse_file(&with(bad)).is_err(), "{bad}");
         }
     }
 

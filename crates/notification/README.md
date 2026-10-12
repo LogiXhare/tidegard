@@ -7,7 +7,7 @@ It is the incident outbox's first consumer. Every attempt is recorded on
 the incident's timeline as `notification_result`, and every message says
 **mitigation: none**, because WetechiNetMon does not act on traffic.
 
-**Status:** Phase 6E-1. Email is 6E-2.
+**Status:** Phase 6E: webhook, Slack, Teams, Telegram and email.
 
 ## Running it
 
@@ -37,6 +37,15 @@ and the webhook signing secret.
       "bot_token_file": "/run/secrets/telegram-token",
       "chat_id": "-1001234567890"
     },
+    "noc-mail": {
+      "kind": "email",
+      "smtp_host": "smtp.example.net",
+      "smtp_tls": "starttls",
+      "username": "wnm-notifier",
+      "password_file": "/run/secrets/smtp-password",
+      "from": "WetechiNetMon <noc@example.net>",
+      "to": ["oncall@example.net"]
+    },
     "ticketing": {
       "kind": "webhook",
       "url": "https://tickets.example.net/hooks/wnm",
@@ -56,7 +65,7 @@ and the webhook signing secret.
       "channels": ["ticketing"]
     }
   ],
-  "allowed_hosts": ["hooks.slack.com", "*.webhook.office.com", "api.telegram.org", "tickets.example.net"],
+  "allowed_hosts": ["hooks.slack.com", "*.webhook.office.com", "api.telegram.org", "tickets.example.net", "smtp.example.net"],
   "ca_file": "/etc/ssl/certs/ca-certificates.crt",
   "ui_base_url": "https://noc.example.net",
   "rate_limit_per_minute": 30,
@@ -85,7 +94,11 @@ nowhere.
   the message through the outbox's backoff, to the failed channels only,
   and dead-letters at the limit. A `4xx` is recorded and not retried.
 - **Escaping:** untrusted titles cannot ping `@channel` in Slack, format
-  Markdown in Teams, or use a parse mode in Telegram.
+  Markdown in Teams, use a parse mode in Telegram, or add a header or a
+  recipient to an email.
+- **Email:** STARTTLS is required by default (port 587); `"smtp_tls":
+  "implicit"` is port 465. The relay's certificate is checked against
+  `ca_file` only. `"smtp_tls": "none"` needs `allow_private`.
 - **Signed webhooks:** `X-WNM-Timestamp` and
   `X-WNM-Signature: sha256=<hex HMAC-SHA-256 of "{timestamp}.{body}">`.
   Check the signature, and refuse a timestamp more than five minutes old.

@@ -37,6 +37,8 @@ pub struct Channel {
     secret: Option<Vec<u8>>,
     chat_id: Option<String>,
     allow_private: bool,
+    /// Set for an email channel; `target` then names its relay.
+    email: Option<crate::email::Email>,
 }
 
 /// What one delivery came to.
@@ -58,8 +60,36 @@ fn read_secret(path: &std::path::Path) -> Result<String, String> {
 }
 
 impl Channel {
-    pub fn load(name: &str, spec: &ChannelSpec) -> Result<Self, String> {
+    pub fn load(name: &str, spec: &ChannelSpec, ca_file: &std::path::Path) -> Result<Self, String> {
         let at = |detail: String| format!("channel {name}: {detail}");
+        if spec.kind == ChannelKind::Email {
+            let email = crate::email::Email::load(spec, ca_file).map_err(at)?;
+            let host = spec.smtp_host.clone().unwrap_or_default();
+            let port = spec
+                .smtp_port
+                .unwrap_or_else(|| crate::email::Email::default_port(spec.smtp_tls));
+            // The relay is vetted like any destination; the scheme only
+            // says whether TLS protects it.
+            let scheme = if spec.smtp_tls == crate::config::SmtpTls::None {
+                destination::Scheme::Http
+            } else {
+                destination::Scheme::Https
+            };
+            return Ok(Channel {
+                name: name.to_string(),
+                kind: spec.kind,
+                target: Target {
+                    scheme,
+                    host: host.to_ascii_lowercase(),
+                    port,
+                    path: "/".into(),
+                },
+                secret: None,
+                chat_id: None,
+                allow_private: spec.allow_private,
+                email: Some(email),
+            });
+        }
         let url = match (spec.kind, &spec.url, &spec.url_file) {
             (ChannelKind::Telegram, _, _) => {
                 let token = read_secret(spec.bot_token_file.as_deref().ok_or("no bot token")?)
@@ -83,6 +113,7 @@ impl Channel {
             secret,
             chat_id: spec.chat_id.clone(),
             allow_private: spec.allow_private,
+            email: None,
         })
     }
 
@@ -94,6 +125,7 @@ impl Channel {
             ChannelKind::Telegram => {
                 message::telegram(notice, self.chat_id.as_deref().unwrap_or(""))
             }
+            ChannelKind::Email => serde_json::Value::Null,
         }
     }
 
@@ -109,6 +141,13 @@ impl Channel {
             Ok(address) => address,
             Err(refusal) => return Delivery::Refused(refusal.to_string()),
         };
+        if let Some(email) = &self.email {
+            return match email.send(address, notice).await {
+                Ok(()) => Delivery::Delivered,
+                Err(crate::email::Failure::Transient(detail)) => Delivery::Transient(detail),
+                Err(crate::email::Failure::Permanent(detail)) => Delivery::Permanent(detail),
+            };
+        }
         let body = self.body(notice).to_string().into_bytes();
         let mut headers = Vec::new();
         if let (ChannelKind::Webhook, Some(secret)) = (self.kind, &self.secret) {
@@ -173,11 +212,13 @@ impl Notifier {
         let channels = file
             .channels
             .iter()
-            .map(|(name, spec)| Channel::load(name, spec).map(|channel| (name.clone(), channel)))
+            .map(|(name, spec)| {
+                Channel::load(name, spec, &file.ca_file).map(|channel| (name.clone(), channel))
+            })
             .collect::<Result<BTreeMap<_, _>, _>>()?;
-        let needs_tls = channels
-            .values()
-            .any(|channel| channel.target.scheme == destination::Scheme::Https);
+        let needs_tls = channels.values().any(|channel| {
+            channel.email.is_none() && channel.target.scheme == destination::Scheme::Https
+        });
         let tls = if needs_tls {
             Some(http::connector(&file.ca_file)?)
         } else {

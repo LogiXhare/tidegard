@@ -30,6 +30,11 @@ hyper = { version = "1.11.0", default-features = false, features = ["client", "h
 hyper-util = { version = "0.1.20", default-features = false, features = ["tokio"] }
 http-body-util = "0.1.5"
 bytes = "1.12.1"
+# ADR 0045 (6E-2): SMTP, with rustls on the aws-lc-rs provider the rest of
+# the workspace uses; no native-tls, no pool. `webpki-roots` only satisfies
+# lettre's compile-time check: every connection uses CertificateStore::None
+# and the configured CA bundle alone.
+lettre = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls", "aws-lc-rs", "webpki-roots"] }
 
 [dev-dependencies]
 # Local mock channels for the tests: nothing leaves the machine.

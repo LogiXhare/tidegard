@@ -155,7 +155,7 @@ API in CI, and T-08 is Met.
 **Exit:** each channel is tested against a local mock, nothing reaches the
 internet from CI, and `mitigation_status` stays `none` in every payload.
 
-**Progress:** 6E-1 ([ADR 0045](decisions/0045-phase6e-notification-delivery.md)) builds the notifier with webhook, Slack, Teams and Telegram, using no new crates: routing, the SSRF checks, deduplication and rate limits, HMAC-signed webhooks, retries to failed channels only, and `notification_result` timeline entries with no version bump. `crates/notification/tests/delivery.rs` drives it against PostgreSQL and loopback mocks. Email is 6E-2.
+**Progress:** 6E-1 ([ADR 0045](decisions/0045-phase6e-notification-delivery.md)) builds the notifier with webhook, Slack, Teams and Telegram, using no new crates: routing, the SSRF checks, deduplication and rate limits, HMAC-signed webhooks, retries to failed channels only, and `notification_result` timeline entries with no version bump. `crates/notification/tests/delivery.rs` drives it against PostgreSQL and loopback mocks. 6E-2 adds email with `lettre` (STARTTLS required by default, the relay vetted and pinned like any destination), tested against a mock SMTP relay, and narrows the dependency closure test: mail and chat crates are allowed in the notifier alone.
 
 ### 6F — Operations and hardening
 

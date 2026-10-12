@@ -8,6 +8,7 @@
 
 pub mod config;
 pub mod destination;
+pub mod email;
 pub mod hmac;
 pub mod http;
 pub mod limits;
