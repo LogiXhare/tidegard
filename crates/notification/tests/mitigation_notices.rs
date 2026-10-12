@@ -187,10 +187,14 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
     let secret = dir.join("hook");
     std::fs::write(&secret, "a-test-signing-secret").unwrap();
     let secret = secret.display().to_string().replace('\\', "/");
+    // A Slack URL is a secret, so it is only ever read from a file.
+    let slack = dir.join("slack");
+    std::fs::write(&slack, format!("http://127.0.0.1:{port}/slack")).unwrap();
+    let slack = slack.display().to_string().replace('\\', "/");
     let config = format!(
         r#"{{
             "channels": {{
-                "noc-slack": {{"kind": "slack", "url": "http://127.0.0.1:{port}/slack", "allow_private": true}},
+                "noc-slack": {{"kind": "slack", "url_file": "{slack}", "allow_private": true}},
                 "ops-hook": {{"kind": "webhook", "url": "http://127.0.0.1:{port}/hook", "secret_file": "{secret}", "allow_private": true}}
             }},
             "routes": [
