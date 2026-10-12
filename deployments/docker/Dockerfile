@@ -18,14 +18,15 @@
 # keeps its loopback default: off loopback it needs TLS (ADR 0038), which
 # the deployment configures.
 
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97 AS base
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:e792ab3d241a468a4fd7519ddbbebe66b49b5f365771716ea688ad40b6c6f1c2 AS base
 ARG VERSION=0.0.0
 LABEL org.opencontainers.image.source="https://github.com/LogiXhare/wetechi-netmon" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="WeTechi Solutions" \
       org.opencontainers.image.version="${VERSION}"
 COPY LICENSE NOTICE /usr/share/doc/wetechinetmon/
-USER nonroot:nonroot
+# Numeric, so a runtime can verify it is not root (runAsNonRoot).
+USER 65532:65532
 
 FROM base AS collector
 LABEL org.opencontainers.image.title="wetechinetmon-collector"

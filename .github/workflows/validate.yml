@@ -670,7 +670,7 @@ jobs:
               --build-arg VERSION="0.0.0-ci.${GITHUB_SHA::12}" \
               -t "wetechinetmon-$target:ci" "$unpacked"
             user=$(docker image inspect -f '{{.Config.User}}' "wetechinetmon-$target:ci")
-            [ "$user" = "nonroot:nonroot" ] || { echo "$target runs as '$user'"; exit 1; }
+            [ "$user" = "65532:65532" ] || { echo "$target runs as '$user'"; exit 1; }
           done
           docker image ls 'wetechinetmon-*'
       - name: Run an image with a read-only root filesystem

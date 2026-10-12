@@ -80,9 +80,14 @@ and `/readyz` tells an operator which instance is active.
   only by the release pipeline (10A), never from a pull request.
 - The base is distroless `cc-debian13`: glibc and CA certificates, no
   shell and no package manager. Distroless's Debian 12 images were
-  deprecated in August 2026. The base is pinned by digest, at least two
-  weeks old, and Dependabot proposes a new digest after the same wait.
-- Every image runs as distroless's `nonroot` user and works with a
+  deprecated in August 2026. The base is pinned by digest, normally at
+  least two weeks old, and Dependabot proposes a new digest after the
+  same wait. A security fix overrides the wait: the first pin moved to a
+  newer digest because Trivy found a fixable High in the older one's
+  `libssl3t64` (CVE-2026-84782), although no WetechiNetMon binary links
+  OpenSSL.
+- Every image runs as distroless's `nonroot` user, by its number
+  (65532) so a runtime can verify it is not root, and works with a
   read-only root filesystem, no capabilities and `no-new-privileges`.
   CI checks the user of each image and runs one that way.
 - Inside a container the metrics address listens on all interfaces, so a
