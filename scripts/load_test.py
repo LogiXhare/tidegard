@@ -27,6 +27,10 @@ FLOWS = "127.0.0.1:2055"
 PARSED = "wetechinetmon_collector_parsed_flow_records_total"
 QUEUE_DEPTH = "wetechinetmon_collector_queue_depth"
 LATENCY = "wetechinetmon_collector_aggregation_latency_seconds"
+# Evidence that records went through the whole pipeline, not only the parser.
+INCOMING = 'wetechinetmon_collector_classified_flows_by_direction_total{direction="incoming"}'
+ACTIVE_HOSTS = "wetechinetmon_collector_active_hosts"
+CLICKHOUSE_ROWS = "wetechinetmon_collector_clickhouse_rows_written_total"
 
 # ADR 0054, written before the first run.
 PASS_RATE = 100_000
@@ -188,6 +192,9 @@ def load(args):
                 "sent": sent,
                 "parsed": int(parsed),
                 "loss": max(0.0, 1 - parsed / sent) if sent else None,
+                "classified_incoming": int(counter(after, INCOMING) - counter(before, INCOMING)),
+                "active_hosts": int(counter(after, ACTIVE_HOSTS)),
+                "clickhouse_rows": int(counter(after, CLICKHOUSE_ROWS) - counter(before, CLICKHOUSE_ROWS)),
                 "latency_p99_seconds": p99,
                 "rss_bytes": memory.get("VmRSS"),
                 "peak_rss_bytes": memory.get("VmHWM"),
@@ -321,14 +328,15 @@ def markdown(result):
     ]
     if result["kind"] == "load":
         lines += [
-            "| Records/s | Sent | Parsed | Loss | Latency p99 | RSS | Peak RSS | CPU cores |",
-            "|---:|---:|---:|---:|---:|---:|---:|---:|",
+            "| Records/s | Sent | Parsed | Loss | Incoming | Hosts | ClickHouse rows | Latency p99 | RSS | Peak RSS | CPU cores |",
+            "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
         for s in result["steps"]:
             loss = "—" if s["loss"] is None else f"{100 * s['loss']:.3f}%"
             p99 = "—" if s["latency_p99_seconds"] is None else f"≤ {s['latency_p99_seconds']} s"
             lines.append(
-                f"| {s['rate']:,} | {s['sent']:,} | {s['parsed']:,} | {loss} | {p99} | "
+                f"| {s['rate']:,} | {s['sent']:,} | {s['parsed']:,} | {loss} | {s['classified_incoming']:,} | "
+                f"{s['active_hosts']:,} | {s['clickhouse_rows']:,} | {p99} | "
                 f"{mib(s['rss_bytes'])} | {mib(s['peak_rss_bytes'])} | {s['cpu_cores']:.2f} |"
             )
     else:
