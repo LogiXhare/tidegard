@@ -14,7 +14,9 @@ name: Validate
 # split that remains is by *environment*, not by check:
 #
 #   rust     — needs the preinstalled Rust toolchain, plus a throwaway
-#              gobgpd on loopback for the mitigator (ADR 0048)
+#              gobgpd on loopback for the mitigator (ADR 0048) and the
+#              two-speaker lab, a second gobgpd standing in for the edge
+#              router (ADR 0051)
 #   windows  — the same build and tests on a Windows runner, because the
 #              persistence plan requires the suite to build on Windows and
 #              Linux
@@ -61,21 +63,31 @@ jobs:
       # mitigator's tests announce to it; no route leaves the runner.
       - name: Start GoBGP for the mitigator tests
         run: bash scripts/start-gobgpd.sh
+      # The two-speaker lab (ADR 0051): our speaker and an edge router
+      # stand-in, peered over iBGP on 127.0.0.1 and 127.0.0.2 only.
+      - name: Start the two-speaker BGP lab
+        run: bash scripts/start-gobgp-lab.sh
       # crates/incident-postgres's tests run in the postgres job below, once
       # per supported PostgreSQL version. Here they would only skip.
-      - name: Unit + property tests (the GoBGP lab must not skip)
+      - name: Unit + property tests (the GoBGP labs must not skip)
         env:
           WETECHINETMON_GOBGP_TEST_ENDPOINT: http://127.0.0.1:50051
+          WETECHINETMON_GOBGP_LAB_SPEAKER: http://127.0.0.1:50061
+          WETECHINETMON_GOBGP_LAB_EDGE: http://127.0.0.1:50062
         run: |
           set -euo pipefail
           cargo test --workspace --exclude wetechinetmon-incident-postgres -- --nocapture 2>&1 | tee unit-test.log
-          if grep -q "skipping gobgp_lab:" unit-test.log; then
-            echo "The GoBGP lab test skipped even though gobgpd is up — failing."
-            exit 1
-          fi
-      - name: GoBGP log on failure
+          for lab in gobgp_lab two_speaker_lab; do
+            if grep -q "skipping $lab:" unit-test.log; then
+              echo "The $lab test skipped even though its gobgpd is up — failing."
+              exit 1
+            fi
+          done
+      - name: GoBGP logs on failure
         if: failure()
-        run: cat "$RUNNER_TEMP/gobgp/gobgpd.log" || true
+        run: |
+          cat "$RUNNER_TEMP/gobgp/gobgpd.log" || true
+          tail -n 100 "$RUNNER_TEMP/gobgp-lab/speaker.log" "$RUNNER_TEMP/gobgp-lab/edge.log" || true
       - name: Build (all targets)
         run: cargo build --workspace --all-targets
 
