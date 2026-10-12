@@ -92,6 +92,8 @@ request, at approval and again just before announcing:
 generated prefixes, proves nothing outside the allowlist or its bounds
 is ever accepted, and a test asserts the defaults.
 
+**Progress:** 7B ([ADR 0047](decisions/0047-phase7b-safety-guard.md)) adds `Guard` to `crates/mitigation`: a JSON configuration with dry-run on, BGP off and nothing allowlisted by default; floors of `/16` and `/32` no configuration can go below; no overlapping entries of different tenants; and five refusals, each with a stable code. The store runs it at request, at approval and when announcing begins, audits each refusal, and never refuses a withdrawal. `crates/mitigation/tests/unauthorized_prefixes.rs` holds the unauthorized-prefix suite; `crates/incident-postgres/tests/mitigation_guard.rs` proves the three moments against PostgreSQL. The runtime kill switch's storage and endpoint come in 7D and 7E.
+
 ### 7C — The GoBGP adapter
 
 The only code that speaks to GoBGP:

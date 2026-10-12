@@ -16,9 +16,10 @@ use wetechinetmon_incident::authorization::{
 use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
 use wetechinetmon_incident_postgres::mitigation::{MitigationStore, MitigationStoreError};
+use wetechinetmon_mitigation::guard::AllowlistEntry;
 use wetechinetmon_mitigation::{
-    Action, ApprovalPolicy, FlowMatch, MitigationError, MitigationRequest, MitigationState,
-    WithdrawalCause,
+    Action, ActionKind, FlowMatch, Guard, GuardConfig, MitigationError, MitigationRequest,
+    MitigationState, WithdrawalCause,
 };
 
 const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
@@ -80,10 +81,17 @@ async fn mitigations_persist_atomically_refuse_duplicates_and_replay_retries() {
         .await
         .unwrap();
 
-    let store = MitigationStore::new(
-        Arc::new(UuidV7IncidentGenerator::new()),
-        ApprovalPolicy::default(),
-    );
+    // acme may mitigate its own 192.0.2.0/24; the guard has its own suite.
+    let guard = Guard::new(GuardConfig {
+        allowlist: vec![AllowlistEntry {
+            prefix: "192.0.2.0/24".parse().unwrap(),
+            tenant: "acme".into(),
+            actions: vec![ActionKind::Rtbh, ActionKind::FlowspecDiscard],
+        }],
+        ..GuardConfig::default()
+    })
+    .unwrap();
+    let store = MitigationStore::new(Arc::new(UuidV7IncidentGenerator::new()), Arc::new(guard));
     let alice = person("acme", "alice", "senior_operator");
     let lead = person("acme", "lead", "noc_lead");
     let outsider = person("other", "lead", "noc_lead");

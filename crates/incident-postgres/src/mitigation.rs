@@ -15,6 +15,9 @@
 //!   the update matches the version it loaded.
 //! - **Retried requests** replay through `incident_idempotency`, keyed by
 //!   tenant and key, with the request's fingerprint compared byte for byte.
+//! - **The safety guard** (ADR 0047) runs when a mitigation is requested or
+//!   proposed, when it is approved, and when announcing begins. Its
+//!   refusals are audited as `denied`, like a missing permission.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,8 +29,9 @@ use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permiss
 use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident::id::IncidentGenerator;
 use wetechinetmon_mitigation::{
-    Action, ActionKind, ApprovalPolicy, FlowMatch, Mitigation, MitigationError, MitigationId,
-    MitigationRecord, MitigationRequest, MitigationState, Transition, WithdrawalCause,
+    Action, ActionKind, ApprovalPolicy, FlowMatch, Guard, Mitigation, MitigationError,
+    MitigationId, MitigationRecord, MitigationRequest, MitigationState, Transition,
+    WithdrawalCause,
 };
 
 use crate::error::PersistError;
@@ -133,15 +137,35 @@ impl From<tokio_postgres::Error> for MitigationStoreError {
 /// the mitigator.
 pub struct MitigationStore {
     generator: Arc<dyn IncidentGenerator>,
+    guard: Arc<Guard>,
     approval: ApprovalPolicy,
 }
 
 impl MitigationStore {
-    pub fn new(generator: Arc<dyn IncidentGenerator>, approval: ApprovalPolicy) -> Self {
+    pub fn new(generator: Arc<dyn IncidentGenerator>, guard: Arc<Guard>) -> Self {
+        let approval = guard.approval_policy();
         MitigationStore {
             generator,
+            guard,
             approval,
         }
+    }
+
+    pub fn guard(&self) -> &Guard {
+        &self.guard
+    }
+
+    /// The guard's verdict on a mitigation as it stands.
+    fn guarded(&self, record: &MitigationRecord) -> Result<(), MitigationError> {
+        self.guard
+            .check(
+                &record.tenant,
+                &record.prefix,
+                &record.action,
+                record.duration,
+                false,
+            )
+            .map_err(MitigationError::Refused)
     }
 
     /// An operator asks for a mitigation. A retry with the same key and
@@ -200,10 +224,18 @@ impl MitigationStore {
         } else {
             Mitigation::request(ctx, id.clone(), request)
         };
+        let attempted = if propose {
+            Permission::MitigationPropose
+        } else {
+            Permission::MitigationRequest
+        };
         let (mitigation, transition) = match built {
             Ok(built) => built,
-            Err(error) => return Err(self.refused(client, ctx, &id, error).await),
+            Err(error) => return Err(self.refused(client, ctx, &id, error, attempted).await),
         };
+        if let Err(error) = self.guarded(mitigation.record()) {
+            return Err(self.refused(client, ctx, &id, error, attempted).await);
+        }
 
         let tx = client.transaction().await?;
         let tenant = ctx.tenant().as_str();
@@ -325,9 +357,14 @@ impl MitigationStore {
         expected_version: u64,
     ) -> Result<MitigationRecord, MitigationStoreError> {
         let policy = self.approval;
-        self.change(client, ctx, id, Some(expected_version), |m, ctx| {
-            m.approve(ctx, policy)
-        })
+        self.change(
+            client,
+            ctx,
+            id,
+            Some(expected_version),
+            Permission::MitigationApprove,
+            |m, ctx| m.approve(ctx, policy),
+        )
         .await
     }
 
@@ -339,9 +376,14 @@ impl MitigationStore {
         expected_version: u64,
         reason: &str,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, Some(expected_version), |m, ctx| {
-            m.reject(ctx, reason)
-        })
+        self.change(
+            client,
+            ctx,
+            id,
+            Some(expected_version),
+            Permission::MitigationApprove,
+            |m, ctx| m.reject(ctx, reason),
+        )
         .await
     }
 
@@ -353,9 +395,14 @@ impl MitigationStore {
         expected_version: u64,
         reason: &str,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, Some(expected_version), |m, ctx| {
-            m.withdraw(ctx, reason)
-        })
+        self.change(
+            client,
+            ctx,
+            id,
+            Some(expected_version),
+            Permission::MitigationWithdraw,
+            |m, ctx| m.withdraw(ctx, reason),
+        )
         .await
     }
 
@@ -369,9 +416,14 @@ impl MitigationStore {
         id: &MitigationId,
         dry_run: bool,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, None, |m, ctx| {
-            m.begin_announcing(ctx, dry_run)
-        })
+        self.change(
+            client,
+            ctx,
+            id,
+            None,
+            Permission::MitigationExecute,
+            |m, ctx| m.begin_announcing(ctx, dry_run),
+        )
         .await
     }
 
@@ -381,8 +433,15 @@ impl MitigationStore {
         ctx: &AuthorizationContext,
         id: &MitigationId,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, None, |m, ctx| m.mark_active(ctx))
-            .await
+        self.change(
+            client,
+            ctx,
+            id,
+            None,
+            Permission::MitigationExecute,
+            |m, ctx| m.mark_active(ctx),
+        )
+        .await
     }
 
     pub async fn mark_failed(
@@ -392,8 +451,15 @@ impl MitigationStore {
         id: &MitigationId,
         error: &str,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, None, |m, ctx| m.mark_failed(ctx, error))
-            .await
+        self.change(
+            client,
+            ctx,
+            id,
+            None,
+            Permission::MitigationExecute,
+            |m, ctx| m.mark_failed(ctx, error),
+        )
+        .await
     }
 
     pub async fn begin_withdrawal(
@@ -403,9 +469,14 @@ impl MitigationStore {
         id: &MitigationId,
         cause: WithdrawalCause,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, None, |m, ctx| {
-            m.begin_withdrawal(ctx, cause)
-        })
+        self.change(
+            client,
+            ctx,
+            id,
+            None,
+            Permission::MitigationExecute,
+            |m, ctx| m.begin_withdrawal(ctx, cause),
+        )
         .await
     }
 
@@ -415,8 +486,15 @@ impl MitigationStore {
         ctx: &AuthorizationContext,
         id: &MitigationId,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, None, |m, ctx| m.mark_withdrawn(ctx))
-            .await
+        self.change(
+            client,
+            ctx,
+            id,
+            None,
+            Permission::MitigationExecute,
+            |m, ctx| m.mark_withdrawn(ctx),
+        )
+        .await
     }
 
     pub async fn expire(
@@ -425,8 +503,15 @@ impl MitigationStore {
         ctx: &AuthorizationContext,
         id: &MitigationId,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(client, ctx, id, None, |m, ctx| m.expire(ctx))
-            .await
+        self.change(
+            client,
+            ctx,
+            id,
+            None,
+            Permission::MitigationExecute,
+            |m, ctx| m.expire(ctx),
+        )
+        .await
     }
 
     async fn change<F>(
@@ -435,6 +520,7 @@ impl MitigationStore {
         ctx: &AuthorizationContext,
         id: &MitigationId,
         expected_version: Option<u64>,
+        attempted: Permission,
         command: F,
     ) -> Result<MitigationRecord, MitigationStoreError>
     where
@@ -454,11 +540,23 @@ impl MitigationStore {
             }
         }
         let mut mitigation = Mitigation::from_record(record);
-        let transition = match command(&mut mitigation, ctx) {
+        let checked = command(&mut mitigation, ctx).and_then(|transition| {
+            // Approval and announcing are the last moments a mitigation can
+            // be stopped before a route exists: the guard decides again,
+            // under the configuration in force now.
+            if matches!(
+                transition.to,
+                MitigationState::Approved | MitigationState::Announcing
+            ) {
+                self.guarded(mitigation.record())?;
+            }
+            Ok(transition)
+        });
+        let transition = match checked {
             Ok(transition) => transition,
             Err(error) => {
                 tx.rollback().await?;
-                return Err(self.refused(client, ctx, id, error).await);
+                return Err(self.refused(client, ctx, id, error, attempted).await);
             }
         };
         let record = mitigation.record();
@@ -492,18 +590,20 @@ impl MitigationStore {
     }
 
     /// Audits a refusal that the caller is entitled to see as one, and
-    /// passes the error on. Only refusals of permission are audited: a
-    /// missing mitigation or an illegal transition is not a security event.
+    /// passes the error on. Refusals of permission, of self-approval and by
+    /// the guard are audited: an attempt on another tenant's prefix is a
+    /// security event. A missing mitigation or an illegal transition is not.
     async fn refused(
         &self,
         client: &Client,
         ctx: &AuthorizationContext,
         id: &MitigationId,
         error: MitigationError,
+        attempted: Permission,
     ) -> MitigationStoreError {
         let action = match &error {
             MitigationError::Forbidden(permission) => permission.name(),
-            MitigationError::SelfApproval => Permission::MitigationApprove.name(),
+            MitigationError::SelfApproval | MitigationError::Refused(_) => attempted.name(),
             _ => return error.into(),
         };
         let actor = match actor_columns(ctx.actor(), "actor") {

@@ -14,6 +14,10 @@ migration V19). Talking to GoBGP is the mitigator's alone
 - `state`: the lifecycle; nothing reaches a route without approval.
 - `mitigation`: request, propose, approve, reject, withdraw, and the
   mitigator's steps, each authorized and versioned.
+- `guard`: the safety guard ([ADR 0047](../../docs/architecture/decisions/0047-phase7b-safety-guard.md)):
+  the allowlist, its tenants and actions, length floors and bounds, the
+  maximum duration and the kill switch. A fresh install is dry-run, with
+  BGP off and nothing allowlisted.
 
 ```sh
 cargo test -p wetechinetmon-mitigation
