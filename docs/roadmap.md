@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: Phases 0–6 complete; Phase 7 planned, 7A next
+Status: Phases 0–7 complete
 Last updated: 2026-10-12
 
 This roadmap mirrors the phased delivery model and versioning plan in the
@@ -21,7 +21,7 @@ an explicit decision record, a commit, and updated documentation.
 | Phase 5 | v0.6.0 | Incident lifecycle — ✅ complete |
 | Phase 6 | v0.7.0 | Grafana and native UI — ✅ complete |
 | Phase 6 (cont.) | v0.8.0 | Notification integrations — ✅ complete |
-| Phase 7 | v0.9.0 | BGP mitigation lab |
+| Phase 7 | v0.9.0 | BGP mitigation lab — ✅ complete |
 | Phase 8 | v1.1.0 | Multi-tenancy |
 | Phase 8 (cont.) | v1.2.0 | Enterprise authentication |
 | Phase 9 | — | Production hardening (feeds into v1.0.0) |
@@ -137,7 +137,34 @@ than configured — see
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
 
-## Phase 7: BGP Mitigation Lab — Planned
+## Phase 7: BGP Mitigation Lab — Complete
+
+**Complete on 2026-10-12**, in six milestones:
+
+- **7A:** the mitigation record and its state machine, with no route
+  before approval and no self-approval by default
+  ([ADR 0046](architecture/decisions/0046-phase7a-mitigation-record.md)).
+- **7B:** the safety guard: dry-run and BGP off by default, a per-tenant
+  allowlist, prefix floors no configuration can lower, and bounded
+  durations
+  ([ADR 0047](architecture/decisions/0047-phase7b-safety-guard.md)).
+- **7C:** the GoBGP adapter over gRPC, with vendored, checksummed protos,
+  the ownership community, and plaintext to loopback only
+  ([ADR 0048](architecture/decisions/0048-phase7c-gobgp-adapter.md)).
+- **7D:** the mitigator service: announcing, expiry, reconciliation, the
+  kill switch and proposals
+  ([ADR 0049](architecture/decisions/0049-phase7d-mitigator-service.md)).
+- **7E:** mitigations in the API, the CLI, the UI and notifications, and
+  the incident's real `mitigation_status`
+  ([ADR 0050](architecture/decisions/0050-phase7e-mitigation-api-cli-ui.md)).
+- **7F:** the two-speaker lab, the RTBH and FlowSpec guides, the runbook,
+  the installation guide and threats T-42 to T-48
+  ([ADR 0051](architecture/decisions/0051-phase7f-two-speaker-lab.md)).
+
+The [Gate 2 assessment](development/phase7-gate2-assessment.md) finds
+every criterion met. T-21 stays partial and FU-65 open until Phase 8.
+
+### Phase 7 planning
 
 Planned on 2026-10-12, with the owner's decisions on BQ-4 and BQ-13 to
 BQ-15. Six milestones: the mitigation record (7A), the safety guard

@@ -8,6 +8,33 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Added — Phase 7 BGP mitigation lab
+
+- Mitigations (`crates/mitigation`, migrations V19 to V21): RTBH,
+  parent-prefix, FlowSpec discard and FlowSpec rate-limit. Each is
+  requested or proposed, approved by a NOC lead, never self-approved by
+  default, audited, and written to the outbox with every change.
+- A safety guard: dry-run and BGP off by default, a per-tenant
+  allowlist, prefix floors of /16 and /32 that no configuration can
+  lower, bounded durations, and a kill switch that any NOC lead can
+  engage and only the API host can release.
+- `wetechinetmon-mitigator`, the only process that speaks to GoBGP
+  (v4.9.0, over gRPC, plaintext to loopback only). It announces,
+  expires, reconciles by an ownership community, proposes for critical
+  incidents, and records BGP peers.
+- Mitigations in the API (eleven endpoints), the CLI (`mitigations`,
+  `kill-switch`, `bgp`), the NOC UI (a Mitigations page, tested end to
+  end through GoBGP), and notifications (mitigation events, the kill
+  switch, `bgp.peer_down` and `bgp.peer_up`). The incident's
+  `mitigation_status` and `notification_status` come from the records.
+- A two-speaker BGP lab in CI that proves what an edge router receives.
+  The [RTBH](docs/operations/rtbh-guide.md) and
+  [FlowSpec](docs/operations/flowspec-guide.md) guides, the
+  [mitigation runbook](docs/operations/mitigation-runbook.md), the
+  [installation guide](docs/installation/mitigation.md), threats T-42 to
+  T-48, and the
+  [Gate 2 assessment](docs/development/phase7-gate2-assessment.md).
+
 ### Added — Phase 6 dashboards, NOC UI and notifications
 
 - Four [Grafana dashboards](grafana/dashboards) as code, with
