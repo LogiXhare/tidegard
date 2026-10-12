@@ -11,15 +11,25 @@
 #
 # On demand, and on pull requests that change the benchmark itself so a
 # broken harness is caught before anyone needs it.
+#
+# Phase 9B (ADR 0054) adds the pipeline load test, beside it, and the
+# soak, on demand only with soak_hours above 0.
 
 name: Benchmark
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      soak_hours:
+        description: "Soak hours (0 runs the benchmarks and the load test instead)"
+        default: "0"
   pull_request:
     branches: [main]
     paths:
       - crates/incident-postgres/tests/benchmark.rs
+      - tools/flow-replay/**
+      - scripts/load_test.py
+      - scripts/api_load.py
       - .github/workflows/benchmark.yml
 
 permissions:
@@ -32,6 +42,7 @@ concurrency:
 jobs:
   incident-persistence:
     name: Incident persistence (PostgreSQL 17)
+    if: github.event_name != 'workflow_dispatch' || inputs.soak_hours == '0'
     runs-on: ubuntu-latest
     # ADR 0025 recommends 17. The credential is the same throwaway one the
     # validate workflow uses; nothing here is a secret.
@@ -73,3 +84,224 @@ jobs:
           cargo test --release -p wetechinetmon-incident-postgres --test benchmark \
             -- --ignored --exact benchmark_incident_persistence --nocapture 2>&1 | tee bench.log
           grep -q "test benchmark_incident_persistence ... ok" bench.log
+
+  # ADR 0054: the collector at stepped rates, judged at 100,000 records/s.
+  # flow-replay's rate mode sends on loopback; PostgreSQL and ClickHouse
+  # are service containers with throwaway credentials, as elsewhere.
+  pipeline-load:
+    name: Pipeline load (ADR 0054)
+    if: github.event_name != 'workflow_dispatch' || inputs.soak_hours == '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services: &load-services
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wetechinetmon_test
+          POSTGRES_PASSWORD: wetechinetmon_test_only
+          POSTGRES_DB: wetechinetmon_incident_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.8.24.9
+        env:
+          CLICKHOUSE_USER: wetechinetmon_test
+          CLICKHOUSE_PASSWORD: wetechinetmon_test_only
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+        ports:
+          - 58123:8123
+    env: &load-env
+      DATABASE: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+      WETECHINETMON_COLLECTOR_LOCAL_PREFIXES: 10.0.0.0/8@default
+      WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS: "5"
+      WETECHINETMON_COLLECTOR_CLICKHOUSE_URL: http://127.0.0.1:58123
+      WETECHINETMON_COLLECTOR_CLICKHOUSE_USER: wetechinetmon_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build (release)
+        run: cargo build --release -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-flow-replay
+      - name: Start the incident manager (it applies the migrations)
+        run: &start-manager |
+          set -euo pipefail
+          # Detection is evaluated on every scope, but no threshold is
+          # reached: the test measures the pipeline, not incident creation.
+          cat > "$RUNNER_TEMP/policy.json" <<'JSON'
+          {"schemaVersion": 1,
+           "tenants": [{"tenant": "default", "prefixes": ["10.0.0.0/8"]}],
+           "policies": [{"id": "load-host-inbound", "name": "load host inbound", "tenant": "default",
+             "scopeType": "host", "direction": "incoming", "window": "5s",
+             "thresholds": {"bps": "100G"}, "triggerFor": "15s", "clearFor": "15s",
+             "cooldown": "60s", "severity": "major", "executionMode": "dryRun"}]}
+          JSON
+          printf '%s\n' wetechinetmon_test_only > "$RUNNER_TEMP/clickhouse-password"
+          {
+            echo "WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE=$RUNNER_TEMP/policy.json"
+            echo "WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=$RUNNER_TEMP/clickhouse-password"
+            echo "WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL=$DATABASE"
+          } >> "$GITHUB_ENV"
+          WETECHINETMON_INCIDENT_DATABASE_URL="$DATABASE" \
+            WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
+            nohup target/release/wetechinetmon-incident-manager > manager.log 2>&1 &
+          for _ in $(seq 60); do
+            curl -sf http://127.0.0.1:9091/readyz >/dev/null && break
+            sleep 1
+          done
+          curl -sS --fail-with-body http://127.0.0.1:9091/readyz
+      - name: Load test
+        run: |
+          python3 scripts/load_test.py load \
+            --collector target/release/wetechinetmon-collector \
+            --replay target/release/flow-replay --out load-results
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pipeline-load
+          path: |
+            load-results/
+            manager.log
+          retention-days: 90
+
+  # ADR 0054 (9B-2): API latency with 10,000 incidents in the database.
+  # They are made the way production makes them: a flood to 10,000
+  # hosts through the collector, the inbox and the incident manager.
+  api-latency:
+    name: API latency (ADR 0054)
+    if: github.event_name != 'workflow_dispatch' || inputs.soak_hours == '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wetechinetmon_test
+          POSTGRES_PASSWORD: wetechinetmon_test_only
+          POSTGRES_DB: wetechinetmon_incident_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build (release)
+        run: cargo build --release -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-api -p wetechinetmon-flow-replay
+      - name: Make 10,000 incidents through the pipeline
+        run: |
+          set -euo pipefail
+          # 100,000 records/s over 10,000 hosts is 1.2 Mbit/s per host,
+          # over this policy's 1 Mbit/s: one incident per host.
+          cat > "$RUNNER_TEMP/policy.json" <<'JSON'
+          {"schemaVersion": 1,
+           "tenants": [{"tenant": "default", "prefixes": ["10.0.0.0/8"]}],
+           "policies": [{"id": "api-host-inbound", "name": "API test host inbound", "tenant": "default",
+             "scopeType": "host", "direction": "incoming", "window": "1s",
+             "thresholds": {"bps": "1M"}, "triggerFor": "2s", "clearFor": "5s",
+             "cooldown": "60s", "severity": "major", "executionMode": "dryRun"}]}
+          JSON
+          WETECHINETMON_INCIDENT_DATABASE_URL="$DATABASE" \
+            WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
+            nohup target/release/wetechinetmon-incident-manager > manager.log 2>&1 &
+          for _ in $(seq 60); do
+            curl -sf http://127.0.0.1:9091/readyz >/dev/null && break
+            sleep 1
+          done
+          curl -sS --fail-with-body http://127.0.0.1:9091/readyz
+          WETECHINETMON_COLLECTOR_BIND=127.0.0.1:2055 \
+            WETECHINETMON_COLLECTOR_METRICS_BIND=127.0.0.1:9090 \
+            WETECHINETMON_COLLECTOR_LOCAL_PREFIXES=10.0.0.0/8@default \
+            WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE="$RUNNER_TEMP/policy.json" \
+            WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS=1 \
+            WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL="$DATABASE" \
+            nohup target/release/wetechinetmon-collector > collector.log 2>&1 &
+          for _ in $(seq 60); do
+            curl -sf http://127.0.0.1:9090/readyz >/dev/null && break
+            sleep 1
+          done
+          count() {
+            docker exec "${{ job.services.postgres.id }}" psql -U wetechinetmon_test \
+              -d wetechinetmon_incident_test -tAc "SELECT count(*) FROM incidents"
+          }
+          # The inbox holds 10,000 events per tenant; a burst of that size can
+          # overflow it, so flood again until every host has its incident.
+          for _ in 1 2 3; do
+            target/release/flow-replay 127.0.0.1:2055 --rate 100000 --hosts 10000 --duration-secs 20
+            for _ in $(seq 45); do
+              [ "$(count)" -ge 10000 ] && break
+              sleep 2
+            done
+            [ "$(count)" -ge 10000 ] && break
+          done
+          echo "incidents: $(count)"
+          [ "$(count)" -ge 10000 ]
+      - name: Start the API and issue a token per client
+        run: |
+          set -euo pipefail
+          WETECHINETMON_API_DATABASE_URL="$DATABASE" \
+            nohup target/release/wetechinetmon-api > api.log 2>&1 &
+          for _ in $(seq 60); do
+            curl -sf http://127.0.0.1:8080/readyz >/dev/null && break
+            sleep 1
+          done
+          for client in $(seq 16); do
+            WETECHINETMON_API_DATABASE_URL="$DATABASE" target/release/wetechinetmon-api \
+              token create --tenant default --actor-id "api-load-$client" --role viewer --days 1 \
+              | awk '/^token:/ {print $2}'
+          done > "$RUNNER_TEMP/tokens.txt"
+          [ "$(grep -c . "$RUNNER_TEMP/tokens.txt")" -eq 16 ]
+      - name: API latency
+        run: |
+          python3 scripts/api_load.py --base http://127.0.0.1:8080 \
+            --tokens "$RUNNER_TEMP/tokens.txt" --seconds 60 --out api-results
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-latency
+          path: |
+            api-results/
+            manager.log
+            collector.log
+            api.log
+          retention-days: 90
+
+  # ADR 0054: five hours at 50,000 records/s. On demand only: run the
+  # workflow with soak_hours set (5 for the real soak).
+  pipeline-soak:
+    name: Pipeline soak (ADR 0054)
+    if: github.event_name == 'workflow_dispatch' && inputs.soak_hours != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    services: *load-services
+    env: *load-env
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build (release)
+        run: cargo build --release -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-flow-replay
+      - name: Start the incident manager (it applies the migrations)
+        run: *start-manager
+      - name: Soak test
+        env:
+          SOAK_HOURS: ${{ inputs.soak_hours }}
+        run: |
+          python3 scripts/load_test.py soak --hours "$SOAK_HOURS" --rate 50000 \
+            --collector target/release/wetechinetmon-collector \
+            --replay target/release/flow-replay --out soak-results
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pipeline-soak
+          path: |
+            soak-results/
+            manager.log
+          retention-days: 90

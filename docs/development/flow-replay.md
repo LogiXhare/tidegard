@@ -22,6 +22,22 @@ cargo run -p wetechinetmon-flow-replay -- <target_host:port> [options]
 | `--exporters N` | number of distinct observation domains to simulate | `1` |
 | `--sampling-rate N` | advertise this rate via an Options Template | none |
 
+## Rate Mode (load and soak tests)
+
+`--rate N` sends N IPv4 flow records a second for `--duration-secs`,
+40 to a datagram, over `--hosts` local hosts (default 1,000, in
+`10.0.0.0/8`) from 50 remote ones in `203.0.113.0/24`. It paces itself
+against the clock and ends with one line a script can read:
+
+```text
+load: sent 6000000 records in 150000 datagrams over 60.000 s (100000 records/s)
+```
+
+`scripts/load_test.py` uses it for the Phase 9B load and soak tests
+([ADR 0054](../architecture/decisions/0054-phase9b-load-and-soak.md)),
+comparing what was sent with what the collector parsed. As with every
+mode, point it only at a collector you run.
+
 ## Address Convention
 
 The tool doesn't know the target collector's configured local prefixes,

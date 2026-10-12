@@ -11,9 +11,11 @@ Last updated: 2026-08-20
   [blocking-questions.md](blocking-questions.md)).
 - Aggregation and detection latency must be bounded and observable via
   Prometheus metrics (`aggregation_latency`, `detection_latency`).
-- API p99 latency and error budgets to be defined in Phase 9 (production
-  hardening) once real workload data exists; no fabricated numbers before
-  then.
+- API latency budget (Phase 9B, ADR 0054): with 10,000 incidents and 16
+  concurrent clients, the incident list, an incident's detail and the
+  mitigation list each answer within 250 ms at p99, with no error
+  response. Measured on 2026-10-13 at 23, 107 and 20 ms
+  ([capacity planning](operations/capacity-planning.md#api-latency-measured)).
 
 ## NFR-2 Reliability and Availability
 

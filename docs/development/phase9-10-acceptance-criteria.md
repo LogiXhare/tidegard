@@ -47,7 +47,8 @@ them concrete.
   None is estimated.
 - If the 100,000 records a second target is missed, the published result
   says so.
-- The six-hour soak shows no unbounded memory growth and no restart.
+- The five-hour soak (the longest that fits a hosted job with its build,
+  ADR 0054) shows no unbounded memory growth and no restart.
 
 ### Backup, restore, upgrade and rollback (9C)
 
