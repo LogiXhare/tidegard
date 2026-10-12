@@ -91,8 +91,8 @@ the pipeline on the reference runner:
 - **API latency:** P50, P95 and P99 for the incident and mitigation
   endpoints under concurrent clients, against a database holding
   realistic history. This sets the budgets NFR-1 left to Phase 9.
-- **Soak:** the stack under steady load for six hours, the longest a
-  hosted job may run. Reported: memory over time, queue depths, error
+- **Soak:** the stack under steady load for five hours, which with the
+  build fits the six hours a hosted job may run (ADR 0054). Reported: memory over time, queue depths, error
   counts and restarts.
 - Pass criteria are written in the 9B ADR before the first run, so the
   numbers are judged against them rather than the reverse. If the target
@@ -102,6 +102,8 @@ the pipeline on the reference runner:
 published in [capacity planning](../operations/capacity-planning.md),
 replacing "No sustained-throughput benchmark has been run". FU-12 is
 closed with numbers.
+
+**Progress:** 9B-1 ([ADR 0054](decisions/0054-phase9b-load-and-soak.md)) wrote the pass criteria before any run, added `flow-replay --rate` and `scripts/load_test.py`, and ran the load test in the benchmark workflow. On the reference runner the whole collector took 200,000 records a second with no loss, 13 MiB peak memory and under half a core; the 100,000 step meets every criterion. The figures, with their machine and what they do not cover, are in [capacity planning](../operations/capacity-planning.md#flow-pipeline-measured). FU-12 is closed. API latency (9B-2) and the five-hour soak (9B-3) follow.
 
 ### 9C — Backup, restore, upgrade and rollback
 

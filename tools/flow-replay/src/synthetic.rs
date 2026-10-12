@@ -196,6 +196,46 @@ pub fn data_message_ipv4(
     )
 }
 
+/// One IPv4 flow record for [`data_message_ipv4_batch`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ipv4Record {
+    pub source: Ipv4Addr,
+    pub destination: Ipv4Addr,
+    pub source_port: u16,
+    pub destination_port: u16,
+    pub protocol: IpProtocol,
+    pub byte_count: u64,
+    pub packet_count: u64,
+}
+
+/// The bytes one record takes in [`template_message_ipv4`]'s layout.
+pub const IPV4_RECORD_LEN: usize = 29;
+
+/// A Data Set of several IPv4 flow records, as a real exporter batches
+/// them. `sequence_number` counts data records sent before this message
+/// (RFC 7011), so the caller adds `records.len()` after sending.
+pub fn data_message_ipv4_batch(
+    sequence_number: u32,
+    observation_domain_id: u32,
+    records: &[Ipv4Record],
+) -> Vec<u8> {
+    let mut body = Vec::with_capacity(records.len() * IPV4_RECORD_LEN);
+    for record in records {
+        body.extend_from_slice(&record.source.octets());
+        body.extend_from_slice(&record.destination.octets());
+        body.extend_from_slice(&record.source_port.to_be_bytes());
+        body.extend_from_slice(&record.destination_port.to_be_bytes());
+        body.push(record.protocol.number());
+        body.extend_from_slice(&record.byte_count.to_be_bytes());
+        body.extend_from_slice(&record.packet_count.to_be_bytes());
+    }
+    wrap_message(
+        wrap_set(TEMPLATE_ID_IPV4, body),
+        sequence_number,
+        observation_domain_id,
+    )
+}
+
 /// A Data Set of one IPv6 flow record matching [`template_message_ipv6`].
 #[allow(clippy::too_many_arguments)]
 pub fn data_message_ipv6(

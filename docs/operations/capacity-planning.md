@@ -1,6 +1,7 @@
 # Capacity Planning
 
-Status: The flow-rate target (Phase 3) is **not yet benchmarked**. The
+Status: The flow-rate target **was measured on 2026-10-13** (Phase 9B)
+and met: see [Flow pipeline, measured](#flow-pipeline-measured). The
 incident database **was benchmarked on 2026-10-05** (Phase 5F); see
 [Incident persistence, measured](#incident-persistence-measured).
 
@@ -10,14 +11,51 @@ incident database **was benchmarked on 2026-10-05** (Phase 5F); see
 > documented test machine, without packet generation over public
 > networks.
 
-This is a **target**, not a benchmark result. No performance benchmark
-has been executed against this target — per
-`prompts/CLAUDE_MASTER_PROMPT.md` §30 rule 12 and the explicit Phase 3
-instruction not to claim a performance target was met without an actual
-benchmark run and recorded machine specifications, this document makes
-no throughput claim. Benchmarking is a Phase 9 (production hardening)
-deliverable; Phase 3 defines the target so Phase 9's benchmark has
-something concrete to measure against.
+Phase 3 set this target; Phase 9B measured it, with pass criteria
+written before the first run
+([ADR 0054](../architecture/decisions/0054-phase9b-load-and-soak.md)).
+
+## Flow pipeline, measured
+
+Two runs on GitHub's `ubuntu-latest` runner (BQ-3): AMD EPYC 7763,
+4 cores, 15.6 GiB, image `ubuntu24 20261004.327.1`, kernel
+6.17.0-1022-azure. Run
+[38295046486](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38295046486),
+repeated from
+[38293786205](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38293786205)
+with the same results. Each step lasted 60 seconds.
+
+| Records/s | Sent | Parsed | Loss | Classified incoming | Hosts tracked | Peak RSS | CPU (cores) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 25,000 | 1,499,952 | 1,499,952 | 0% | 1,499,952 | 1,050 | 10 MiB | 0.06 |
+| 50,000 | 2,999,860 | 2,999,860 | 0% | 2,999,860 | 1,050 | 11 MiB | 0.12 |
+| **100,000** | 5,999,749 | 5,999,749 | **0%** | 5,999,749 | 1,050 | **11 MiB** | **0.24** |
+| 150,000 | 8,999,733 | 8,999,733 | 0% | 8,999,733 | 1,050 | 12 MiB | 0.33 |
+| 200,000 | 11,999,452 | 11,999,452 | 0% | 11,999,452 | 1,050 | 13 MiB | 0.41 |
+
+The 100,000 step meets every ADR 0054 criterion: no loss (at most 0.1%
+allowed), aggregation latency p99 in the first histogram bucket (at most
+5 ms; 1 s allowed), 11 MiB peak resident memory (1 GiB allowed), no
+error and no restart. 200,000, the highest step, is not a ceiling: the
+collector used under half a core there.
+
+What the run was, so it is not read as more:
+
+- **The whole collector**: decoding, classification, aggregation, the
+  detector evaluating one policy on every host, the incident inbox and
+  ClickHouse export (about 4,200 rows a minute), with PostgreSQL and
+  ClickHouse as local service containers.
+- **One exporter, 40 records to a datagram, 1,000 local hosts and 50
+  remote ones, IPv4 only**, from `flow-replay --rate` on the same
+  runner. Real exporters send fewer records to a datagram, from many
+  sources, over more hosts; those cost more per record. No threshold
+  was crossed, so no incident was created during the run.
+- **Loss** is `1 - parsed / sent`, so it includes anything the kernel
+  dropped before the collector read it.
+- **A floor, not a promise** for other hardware. Measure your own with
+  `scripts/load_test.py`, as the
+  [benchmark workflow](https://github.com/LogiXhare/wetechi-netmon/blob/main/.github/workflows/benchmark.yml)
+  does.
 
 ## Memory Sizing (Aggregator)
 
@@ -204,12 +242,13 @@ defines what will actually be measured at Milestone 5B-5.
 
 ## What This Document Does Not Claim
 
-- No sustained-throughput benchmark has been run.
-- No memory-under-load measurement has been taken.
-- No latency-under-load (P50/P95/P99) figures exist yet.
+- The flow pipeline **is** measured, above, for one shape of traffic.
+  Many exporters, small datagrams, IPv6 and high host cardinality are
+  not yet.
+- The five-hour soak and the API latency under load (ADR 0054, 9B-2 and
+  9B-3) are reported separately when they have run.
 - PostgreSQL latency and throughput for the incident database **are**
   measured, above. Index growth beyond 10,000 incidents, and latency
   through the HTTP API, are not.
 
-The rest are Phase 9 deliverables, once a documented test machine and a
-load-generation setup exist.
+The soak and the API latency are the remaining Phase 9B measurements.
