@@ -725,6 +725,7 @@ jobs:
           {
             echo "WETECHINETMON_IMAGE_PREFIX=wetechinetmon-"
             echo "WETECHINETMON_LOCAL_PREFIXES=10.0.0.0/8@default"
+            echo "WETECHINETMON_DETECTION_WINDOW_SECS=1"
             echo "WETECHINETMON_DETECTION_POLICY=$RUNNER_TEMP/ci-policy.json"
           } >> .env
           stat -c '%a %U %n' .env tls/*.key secrets/*

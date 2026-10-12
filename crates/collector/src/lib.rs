@@ -153,6 +153,18 @@ pub async fn run_until(
         Some(path) => match detection::load_policy_file(path) {
             Ok(policies) => {
                 let count = policies.policies.len();
+                // A policy whose window differs from the collector's is never
+                // evaluated (the detector counts it as windowMismatch). Say so
+                // at startup, by name, rather than detect nothing quietly.
+                let window = Duration::from_secs(config.detection_window_secs);
+                for policy in policies.policies.iter().filter(|p| p.window != window) {
+                    tracing::error!(
+                        policy = %policy.id,
+                        policy_window_secs = policy.window.as_secs_f64(),
+                        collector_window_secs = config.detection_window_secs,
+                        "this policy will never be evaluated: its window differs from WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS"
+                    );
+                }
                 let extra_sinks = match &config.incident_database {
                     Some(database) => {
                         let tenants: std::collections::BTreeSet<String> = policies

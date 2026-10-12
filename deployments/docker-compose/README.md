@@ -66,6 +66,7 @@ Put these in `.env` next to the ones `setup.sh` wrote:
 | `WETECHINETMON_IMAGE_PREFIX` | `ghcr.io/logixhare/wetechinetmon-` | Where the images come from |
 | `WETECHINETMON_LOCAL_PREFIXES` | `192.0.2.0/24@default` | Your own prefixes, as for the collector |
 | `WETECHINETMON_DETECTION_POLICY` | `../config/detection-policy.json` | The detection policy file |
+| `WETECHINETMON_DETECTION_WINDOW_SECS` | `5` | The detection window; must equal every policy's `window`, or that policy is never evaluated |
 | `WETECHINETMON_NOTIFIER_CONFIG` | `../config/notifier.json` | The notifier's channels and routes |
 | `WETECHINETMON_TRAFFIC_TENANT` | `default` | The tenant traffic pages show |
 | `WETECHINETMON_API_PUBLISH` | `127.0.0.1:8443` | Where the API is published |
