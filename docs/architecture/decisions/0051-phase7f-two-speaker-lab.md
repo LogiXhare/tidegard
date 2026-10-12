@@ -63,8 +63,8 @@ so the edge sees exactly WetechiNetMon's routes. The test checks:
 
 The test needs `WETECHINETMON_GOBGP_LAB_SPEAKER` and
 `WETECHINETMON_GOBGP_LAB_EDGE`. Without them it says why and passes. The
-CI rust job starts the lab and fails if the test skipped, as it does for
-the single-speaker test.
+CI rust job and each PostgreSQL job start the lab and fail if the test
+skipped, as they do for the single-speaker test.
 
 ## Consequences
 
