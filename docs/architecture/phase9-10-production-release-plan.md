@@ -64,8 +64,9 @@ installable artifacts:
   with a read-only root filesystem. The web UI is served by the API, as
   it is today.
 - **A Docker Compose reference stack** in `deployments/docker-compose`:
-  PostgreSQL, ClickHouse, the services, and `gobgpd` bound to loopback
-  inside its network namespace, with dry-run and BGP off.
+  PostgreSQL, ClickHouse and the services, with TLS between them, dry-run
+  and BGP off. `gobgpd` stays out of it: BGP runs from the tarball,
+  beside `gobgpd` on loopback (ADR 0052).
 - CI builds every image, scans it with Trivy, lints the Dockerfiles and
   shell scripts, and verifies the units with `systemd-analyze verify`.
 

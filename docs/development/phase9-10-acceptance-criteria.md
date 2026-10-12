@@ -25,8 +25,8 @@ them concrete.
 - An install from the packaged artifacts is dry-run with BGP disabled,
   asserted by a test against the packaged configuration files.
 - The Compose reference stack publishes no port beyond the API, the
-  collector and the metrics endpoints, and `gobgpd`'s API is reachable
-  only inside its own network namespace.
+  collector and the metrics endpoints, every connection between its
+  containers uses TLS, and it runs no `gobgpd`.
 
 ### Packaging (9A)
 
