@@ -87,3 +87,4 @@ yet:
 | [0043](0043-phase6c-browser-sessions.md) | Phase 6C Browser Sessions | Accepted |
 | [0044](0044-phase6d-noc-ui.md) | Phase 6D NOC UI: Build, Serving and Supply Chain | Accepted |
 | [0045](0045-phase6e-notification-delivery.md) | Phase 6E Notification Delivery | Accepted |
+| [0046](0046-phase7a-mitigation-record.md) | Phase 7A The Mitigation Record | Accepted |

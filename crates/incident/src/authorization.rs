@@ -54,6 +54,20 @@ pub enum Permission {
     /// until Phase 8, so the API also requires the caller to be in the
     /// one configured traffic tenant.
     TrafficRead,
+    /// Read mitigations (ADR 0046).
+    MitigationRead,
+    /// Ask for a mitigation. Nothing is announced until it is approved.
+    MitigationRequest,
+    /// Approve or reject a mitigation: `noc_lead` and above.
+    MitigationApprove,
+    /// Take an approved mitigation down.
+    MitigationWithdraw,
+    /// Propose a mitigation for an incident. The mitigator only, never a
+    /// human role: a proposal still needs an approver.
+    MitigationPropose,
+    /// Move a mitigation through announcing, active, withdrawing and the
+    /// ends. The mitigator only, never a human role.
+    MitigationExecute,
 }
 
 impl Permission {
@@ -87,6 +101,12 @@ impl Permission {
             PlatformIncidentAdmin => "platform.incident.admin",
             TrafficRead => "traffic.read",
             IncidentNotificationRecord => "incident.notification.record",
+            MitigationRead => "mitigation.read",
+            MitigationRequest => "mitigation.request",
+            MitigationApprove => "mitigation.approve",
+            MitigationWithdraw => "mitigation.withdraw",
+            MitigationPropose => "mitigation.propose",
+            MitigationExecute => "mitigation.execute",
         }
     }
 }
@@ -159,6 +179,23 @@ impl AuthorizationContext {
         }
     }
 
+    /// The mitigator's context for a tenant (ADR 0046): it may read,
+    /// propose and carry out mitigations, and never approve one.
+    pub fn mitigator(tenant: TenantId, consumer_id: &str) -> Self {
+        AuthorizationContext {
+            tenant,
+            actor: Actor::ServiceAccount {
+                id: consumer_id.to_string(),
+            },
+            granted: vec![
+                Permission::IncidentRead,
+                Permission::MitigationRead,
+                Permission::MitigationPropose,
+                Permission::MitigationExecute,
+            ],
+        }
+    }
+
     pub fn correlator(tenant: TenantId) -> Self {
         AuthorizationContext {
             tenant,
@@ -197,7 +234,7 @@ pub struct FixedBundleResolver;
 impl PermissionResolver for FixedBundleResolver {
     fn permissions_for(&self, role: &str) -> Vec<Permission> {
         use Permission::*;
-        let viewer = vec![IncidentRead, IncidentList, TrafficRead];
+        let viewer = vec![IncidentRead, IncidentList, TrafficRead, MitigationRead];
         let operator = {
             let mut v = viewer.clone();
             v.extend([
@@ -217,6 +254,8 @@ impl PermissionResolver for FixedBundleResolver {
                 IncidentClose,
                 IncidentReopen,
                 IncidentCreate,
+                MitigationRequest,
+                MitigationWithdraw,
             ]);
             v
         };
@@ -229,6 +268,7 @@ impl PermissionResolver for FixedBundleResolver {
                 IncidentConfigRead,
                 IncidentUpdate,
                 IncidentNoteRedact,
+                MitigationApprove,
             ]);
             v
         };
@@ -301,6 +341,39 @@ mod tests {
                 .permissions_for(role)
                 .contains(&Permission::IncidentIngest));
         }
+    }
+
+    #[test]
+    fn only_the_mitigator_proposes_or_executes() {
+        let resolver = FixedBundleResolver;
+        for role in [
+            "viewer",
+            "operator",
+            "senior_operator",
+            "noc_lead",
+            "platform_admin",
+        ] {
+            let granted = resolver.permissions_for(role);
+            assert!(!granted.contains(&Permission::MitigationPropose), "{role}");
+            assert!(!granted.contains(&Permission::MitigationExecute), "{role}");
+        }
+        let mitigator = AuthorizationContext::mitigator(TenantId::new("acme"), "m1");
+        assert!(mitigator.has(Permission::MitigationExecute));
+        assert!(!mitigator.has(Permission::MitigationApprove));
+        assert!(!mitigator.has(Permission::MitigationRequest));
+    }
+
+    #[test]
+    fn approval_starts_at_noc_lead() {
+        let resolver = FixedBundleResolver;
+        for role in ["viewer", "operator", "senior_operator"] {
+            assert!(!resolver
+                .permissions_for(role)
+                .contains(&Permission::MitigationApprove));
+        }
+        assert!(resolver
+            .permissions_for("noc_lead")
+            .contains(&Permission::MitigationApprove));
     }
 
     #[test]

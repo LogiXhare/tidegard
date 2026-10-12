@@ -321,7 +321,10 @@ pub(crate) fn actor_columns(
     })
 }
 
-fn actor_from(columns: ActorColumns, column: &'static str) -> Result<Actor, PersistError> {
+pub(crate) fn actor_from(
+    columns: ActorColumns,
+    column: &'static str,
+) -> Result<Actor, PersistError> {
     match (columns.actor_type.as_str(), columns.actor_id) {
         ("operator", Some(id)) => Ok(Actor::Operator { id }),
         ("service_account", Some(id)) => Ok(Actor::ServiceAccount { id }),

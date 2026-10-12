@@ -1,0 +1,17 @@
+[package]
+name = "wetechinetmon-mitigation"
+description = "WetechiNetMon mitigation domain — Phase 7A: the mitigation record, its states and who may move it. Dependency-free: no database, no BGP, no network."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# The tenant, actor and permission types every command carries, so a
+# mitigation is authorized exactly as an incident is.
+wetechinetmon-incident = { path = "../incident" }
+thiserror.workspace = true
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+proptest.workspace = true

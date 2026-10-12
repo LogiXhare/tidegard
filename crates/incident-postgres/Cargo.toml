@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 wetechinetmon-incident = { path = "../incident" }
+# The mitigation domain (ADR 0046): this crate stores its records.
+wetechinetmon-mitigation = { path = "../mitigation" }
 # Workspace-internal crate, not a third-party dependency: the row mapping
 # reads the scope, direction, family and severity types the incident
 # snapshot carries.

@@ -2,9 +2,9 @@
 //! incident path can act on traffic or deliver a notification (ADR 0007,
 //! ADR 0011, FU-9), proven from the dependency graph, not by review.
 //!
-//! - The detector's and the incident domain's normal-dependency closures
-//!   must stay inside a reviewed allowlist. A new crate fails this test
-//!   until someone reviews it and adds it here.
+//! - The detector's, the incident domain's and the mitigation domain's
+//!   normal-dependency closures must stay inside a reviewed allowlist. A
+//!   new crate fails this test until someone reviews it and adds it here.
 //! - No crate anywhere in the workspace may be a routing, device-access or
 //!   packet crate.
 //! - Mail and chat crates are allowed in the notifier alone (Phase 6E,
@@ -56,6 +56,7 @@ const ALLOWED: &[&str] = &[
     "wetechinetmon-common",
     "wetechinetmon-detector",
     "wetechinetmon-incident",
+    "wetechinetmon-mitigation",
     "windows-link",
     "windows-sys",
     "zmij",
@@ -120,6 +121,13 @@ fn the_detector_depends_only_on_reviewed_crates() {
 #[test]
 fn the_incident_domain_depends_only_on_reviewed_crates() {
     assert_allowed("wetechinetmon-incident");
+}
+
+/// The mitigation domain (ADR 0046) is as pure as the incident domain:
+/// GoBGP and gRPC belong to the mitigator alone.
+#[test]
+fn the_mitigation_domain_depends_only_on_reviewed_crates() {
+    assert_allowed("wetechinetmon-mitigation");
 }
 
 fn carrying<'a>(names: &'a BTreeSet<String>, fragments: &[&str]) -> Vec<&'a String> {

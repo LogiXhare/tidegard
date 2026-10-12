@@ -10,6 +10,7 @@ members = [
     "crates/incident-postgres",
     "crates/incident-manager",
     "crates/notification",
+    "crates/mitigation",
     "crates/storage",
     "crates/collector",
     "apps/api",

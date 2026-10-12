@@ -96,15 +96,21 @@ permissions are what the code checks.
 | `platform.incident.admin` | Cross-tenant administration — platform only |
 | `incident.notification.record` | Record a notification's outcome on the timeline — the notifier only, never a human role ([ADR 0045](decisions/0045-phase6e-notification-delivery.md)) |
 | `traffic.read` | Read deployment-wide traffic, from the one traffic tenant only ([ADR 0042](decisions/0042-phase6b-traffic-read-api.md)) |
+| `mitigation.read` | Read mitigations ([ADR 0046](decisions/0046-phase7a-mitigation-record.md)) |
+| `mitigation.request` | Ask for a mitigation; nothing is announced until it is approved |
+| `mitigation.approve` | Approve or reject a mitigation; not your own unless the deployment allows it |
+| `mitigation.withdraw` | Take an approved mitigation down |
+| `mitigation.propose` | Propose a mitigation for an incident — the mitigator only, never a human role |
+| `mitigation.execute` | Announce, withdraw and end mitigations — the mitigator only, never a human role |
 
 Suggested bundles, deployment-configurable:
 
 | Role | Permissions |
 |---|---|
-| `viewer` | read, list, traffic.read |
+| `viewer` | read, list, traffic.read, mitigation.read |
 | `operator` | viewer + acknowledge, assign, investigate, note.create |
-| `senior_operator` | operator + severity.change, priority.change, resolve, close, reopen, create |
-| `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact |
+| `senior_operator` | operator + severity.change, priority.change, resolve, close, reopen, create, mitigation.request, mitigation.withdraw |
+| `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact, mitigation.approve |
 | `platform_admin` | all, including platform permissions |
 
 `incident.closure_policy.override` appears in **no** default bundle, not

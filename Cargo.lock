@@ -2467,6 +2467,17 @@ dependencies = [
  "wetechinetmon-detector",
  "wetechinetmon-incident",
  "wetechinetmon-incident-postgres",
+ "wetechinetmon-mitigation",
+]
+
+[[package]]
+name = "wetechinetmon-mitigation"
+version = "0.0.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "thiserror 2.0.21",
+ "wetechinetmon-incident",
 ]
 
 [[package]]

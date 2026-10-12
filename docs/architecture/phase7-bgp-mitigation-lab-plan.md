@@ -70,6 +70,8 @@ A mitigation is a new aggregate in PostgreSQL, separate from the incident:
 illegal transition, the migration applies on PostgreSQL 15 to 18, and a
 duplicate request for the same prefix and action is refused.
 
+**Progress:** 7A ([ADR 0046](decisions/0046-phase7a-mitigation-record.md)) adds `crates/mitigation`, a pure domain crate held to the reviewed allowlist by the dependency closure test, with canonical prefixes, the four actions and their structural checks, the ten states, and every command with its permission. Six permissions join the bundles: `mitigation.read`, `request`, `withdraw` and `approve` for people, `propose` and `execute` for the mitigator alone. V19 adds `mitigations` and `mitigation_history`; audit, outbox and idempotency reuse the polymorphic incident tables. `crates/incident-postgres/tests/mitigations.rs` proves atomic writes, duplicate refusal under a race, idempotent replay, version conflicts, self-approval refusal, denied audits and tenant isolation on PostgreSQL 15 to 18. A request carries no route attributes: those are the mitigator's configuration.
+
 ### 7B — The safety guard
 
 A pure, dependency-free check that every path to GoBGP goes through, at
