@@ -1,6 +1,6 @@
 # Incident Threat Tests
 
-Status: **Phase 5F security review**, 2026-10-05; Phase 6 threats T-30 to T-41 added, and T-08 updated, 2026-10-12.
+Status: **Phase 5F security review**, 2026-10-05; Phase 6 threats T-30 to T-41 added, and T-08 updated, 2026-10-12; Phase 7 threats T-42 to T-48 added, 2026-10-12.
 
 This maps each threat in the [threat model](incident-threat-model.md) to
 the tests that prove its control. Gate 2 requires that every threat has a
@@ -79,17 +79,24 @@ jobs must show the test as `ok`, and it must not have skipped.
 | T-39 Content injection into a channel | Met (6E) | `crates/notification/src/message.rs` `hostile_titles_cannot_mention_link_or_format`; `crates/notification/src/email.rs`, `tests/email.rs` (no injected header or recipient) |
 | T-40 Cross-tenant traffic disclosure | Met (6B) | `apps/api/tests/tenant_isolation.rs` (another tenant's `noc_lead` gets `404` on every traffic endpoint); `apps/api/tests/traffic.rs` |
 | T-41 Query injection into ClickHouse | Met (6B) | `apps/api/src/clickhouse.rs` `every_request_is_read_only_bounded_and_parameterised`; `apps/api/tests/traffic.rs` (hostile dimensions are `400`) |
+| T-42 Route leak | Met (7C, 7F) | `crates/mitigator/src/route.rs` `the_configuration_has_safe_defaults_and_strict_parsing`, `rtbh_carries_the_next_hop_communities_and_ownership`; `crates/mitigator/tests/two_speaker_lab.rs` (the edge receives `NO_EXPORT`) |
+| T-43 Overly broad blackhole | Met (7B) | `crates/mitigation/tests/unauthorized_prefixes.rs`; `crates/mitigation/src/guard.rs` `a_dangerous_configuration_is_refused`; `crates/mitigation/src/action.rs` `rtbh_is_a_host_route_and_a_parent_is_not`; `crates/incident-postgres/tests/mitigation_guard.rs` |
+| T-44 Stale route | Met (7D, 7F) | `crates/mitigator/tests/mitigator_service.rs` (expiry, reconciliation, kill switch); `crates/mitigator/tests/two_speaker_lab.rs` (nothing at the edge after withdrawal) |
+| T-45 Approval bypass | Met (7A, 7E) | `crates/mitigation/src/state.rs` `nothing_reaches_a_route_without_approval`; `crates/mitigation/src/mitigation.rs` `a_requester_cannot_approve_their_own_unless_allowed`; `crates/incident/src/authorization.rs` `only_the_mitigator_proposes_or_executes`; `apps/api/tests/mitigations.rs`; `apps/web/e2e/mitigation.spec.ts` |
+| T-46 Exposed GoBGP API | Met, as implemented (7C) | `crates/mitigator/src/gobgp.rs` `plain_http_is_refused_off_loopback_and_https_needs_a_bundle`. `gobgpd`'s own listening address is the operator's configuration: the installation guide binds it to loopback, and CI's labs do. |
+| T-47 Kill-switch release by a stolen token | Met (7E) | `apps/api/tests/mitigations.rs` (a lead's release is `403`; the host command releases); `apps/cli/tests/mitigation_commands.rs` |
+| T-48 Cross-tenant blackhole | Met (7B, 7E) | `crates/mitigation/tests/unauthorized_prefixes.rs` `another_tenants_space_is_refused_with_the_same_answer_as_nobodys`; `apps/api/tests/tenant_isolation.rs` |
 
 ## Summary
 
 | Status | Count |
 |---|---|
-| Met | 37 |
-| Met, as implemented | 3 (T-03, T-18, T-34) |
+| Met | 43 |
+| Met, as implemented | 4 (T-03, T-18, T-34, T-46) |
 | Partial | 1 (T-21 → FU-60) |
 | Deferred | 0 |
 
-One of the 41 threats is partial, so the Gate 2 criterion "every threat
+One of the 48 threats is partial, so the Gate 2 criterion "every threat
 has a passing test" is not fully met. T-21 needs a user directory, which
 arrives with Phase 8. Being named as assignee grants nothing, and a test
 proves it.

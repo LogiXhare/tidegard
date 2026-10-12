@@ -19,3 +19,8 @@ Written so far:
   incident manager, its alerts, and the dead-letter procedure
 - [Backup and Restore](backup-and-restore.md) — Phase 5F: the incident
   database, and the drill CI runs on every pull request
+- [RTBH Guide](rtbh-guide.md) — Phase 7F: blackholing, and what the edge
+  routers must do
+- [FlowSpec Guide](flowspec-guide.md) — Phase 7F: discard and rate limit
+- [Mitigation Runbook](mitigation-runbook.md) — Phase 7F: the kill switch,
+  stale routes, peers down and failed mitigations

@@ -106,6 +106,7 @@ nav:
   - Installation:
       - Overview: installation/index.md
       - Incident Management: installation/incident-management.md
+      - BGP Mitigation: installation/mitigation.md
   - Configuration:
       - Overview: configuration/index.md
       - Local Prefixes: configuration/prefixes.md
@@ -123,6 +124,9 @@ nav:
       - Capacity Planning: operations/capacity-planning.md
       - Backup and Restore: operations/backup-and-restore.md
       - Incident Runbook: operations/incident-runbook.md
+      - RTBH Guide: operations/rtbh-guide.md
+      - FlowSpec Guide: operations/flowspec-guide.md
+      - Mitigation Runbook: operations/mitigation-runbook.md
   - API Reference:
       - Overview: api/index.md
       - Incident API Plan: api/incident-api-plan.md
