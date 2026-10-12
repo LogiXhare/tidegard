@@ -1,0 +1,26 @@
+[package]
+name = "wetechinetmon-mitigator"
+description = "WetechiNetMon mitigator — Phase 7C: the only code that speaks to GoBGP, over its gRPC API (BQ-13, ADR 0048)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+wetechinetmon-mitigation = { path = "../mitigation" }
+# GoBGP's gRPC API (ADR 0048). Client only, TLS through rustls with the
+# aws-lc-rs provider every other client here uses.
+tonic = { version = "0.14.6", default-features = false, features = ["codegen", "channel", "tls-aws-lc"] }
+tonic-prost = "0.14.6"
+prost = "0.14.4"
+prost-types = "0.14.4"
+tokio = { workspace = true }
+thiserror.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+# Compiles the vendored GoBGP .proto files in pure Rust: no protoc binary
+# on any machine or in CI.
+tonic-prost-build = "0.14.6"
+protox = "0.9.1"

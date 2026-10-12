@@ -19,13 +19,13 @@ before any commercial distribution.
 | 1 | Rust toolchain | Core language | MIT / Apache-2.0 dual | None | Safe | REQUIRES VERIFICATION (version pin) |
 | 2 | tokio | Async runtime | MIT (verified via `cargo metadata` against v1.53.1) | None | Safe | **Approved** — vendored in `crates/collector`, `tools/flow-replay` (Phase 2) |
 | 3 | axum | REST API framework | MIT | None | Safe | REQUIRES VERIFICATION (version pin) |
-| 4 | tonic | gRPC framework | MIT | None | Safe | REQUIRES VERIFICATION (version pin) |
+| 4 | tonic (with tonic-prost, prost, prost-types; build-time tonic-prost-build, protox) | gRPC client to GoBGP | MIT (tonic, tonic-prost, tonic-prost-build); Apache-2.0 (prost, prost-types); MIT or Apache-2.0 (protox) | None | Safe | **Approved** 2026-10-12 — tonic 0.14.6, prost 0.14.4, protox 0.9.1, in `crates/mitigator` only, enforced by the dependency closure test ([ADR 0048](architecture/decisions/0048-phase7c-gobgp-adapter.md)) |
 | 5 | serde / serde_json / serde_yaml | Serialization | MIT / Apache-2.0 dual | None | Safe | REQUIRES VERIFICATION (version pin) |
 | 6 | clap | CLI argument parsing | MIT / Apache-2.0 dual | None | Safe | REQUIRES VERIFICATION (version pin) |
 | 7 | sqlx | PostgreSQL client | MIT / Apache-2.0 dual | None | Safe | REQUIRES VERIFICATION (version pin) |
 | 8 | tracing / tracing-subscriber | Structured logging/tracing | MIT (verified via `cargo metadata` against v0.1.44 / v0.3.23) | None | Safe | **Approved** — vendored in `crates/common` (Phase 2) |
 | 9 | prometheus (Rust crate) | Metrics | Apache-2.0 (verified via `cargo metadata` against v0.14.0) | None | Safe | **Approved** — vendored in `crates/collector` (Phase 2) |
-| 10 | GoBGP | BGP speaker (external process/API dependency, not linked) | Apache-2.0 — REQUIRES VERIFICATION | None expected at Apache-2.0 | Likely safe; verify integration is via API/process boundary, not static link, before assuming no obligations | REQUIRES VERIFICATION |
+| 10 | GoBGP | BGP speaker (external process, reached over its gRPC API, not linked) | Apache-2.0 (verified at v4.9.0) | None: only its `.proto` files are vendored, unmodified, with its `LICENSE` beside them in `crates/mitigator/proto/` | Safe; the operator runs `gobgpd` | **Approved** 2026-10-12 — v4.9.0 pinned by version and checksum in CI ([ADR 0048](architecture/decisions/0048-phase7c-gobgp-adapter.md)) |
 | 11 | ClickHouse (server, external service) | Analytics storage | Apache-2.0 — REQUIRES VERIFICATION | None expected | Safe as external service dependency | REQUIRES VERIFICATION — integration code written (Phase 3, `crates/storage`) and unit-tested, but no live ClickHouse server was reachable in this environment to verify the actual write path end to end; see docs/integrations/clickhouse.md |
 | 12 | PostgreSQL (server, external service) | Config/metadata storage | PostgreSQL License (permissive) — REQUIRES VERIFICATION | None | Safe | REQUIRES VERIFICATION |
 | 13 | Prometheus (server) | Metrics collection | Apache-2.0 — REQUIRES VERIFICATION | None | Safe | REQUIRES VERIFICATION |
