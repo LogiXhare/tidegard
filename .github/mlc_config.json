@@ -17,6 +17,18 @@
     },
     {
       "pattern": "^https://github.com/LogiXhare/wetechi-netmon/blob/"
+    },
+    {
+      "pattern": "^https://github.com/badshashorif/wetechi-netmon/security/advisories/new"
+    },
+    {
+      "pattern": "^https://github.com/badshashorif/wetechi-netmon/discussions"
+    },
+    {
+      "pattern": "^https://github.com/badshashorif/wetechi-netmon/compare/"
+    },
+    {
+      "pattern": "^https://github.com/badshashorif/wetechi-netmon/blob/"
     }
   ],
   "aliveStatusCodes": [
