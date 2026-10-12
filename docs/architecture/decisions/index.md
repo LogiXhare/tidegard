@@ -94,3 +94,4 @@ yet:
 | [0050](0050-phase7e-mitigation-api-cli-ui.md) | Phase 7E Mitigations in the API, CLI and UI | Accepted |
 | [0051](0051-phase7f-two-speaker-lab.md) | Phase 7F The Two-Speaker BGP Lab | Accepted |
 | [0052](0052-phase9a-packaging.md) | Phase 9A Packaging | Accepted |
+| [0053](0053-phase9a-collector-clickhouse-tls.md) | Phase 9A The Collector's ClickHouse Connection | Accepted |

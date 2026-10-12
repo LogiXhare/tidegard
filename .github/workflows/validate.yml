@@ -23,7 +23,8 @@ name: Validate
 #   postgres — Rust plus an ephemeral PostgreSQL service container, once
 #              per supported version (ADR 0025), for crates/incident-postgres
 #   grafana  — Rust plus throwaway ClickHouse, Prometheus and Grafana
-#              containers, to run every dashboard query for real (ADR 0041)
+#              containers, to run every dashboard query for real (ADR 0041),
+#              and the collector's ClickHouse export over TLS (ADR 0053)
 #   web      — Node, for the NOC UI in apps/web (ADR 0044)
 #   e2e      — the UI in a real browser against the real API, incident
 #              manager and PostgreSQL (Phase 6D-4), and the mitigator with
@@ -255,13 +256,58 @@ jobs:
       GRAFANA_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # HTTPS on 8443 too, with a certificate from a throwaway CA made here
+      # and destroyed with the runner, for the collector's TLS export test
+      # (ADR 0053). The key is world-readable only because ClickHouse runs
+      # as another user inside its container.
       - name: Start ClickHouse and Prometheus
         run: |
           set -euo pipefail
+          dir="$RUNNER_TEMP/ch-tls"
+          mkdir -p "$dir"
+          for ca in ca other-ca; do
+            openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=wetechinetmon CI $ca" \
+              -addext "basicConstraints=critical,CA:TRUE" \
+              -addext "keyUsage=critical,keyCertSign,cRLSign" \
+              -keyout "$dir/$ca.key" -out "$dir/$ca.pem"
+          done
+          openssl req -newkey rsa:2048 -nodes -subj "/CN=localhost" \
+            -keyout "$dir/server.key" -out "$dir/server.csr"
+          printf '%s\n' "subjectAltName=DNS:localhost" "basicConstraints=critical,CA:FALSE" \
+            "keyUsage=critical,digitalSignature,keyEncipherment" "extendedKeyUsage=serverAuth" \
+            > "$dir/server.ext"
+          openssl x509 -req -in "$dir/server.csr" -CA "$dir/ca.pem" -CAkey "$dir/ca.key" \
+            -CAcreateserial -days 2 -extfile "$dir/server.ext" -out "$dir/server.crt"
+          chmod 0644 "$dir/server.key"
+          cat > "$dir/tls.xml" <<'XML'
+          <clickhouse>
+            <https_port>8443</https_port>
+            <openSSL>
+              <server>
+                <certificateFile>/etc/clickhouse-server/tls/server.crt</certificateFile>
+                <privateKeyFile>/etc/clickhouse-server/tls/server.key</privateKeyFile>
+                <verificationMode>none</verificationMode>
+                <loadDefaultCAFile>false</loadDefaultCAFile>
+                <disableProtocols>sslv2,sslv3,tlsv1,tlsv1_1</disableProtocols>
+              </server>
+            </openSSL>
+          </clickhouse>
+          XML
+          printf '%s\n' "$CLICKHOUSE_PASSWORD" > "$dir/password"
+          {
+            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_URL=https://localhost:8443"
+            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_CA=$dir/ca.pem"
+            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_OTHER_CA=$dir/other-ca.pem"
+            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_USER=$CLICKHOUSE_USER"
+            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_PASSWORD_FILE=$dir/password"
+          } >> "$GITHUB_ENV"
           docker network create wnm
           docker run -d --name clickhouse --network wnm -p 127.0.0.1:8123:8123 \
+            -p 127.0.0.1:8443:8443 \
             -e CLICKHOUSE_USER -e CLICKHOUSE_PASSWORD \
             -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+            -v "$dir/tls.xml:/etc/clickhouse-server/config.d/tls.xml:ro" \
+            -v "$dir:/etc/clickhouse-server/tls:ro" \
             clickhouse/clickhouse-server:26.8.24.9
           docker run -d --name prometheus --network wnm prom/prometheus:v3.13.4
           for _ in $(seq 60); do
@@ -280,6 +326,18 @@ jobs:
           curl -sS --fail-with-body --user "$CLICKHOUSE_USER:$CLICKHOUSE_PASSWORD" \
             --data-binary "SELECT name FROM system.tables WHERE database = 'default' ORDER BY name" \
             http://127.0.0.1:8123/
+      # The test skips (and passes) without its variables, so fail if it
+      # skipped: a green run must mean it ran.
+      - name: The collector's ClickHouse export over TLS (ADR 0053)
+        run: |
+          set -euo pipefail
+          for _ in $(seq 30); do
+            curl -sf --cacert "$WETECHINETMON_CLICKHOUSE_TLS_TEST_CA" https://localhost:8443/ping >/dev/null && break
+            sleep 1
+          done
+          cargo test -p wetechinetmon-storage --test clickhouse_tls -- --nocapture 2>&1 | tee tls-test.log
+          ! grep -q "skipping exports_over_verified_tls_with_credentials" tls-test.log
+          grep -q "test exports_over_verified_tls_with_credentials ... ok" tls-test.log
       - name: Start Grafana with the shipped dashboards
         run: |
           set -euo pipefail

@@ -6,6 +6,7 @@
 //! dumping ground for unrelated helpers.
 
 pub mod flow;
+pub mod http_endpoint;
 pub mod logging;
 #[cfg(feature = "metrics-server")]
 pub mod metrics_server;
