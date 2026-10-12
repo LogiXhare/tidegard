@@ -88,8 +88,8 @@ records a second that [capacity planning](operations/capacity-planning.md)
 already sets. The reference machine is GitHub's `ubuntu-latest` hosted
 runner, and every published figure names the machine and links its run.
 Anyone can repeat the measurement, and a runner is described as a floor,
-not a promise for other hardware. Soak runs last six hours, the longest a
-hosted job may run. See the
+not a promise for other hardware. Soak runs last five hours: with the build,
+that fills the six hours a hosted job may run (ADR 0054). See the
 [Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md).
 
 ## BQ-4: Does Phase 8 (multi-tenancy/RBAC) land before or after the v1.0.0 release cut?

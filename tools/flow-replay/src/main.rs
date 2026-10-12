@@ -13,6 +13,7 @@
 //! configured as a local prefix (see
 //! docs/development/flow-replay.md).
 
+mod load;
 mod patterns;
 mod synthetic;
 
@@ -106,6 +107,11 @@ fn print_usage() {
     eprintln!("  --duration-secs N  how long the pattern runs (default 30)");
     eprintln!("  --peak-bps N       bits/sec the pattern peaks at (default 10000000)");
     eprintln!();
+    eprintln!("rate mode, for load and soak tests (ADR 0054; overrides --count):");
+    eprintln!("  --rate N           IPv4 flow records per second, 40 to a datagram");
+    eprintln!("  --duration-secs N  how long to send (default 30)");
+    eprintln!("  --hosts N          local hosts the records spread over (default 1000)");
+    eprintln!();
     eprintln!("  A pattern varies volume over time and nothing else. Every record is the");
     eprintln!("  same synthetic, well-formed IPFIX record — no spoofing, no amplification,");
     eprintln!("  nothing resembling real attack traffic.");
@@ -127,6 +133,8 @@ struct Args {
     pattern: Option<Pattern>,
     duration_secs: u64,
     peak_bps: u64,
+    rate: Option<u64>,
+    hosts: u32,
 }
 
 fn parse_args() -> Option<Args> {
@@ -141,6 +149,8 @@ fn parse_args() -> Option<Args> {
     let mut pattern = None;
     let mut duration_secs = 30u64;
     let mut peak_bps = 10_000_000u64;
+    let mut rate = None;
+    let mut hosts = 1_000u32;
 
     while let Some(flag) = args.next() {
         let value = args.next()?;
@@ -154,6 +164,8 @@ fn parse_args() -> Option<Args> {
             "--pattern" => pattern = Some(Pattern::parse(&value)?),
             "--duration-secs" => duration_secs = value.parse().ok()?,
             "--peak-bps" => peak_bps = value.parse().ok()?,
+            "--rate" => rate = Some(value.parse().ok()?),
+            "--hosts" => hosts = value.parse().ok().filter(|n: &u32| *n > 0)?,
             _ => return None,
         }
     }
@@ -169,6 +181,8 @@ fn parse_args() -> Option<Args> {
         pattern,
         duration_secs,
         peak_bps,
+        rate,
+        hosts,
     })
 }
 
@@ -251,6 +265,27 @@ async fn main() -> std::io::Result<()> {
 
     let socket = UdpSocket::bind("0.0.0.0:0").await?;
     socket.connect(&args.target).await?;
+
+    if let Some(rate) = args.rate {
+        // One line a script can read: what was sent, and how fast.
+        let report = load::run(
+            &socket,
+            1,
+            rate,
+            std::time::Duration::from_secs(args.duration_secs),
+            args.hosts,
+        )
+        .await?;
+        let seconds = report.elapsed.as_secs_f64();
+        println!(
+            "load: sent {} records in {} datagrams over {:.3} s ({:.0} records/s)",
+            report.records,
+            report.datagrams,
+            seconds,
+            report.records as f64 / seconds
+        );
+        return Ok(());
+    }
 
     for exporter in 0..args.exporters {
         let observation_domain_id = exporter + 1;

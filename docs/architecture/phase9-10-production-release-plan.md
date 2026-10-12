@@ -91,8 +91,8 @@ the pipeline on the reference runner:
 - **API latency:** P50, P95 and P99 for the incident and mitigation
   endpoints under concurrent clients, against a database holding
   realistic history. This sets the budgets NFR-1 left to Phase 9.
-- **Soak:** the stack under steady load for six hours, the longest a
-  hosted job may run. Reported: memory over time, queue depths, error
+- **Soak:** the stack under steady load for five hours, which with the
+  build fits the six hours a hosted job may run (ADR 0054). Reported: memory over time, queue depths, error
   counts and restarts.
 - Pass criteria are written in the 9B ADR before the first run, so the
   numbers are judged against them rather than the reverse. If the target
