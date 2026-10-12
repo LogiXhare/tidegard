@@ -99,10 +99,26 @@ token() { # token <bin dir> <role> <actor>
     --tenant default --actor-id "$3" --role "$2" --days 1 | awk '/^token:/ {print $2}'
 }
 
-call() { # call <token> <method> <path> [body]
-  curl -sS --fail-with-body -X "$2" "$api$3" -H "Authorization: Bearer $1" \
-    -H "Content-Type: application/json" -H "Idempotency-Key: drill-$RANDOM-$RANDOM" \
-    ${4:+--data "$4"}
+# call <token> <method> <path> [body]. A body goes with a content type and
+# an idempotency key, as the API requires of a change; an error prints
+# the API's answer to stderr and fails.
+call() {
+  local out status
+  out=$(mktemp)
+  if [ -n "${4:-}" ]; then
+    status=$(curl -sS -o "$out" -w '%{http_code}' -X "$2" "$api$3" \
+      -H "Authorization: Bearer $1" -H "Content-Type: application/json" \
+      -H "Idempotency-Key: drill-$RANDOM-$RANDOM-$RANDOM" --data "$4")
+  else
+    status=$(curl -sS -o "$out" -w '%{http_code}' -X "$2" "$api$3" -H "Authorization: Bearer $1")
+  fi
+  if [ "${status:0:1}" != 2 ]; then
+    echo "drill: $2 $3 answered $status: $(cat "$out")" >&2
+    rm -f "$out"
+    return 1
+  fi
+  cat "$out"
+  rm -f "$out"
 }
 
 # Rows in every table that holds what an operator would miss.
