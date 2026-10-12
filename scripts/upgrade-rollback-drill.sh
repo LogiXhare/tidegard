@@ -43,12 +43,29 @@ stop_all() {
 }
 trap stop_all EXIT
 
+# Ready by /readyz. v0.9.0's services other than the API predate it
+# (Phase 9A-1), so a 404 there falls back to /metrics answering.
 ready() {
+  local code
   for _ in $(seq 90); do
-    curl -sf "$1/readyz" >/dev/null && return 0
+    code=$(curl -s -o /dev/null -w '%{http_code}' "$1/readyz" || true)
+    [ "$code" = 200 ] && return 0
+    if [ "$code" = 404 ] && curl -sf "$1/metrics" >/dev/null; then
+      return 0
+    fi
     sleep 1
   done
   echo "drill: $1 never became ready"
+  exit 1
+}
+
+# The incident manager migrates at start; wait for the last table.
+migrated() {
+  for _ in $(seq 90); do
+    [ "$(sql "SELECT to_regclass('public.bgp_peers') IS NOT NULL")" = t ] && return 0
+    sleep 1
+  done
+  echo "drill: the migrations did not finish"
   exit 1
 }
 
@@ -60,6 +77,7 @@ start() {
     "$bin/wetechinetmon-incident-manager" > "$work/$label-manager.log" 2>&1 &
   pids+=($!)
   ready http://127.0.0.1:9091
+  migrated
   WETECHINETMON_API_DATABASE_URL="$database" \
     WETECHINETMON_API_MITIGATION_GUARD_FILE="$work/guard.json" \
     "$bin/wetechinetmon-api" > "$work/$label-api.log" 2>&1 &
