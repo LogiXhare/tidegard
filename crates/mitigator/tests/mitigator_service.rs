@@ -480,6 +480,13 @@ async fn the_mitigator_announces_withdraws_reconciles_and_obeys_the_kill_switch(
         .batch_execute("UPDATE incidents SET opened_at = transaction_timestamp()")
         .await
         .unwrap();
+    let incident_before: (String, i64) = {
+        let row = client
+            .query_one("SELECT state, version FROM incidents", &[])
+            .await
+            .unwrap();
+        (row.get(0), row.get(1))
+    };
     let mut proposing = mitigator(
         guard(false, true),
         None,
@@ -509,4 +516,13 @@ async fn the_mitigator_announces_withdraws_reconciles_and_obeys_the_kill_switch(
     // Proposing again finds nothing new; a proposal announced nothing.
     assert_eq!(proposing.run_once(&pool).await.unwrap().proposed, 0);
     assert!(owned_keys(&mut gobgp).await.is_empty());
+    // A mitigation never changes its incident: same state, same version.
+    let incident_after: (String, i64) = {
+        let row = client
+            .query_one("SELECT state, version FROM incidents", &[])
+            .await
+            .unwrap();
+        (row.get(0), row.get(1))
+    };
+    assert_eq!(incident_after, incident_before);
 }

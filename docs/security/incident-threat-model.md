@@ -1,14 +1,15 @@
 # Incident Management Threat Model
 
-Status: **Implemented and tested** through Phase 6, 2026-10-12. Written
+Status: **Implemented and tested** through Phase 7, 2026-10-12. Written
 as the [Phase 5 plan](../architecture/phase5-incident-management-plan.md)'s
 threat model; each threat's test is mapped in the
 [threat tests](incident-threat-tests.md).
 
-Forty-one threats: twenty-four from Phase 5 planning, five added
+Forty-eight threats: twenty-four from Phase 5 planning, five added
 2026-08-24 during Phase 5B PostgreSQL-persistence planning (T-25 through
-T-29), and twelve added in Phase 6 for the UI, sessions, traffic and
-notifications (T-30 through T-41). Each names the asset, the attacker,
+T-29), twelve added in Phase 6 for the UI, sessions, traffic and
+notifications (T-30 through T-41), and seven added in Phase 7 for BGP
+mitigation (T-42 through T-48). Each names the asset, the attacker,
 the path, a preventive control, a detective control, the test, and the
 residual risk that remains after both controls.
 
@@ -648,6 +649,160 @@ time- and row-limited.
 **Test** `apps/api/src/clickhouse.rs` (a hostile value travels as a
 parameter); `apps/api/src/traffic.rs`; `apps/api/tests/traffic.rs` (a
 hostile dimension is `400`).
+
+## Phase 7 additions (2026-10-12)
+
+Phase 7 lets WetechiNetMon act on traffic. Through the mitigator it
+announces RTBH, parent-prefix and FlowSpec routes to GoBGP, which carries
+them to the edge routers
+([plan](../architecture/phase7-bgp-mitigation-lab-plan.md)). A wrong route
+can take a customer offline, so these threats concern the network rather
+than the record. Each entry names its control and the test that proves
+it.
+
+## T-42 Route leak
+
+**Asset** the Internet's view of the operator's address space ·
+**Attacker** a mistake as much as an adversary
+
+**Path** A blackhole or FlowSpec route reaches a peer outside the
+operator's network. Transit providers or peers then drop the victim's
+traffic, or the route's attributes reveal the attack.
+
+**Prevent** Every RTBH and parent-prefix route carries `NO_EXPORT` unless
+the deployment turns it off. Routes go only to the `gobgpd` the mitigator
+names, and that `gobgpd` peers only with what its operator configures
+([RTBH guide](../operations/rtbh-guide.md)). The ownership large community
+marks every route WetechiNetMon sent.
+**Detect** `bgp routes` and the `/bgp/routes` endpoint list what is
+announced.
+**Test** `crates/mitigator/src/route.rs`
+`the_configuration_has_safe_defaults_and_strict_parsing` and
+`rtbh_carries_the_next_hop_communities_and_ownership`;
+`crates/mitigator/tests/two_speaker_lab.rs` (the edge receives
+`BLACKHOLE` and `NO_EXPORT`).
+
+## T-43 Overly broad blackhole
+
+**Asset** every customer behind a prefix · **Attacker** an operator's
+typo, or an operator acting in bad faith
+
+**Path** A request for `0.0.0.0/0`, a /8, or a shorter prefix than the
+attack needs blackholes far more than the victim.
+
+**Prevent** The guard refuses anything shorter than the floors (/16 for
+IPv4, /32 for IPv6) and anything not on the allowlist for this tenant and
+this action. RTBH takes host routes only, and a parent prefix must be
+explicitly allowed. No configuration can lower the floors
+([ADR 0047](../architecture/decisions/0047-phase7b-safety-guard.md)).
+**Detect** each refusal is audited.
+**Test** `crates/mitigation/tests/unauthorized_prefixes.rs` (property
+tests over hostile prefixes); `crates/mitigation/src/guard.rs`
+`a_dangerous_configuration_is_refused`; `crates/mitigation/src/action.rs`
+`rtbh_is_a_host_route_and_a_parent_is_not`;
+`crates/incident-postgres/tests/mitigation_guard.rs`.
+
+## T-44 Stale route
+
+**Asset** the victim's reachability after the attack · **Attacker** time,
+a crash, or a lost withdrawal
+
+**Path** A route stays announced after its mitigation expired, was
+withdrawn, or the mitigator stopped. The blackhole outlives the attack.
+
+**Prevent** Every mitigation has a bounded duration (one hour at most by
+default) and expires by itself. On start, and then periodically, the
+mitigator reconciles GoBGP's table with the records by the ownership key.
+It withdraws any route of its own that the records do not hold, and
+re-announces any that the records hold but GoBGP lost
+([ADR 0049](../architecture/decisions/0049-phase7d-mitigator-service.md)).
+The kill switch takes everything down.
+**Detect** the runbook's stale-route check compares `bgp routes` with
+the edge.
+**Test** `crates/mitigator/tests/mitigator_service.rs`
+`the_mitigator_announces_withdraws_reconciles_and_obeys_the_kill_switch`;
+`crates/mitigator/tests/two_speaker_lab.rs` (nothing at the edge after
+withdrawal).
+
+## T-45 Approval bypass
+
+**Asset** the four-eyes rule · **Attacker** a requester, a stolen token,
+or a compromised mitigator
+
+**Path** Something gets announced without a second person approving it:
+the requester approves their own request, the API drives a route
+directly, or the mitigator announces what nobody approved.
+
+**Prevent** The state machine has no path to a route except through
+`approved`. Approval needs `mitigation.approve` (`noc_lead` and up),
+and the requester cannot approve their own unless the deployment allows
+it. The mitigator holds `propose` and `execute` and never `approve`. The
+API never speaks to GoBGP
+([ADR 0046](../architecture/decisions/0046-phase7a-mitigation-record.md),
+[ADR 0050](../architecture/decisions/0050-phase7e-mitigation-api-cli-ui.md)).
+**Detect** every decision is audited with its actor.
+**Test** `crates/mitigation/src/state.rs`
+`nothing_reaches_a_route_without_approval`;
+`crates/mitigation/src/mitigation.rs`
+`a_requester_cannot_approve_their_own_unless_allowed` and
+`nothing_announces_before_approval`; `crates/incident/src/authorization.rs`
+`only_the_mitigator_proposes_or_executes` and `approval_starts_at_noc_lead`;
+`apps/api/tests/mitigations.rs` (`mitigation.self_approval`);
+`apps/web/e2e/mitigation.spec.ts` (a senior operator cannot approve).
+
+## T-46 Exposed GoBGP API
+
+**Asset** the operator's routing · **Attacker** anyone who can reach
+GoBGP's gRPC port
+
+**Path** GoBGP's gRPC API has no authentication of its own, and
+`gobgpd` listens on every interface by default. Anyone who reaches it
+can inject or withdraw any route, past every control above.
+
+**Prevent** The mitigator refuses plain HTTP to GoBGP except on loopback.
+Anywhere else it needs TLS with a CA bundle, and optionally a client
+certificate. The installation guide binds `--api-hosts` to loopback, and
+the API never connects to GoBGP
+([ADR 0048](../architecture/decisions/0048-phase7c-gobgp-adapter.md),
+[installation](../installation/mitigation.md)).
+**Test** `crates/mitigator/src/gobgp.rs`
+`endpoints_are_scheme_host_and_port_only` and
+`plain_http_is_refused_off_loopback_and_https_needs_a_bundle`; CI's labs
+bind every `gobgpd` to loopback.
+
+## T-47 Kill-switch release by a stolen token
+
+**Asset** the brake on every announcement · **Attacker** someone holding
+a lead's token during an incident
+
+**Path** The kill switch was engaged because something went wrong, and a
+stolen or careless token turns it off again.
+
+**Prevent** No token role holds `mitigation.kill_switch.release`.
+Releasing takes `wetechinetmon-api kill-switch release` on the API host,
+with database access, audited under the actor id given. Engaging is
+open to any `noc_lead`, because stopping must be easy.
+**Test** `apps/api/tests/mitigations.rs`
+`the_mitigation_api_requests_approves_withdraws_and_isolates` (a lead's
+release is `403`; the host command releases); `apps/cli/tests/mitigation_commands.rs`
+(the CLI has no release).
+
+## T-48 Cross-tenant blackhole
+
+**Asset** another tenant's customers · **Attacker** one tenant's
+operator
+
+**Path** A tenant's lead requests a blackhole of another tenant's address
+space.
+
+**Prevent** Each allowlist entry binds a prefix to one tenant. Entries of
+different tenants may not overlap. Another tenant's prefix gets the same
+refusal as a prefix nobody owns, so the allowlist does not leak
+([ADR 0047](../architecture/decisions/0047-phase7b-safety-guard.md)).
+Another tenant's mitigation is `404`.
+**Test** `crates/mitigation/tests/unauthorized_prefixes.rs`
+`another_tenants_space_is_refused_with_the_same_answer_as_nobodys`;
+`apps/api/tests/tenant_isolation.rs` (every `{mitigation_id}` operation).
 
 ---
 

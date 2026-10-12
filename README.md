@@ -7,11 +7,12 @@ detection, traffic analytics, and policy-controlled mitigation platform
 for ISPs, enterprises, data centers, hosting providers, and managed
 network service providers.
 
-> **Project status: Development Preview.** Phases 0–6 are complete, with
+> **Project status: Development Preview.** Phases 0–7 are complete, with
 > real, tested Rust source: collector, aggregator, detector, and incident
 > management with PostgreSQL persistence, a REST API, a CLI, a web NOC UI,
-> Grafana dashboards and notifications. There is no packaged release, and
-> mitigation is not implemented. See [Project Status](#project-status)
+> Grafana dashboards, notifications, and an approval-gated BGP mitigation
+> lab (RTBH and FlowSpec through GoBGP), off and in dry-run by default.
+> There is no packaged release. See [Project Status](#project-status)
 > below before evaluating this as a production-ready product.
 
 Built by **WeTechi Solutions**.
@@ -37,7 +38,7 @@ Built by **WeTechi Solutions**.
 ## Project Status
 
 **Development Preview.** This repository follows an explicit, phased
-delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–6 are merged to
+delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–7 are merged to
 `main`:
 
 - **Phase 0–1**: product foundation, clean-room boundary, repository
@@ -57,14 +58,23 @@ delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–6 are merged to
   [notifier](crates/notification/README.md) for email, Slack, Teams,
   Telegram and signed webhooks. See the
   [Gate 2 assessment](docs/development/phase6-gate2-assessment.md).
+- **Phase 7**: the BGP mitigation lab. RTBH, parent-prefix and FlowSpec
+  mitigations, each requested by one person and approved by a NOC lead.
+  A safety guard with a per-tenant allowlist and hard prefix floors, a
+  kill switch, and a mitigator that alone speaks to GoBGP. Mitigations
+  appear in the API, the CLI, the UI and notifications, and a
+  two-speaker lab in CI proves what an edge router receives. See the
+  [RTBH guide](docs/operations/rtbh-guide.md) and the
+  [Gate 2 assessment](docs/development/phase7-gate2-assessment.md).
 
 **Explicit safety boundaries, current as of this preview:**
 
-- No production BGP or FlowSpec mitigation execution — automated
-  mitigation is disabled and dry-run by default at every layer,
-  permanently (see [Security](#security) below).
+- No automated mitigation, ever: every announcement needs a NOC lead's
+  approval, and the mitigator may only propose. BGP is off and dry-run is
+  on by default, and nothing is announced until an operator turns both
+  around in the guard file (see [Security](#security) below).
 - Notifications are delivered only to the destinations an operator
-  allows, and every message says nothing was mitigated.
+  allows, and every incident message says where its mitigation stands.
 - APIs, schemas, and storage architecture may still change.
 - Production use is not yet recommended unless explicitly supported by
   WeTechi Solutions.
@@ -183,7 +193,7 @@ which phase populates it — see [docs/roadmap.md](docs/roadmap.md).
 ## Documentation
 
 Product-foundation documentation set (Phase 0 + Phase 1; the full,
-current documentation tree — including Phase 2–6 architecture, ADRs,
+current documentation tree — including Phase 2–7 architecture, ADRs,
 and operational docs — is browsable via `mkdocs serve` or directly under
 `docs/`):
 
@@ -221,7 +231,9 @@ See [SECURITY.md](SECURITY.md) for how to report a vulnerability, and
 project's threat model and security design principles. **Automated BGP
 mitigation is disabled and dry-run by default at every layer, permanently
 — this is a hard safety rule, not a configuration default that will
-change.**
+change.** Since Phase 7 a person may request a mitigation and a NOC lead
+may approve it. Only an approved one is ever announced, and only once an
+operator has turned BGP on and dry-run off.
 
 ## License
 

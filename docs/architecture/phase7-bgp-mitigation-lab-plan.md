@@ -169,6 +169,8 @@ real API and `gobgpd` in CI.
   routes, approval bypass and an exposed GoBGP API.
 - A Gate 2 assessment, as Phases 5 and 6 had.
 
+**Progress:** 7F-1 ([ADR 0051](decisions/0051-phase7f-two-speaker-lab.md)) adds the two-speaker lab. `scripts/start-gobgp-lab.sh` starts our speaker and an edge-router stand-in, peered over iBGP on 127.0.0.1 and 127.0.0.2 only. `crates/mitigator/tests/two_speaker_lab.rs` proves that the edge receives exactly what was announced, with next hop, `BLACKHOLE`, `NO_EXPORT` and `traffic-rate`, and nothing after withdrawal. The CI rust job fails if it skips. 7F-2 adds the safety documentation: the [RTBH guide](../operations/rtbh-guide.md), the [FlowSpec guide](../operations/flowspec-guide.md), the [mitigation runbook](../operations/mitigation-runbook.md) and the [installation guide](../installation/mitigation.md), which turns mitigation on in stages from dry-run. The threat model gains T-42 to T-48, covering route leak, overly broad blackhole, stale route, approval bypass, exposed GoBGP API, kill-switch release by a stolen token and cross-tenant blackhole. Each has a passing test.
+
 ## Risks
 
 | Id | Risk | Response |

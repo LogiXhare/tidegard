@@ -129,10 +129,13 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
             .unwrap(),
         ),
     );
-    store
+    let alice = person(tenant, "alice", "senior_operator");
+    let lead = person(tenant, "lead", "noc_lead");
+    let mitigator = AuthorizationContext::mitigator(TenantId::new(tenant), "mitigator-1");
+    let blackhole = store
         .request(
             &mut client,
-            &person(tenant, "alice", "senior_operator"),
+            &alice,
             MitigationRequest {
                 prefix: "203.0.113.90/32".parse().unwrap(),
                 action: Action::Rtbh,
@@ -144,13 +147,77 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
         )
         .await
         .unwrap();
+
+    // --- Its life: approved, active (dry-run), withdrawn ---
     store
-        .set_kill_switch(
+        .approve(&mut client, &lead, &blackhole.id, 1)
+        .await
+        .unwrap();
+    store
+        .begin_announcing(
             &mut client,
-            &person(tenant, "lead", "noc_lead"),
+            &mitigator,
+            &blackhole.id,
             true,
-            "route leak suspected",
+            &serde_json::json!({"lab": true}),
         )
+        .await
+        .unwrap();
+    store
+        .mark_active(&mut client, &mitigator, &blackhole.id)
+        .await
+        .unwrap();
+    store
+        .withdraw(&mut client, &lead, &blackhole.id, 4, "attack over")
+        .await
+        .unwrap();
+    store
+        .mark_withdrawn(&mut client, &mitigator, &blackhole.id)
+        .await
+        .unwrap();
+
+    // --- Another fails as GoBGP refuses it ---
+    let refused = store
+        .request(
+            &mut client,
+            &alice,
+            MitigationRequest {
+                prefix: "203.0.113.91/32".parse().unwrap(),
+                action: Action::Rtbh,
+                reason: "second host".into(),
+                duration: Duration::from_secs(600),
+                incident_id: None,
+            },
+            None,
+        )
+        .await
+        .unwrap();
+    store
+        .approve(&mut client, &lead, &refused.id, 1)
+        .await
+        .unwrap();
+    store
+        .begin_announcing(
+            &mut client,
+            &mitigator,
+            &refused.id,
+            true,
+            &serde_json::json!({"lab": true}),
+        )
+        .await
+        .unwrap();
+    store
+        .mark_failed(
+            &mut client,
+            &mitigator,
+            &refused.id,
+            "GoBGP refused the path",
+        )
+        .await
+        .unwrap();
+
+    store
+        .set_kill_switch(&mut client, &lead, true, "route leak suspected")
         .await
         .unwrap();
 
@@ -200,7 +267,8 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
             "routes": [
                 {{"tenant": "{tenant}", "events": ["mitigation.requested"], "min_severity": "major",
                   "channels": ["noc-slack", "ops-hook"]}},
-                {{"tenant": "{tenant}", "events": ["mitigation.kill_switch_engaged", "incident.opened"],
+                {{"tenant": "{tenant}", "events": ["mitigation.kill_switch_engaged", "incident.opened",
+                  "mitigation.active", "mitigation.failed", "mitigation.withdrawn"],
                   "channels": ["ops-hook"]}},
                 {{"tenant": "{PEER_EVENT_TENANT}", "events": ["bgp.peer_down"], "min_severity": "critical",
                   "channels": ["ops-hook"]}}
@@ -249,8 +317,8 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
         }
     }
     assert_eq!(
-        delivered, 5,
-        "requested to two channels; the kill switch, the peer and the incident to one"
+        delivered, 10,
+        "two requests to two channels; active, failed, withdrawn, the kill switch,          the peer and the incident to one"
     );
 
     let received = received.lock().unwrap().clone();
@@ -285,6 +353,16 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
     assert_eq!(requested["mitigation"]["incident_id"], incident_id.as_str());
     assert!(requested["mitigation"].get("next_hop").is_none());
 
+    // Started, failed and withdrawn, each told as it happened.
+    let active = hook("mitigation.active");
+    assert_eq!(active["mitigation"]["prefix"], "203.0.113.90/32");
+    assert_eq!(active["mitigation"]["dry_run"], true);
+    let failed = hook("mitigation.failed");
+    assert_eq!(failed["mitigation"]["prefix"], "203.0.113.91/32");
+    assert_eq!(failed["mitigation"]["state"], "failed");
+    let withdrawn = hook("mitigation.withdrawn");
+    assert_eq!(withdrawn["mitigation"]["withdrawal_cause"], "operator");
+
     // The kill switch, and the peer under the platform tenant.
     assert_eq!(
         hook("mitigation.kill_switch_engaged")["kill_switch"]["reason"],
@@ -296,10 +374,7 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
     assert_eq!(down["bgp_peer"]["session_state"], "idle");
 
     // The incident's message says where its mitigation stands (FU-64).
-    assert_eq!(
-        hook("incident.opened")["mitigation_status"],
-        "pending_approval"
-    );
+    assert_eq!(hook("incident.opened")["mitigation_status"], "withdrawn");
 
     // The request's deliveries are on the incident's timeline.
     let recorded: Vec<String> = client
