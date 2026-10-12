@@ -1,8 +1,8 @@
 # Backup and Restore
 
-Status: **Phase 5F**, 2026-10-05. This page covers the incident database
-(PostgreSQL). ClickHouse, which holds flow and detection history, has
-its own backup story, and that story is out of scope here.
+Status: **Phase 9C**, 2026-10-13. This page covers both databases: the
+incident database (PostgreSQL, since Phase 5F) and ClickHouse, which
+holds flow and detection history ([below](#clickhouse-flow-and-detection-history)).
 
 An untested restore is not a backup (NFR-2). CI therefore restores a real
 backup on every pull request, as described below.
@@ -27,6 +27,7 @@ archiving, described [below](#point-in-time-recovery).
 | Item | How | Why |
 |---|---|---|
 | The incident database | `pg_dump --format=custom` | All incident state, history, audit, idempotency, outbox, and the migration history |
+| ClickHouse's tables | `BACKUP TABLE ... TO File(...)`, [below](#clickhouse-flow-and-detection-history) | Flow and detection history for the dashboards and traffic pages |
 | Cluster roles | `pg_dumpall --roles-only` | Migration `V11` grants to the role `wetechinetmon_app`. A restore into a new cluster needs that role to exist first |
 | Configuration | Copy the services' environment (`WETECHINETMON_API_*` and the incident manager's) | It names the database and the TLS files |
 
@@ -152,6 +153,59 @@ Each gap is tracked as FU-61:
   restored into 17 as part of an upgrade.
 - **Restoring into a separate cluster**, where the roles have to be
   restored first.
+
+## ClickHouse (flow and detection history)
+
+ClickHouse holds the traffic tables and the detection events. Losing it
+loses history and dashboards, not incidents: those are in PostgreSQL.
+Back it up with ClickHouse's own commands
+([ADR 0055](../architecture/decisions/0055-phase9c-backup-upgrade-rollback.md)).
+
+**Once, on the server:** allow a backup directory, and make it writable by
+the `clickhouse` user.
+
+```xml
+<!-- /etc/clickhouse-server/config.d/backups.xml -->
+<clickhouse>
+  <backups>
+    <allowed_path>/backups/</allowed_path>
+  </backups>
+</clickhouse>
+```
+
+**Taking a backup:** every WetechiNetMon table, into one archive.
+
+```sql
+BACKUP TABLE default.wetechinetmon_total_ipv4_traffic,
+       TABLE default.wetechinetmon_total_ipv6_traffic,
+       TABLE default.wetechinetmon_host_traffic,
+       TABLE default.wetechinetmon_network_traffic,
+       TABLE default.wetechinetmon_slash24_network_traffic,
+       TABLE default.wetechinetmon_hostgroup_traffic,
+       TABLE default.wetechinetmon_asn_traffic,
+       TABLE default.wetechinetmon_exporter_traffic,
+       TABLE default.wetechinetmon_interface_traffic,
+       TABLE default.wetechinetmon_detection_events
+TO File('wetechinetmon-2026-10-13.zip');
+```
+
+The server writes it while the collector keeps exporting. Copy the archive
+off the host, encrypted, with the PostgreSQL backups.
+
+**Restoring:** drop the tables that are there (or start from an empty
+server), then run the same statement with `RESTORE ... FROM` in place of
+`BACKUP ... TO`. Start the collector afterwards: it creates any table
+that is missing, and writes to the restored ones.
+
+Rows older than each table's retention (30 days for traffic, 365 for
+detection events) expire again after a restore, as they would have.
+
+**The drill CI runs.** `scripts/clickhouse-backup-restore-drill.sh`
+runs in the Grafana job against a throwaway server. It fills every table,
+fingerprints each one (row count and a hash of every row), backs them
+up, drops them, restores them and requires identical fingerprints. Then
+the collector's own writer writes and reads back every row type in the
+restored copy.
 
 ## Point-in-time recovery
 

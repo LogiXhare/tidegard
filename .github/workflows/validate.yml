@@ -297,6 +297,11 @@ jobs:
           </clickhouse>
           XML
           printf '%s\n' "$CLICKHOUSE_PASSWORD" > "$dir/password"
+          # Backups to /backups only (the 9C drill, ADR 0055).
+          mkdir -p "$RUNNER_TEMP/ch-backups"
+          chmod 0777 "$RUNNER_TEMP/ch-backups"
+          printf '%s\n' '<clickhouse><backups><allowed_path>/backups/</allowed_path></backups></clickhouse>' \
+            > "$dir/backups.xml"
           {
             echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_URL=https://localhost:8443"
             echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_CA=$dir/ca.pem"
@@ -311,6 +316,8 @@ jobs:
             -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
             -v "$dir/tls.xml:/etc/clickhouse-server/config.d/tls.xml:ro" \
             -v "$dir:/etc/clickhouse-server/tls:ro" \
+            -v "$dir/backups.xml:/etc/clickhouse-server/config.d/backups.xml:ro" \
+            -v "$RUNNER_TEMP/ch-backups:/backups" \
             clickhouse/clickhouse-server:26.8.24.9
           docker run -d --name prometheus --network wnm prom/prometheus:v3.13.4
           for _ in $(seq 60); do
@@ -341,6 +348,11 @@ jobs:
           cargo test -p wetechinetmon-storage --test clickhouse_tls -- --nocapture 2>&1 | tee tls-test.log
           ! grep -q "skipping exports_over_verified_tls_with_credentials" tls-test.log
           grep -q "test exports_over_verified_tls_with_credentials ... ok" tls-test.log
+      - name: ClickHouse backup and restore drill (ADR 0055)
+        env:
+          CLICKHOUSE_URL: http://127.0.0.1:8123
+          DRILL_WORK_DIR: ${{ runner.temp }}/clickhouse-drill
+        run: bash scripts/clickhouse-backup-restore-drill.sh
       - name: Start Grafana with the shipped dashboards
         run: |
           set -euo pipefail
