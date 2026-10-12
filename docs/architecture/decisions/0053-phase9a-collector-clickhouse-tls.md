@@ -67,6 +67,22 @@ detection do not depend on it. A configuration that breaks the rule above
 is different: it stops the collector, because it is a mistake to fix,
 not a condition to wait out.
 
+### A crash the first real export found
+
+The Compose stack (9A-3c) ran the collector against a real ClickHouse
+for the first time, and it panicked on its first export: every traffic
+row embedded its counters with `#[serde(flatten)]`, which serde writes
+as a map, and the `clickhouse` crate's RowBinary encoder refuses maps.
+The `Row` derive also named that column `counters`. The interface row's
+`direction` enum would have panicked the same way. Phase 3's integration
+test read a variable CI never set, so it always skipped (FU-11).
+
+The rows are now plain columns, declared once by a `traffic_row!`
+macro, and `direction` is written as its `Enum8` number. The
+integration test reads the PostgreSQL jobs' ClickHouse settings, prints
+the standard skip line those jobs refuse, and writes and reads back
+every row type, detection events included.
+
 ## Consequences
 
 - An existing installation with an `http://` URL to another host stops
