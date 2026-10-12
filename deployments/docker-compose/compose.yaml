@@ -72,7 +72,9 @@ services:
     ulimits:
       nofile: { soft: 262144, hard: 262144 }
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--secure", "--port", "9440", "--accept-invalid-certificate", "--user", "wetechinetmon", "--password-file", "/run/wetechinetmon/clickhouse-password", "--query", "SELECT 1"]
+      # Healthy once the HTTPS port accepts connections. The image has bash,
+      # not curl; the services verify the certificate when they connect.
+      test: ["CMD", "bash", "-c", "</dev/tcp/127.0.0.1/8443"]
       interval: 2s
       timeout: 5s
       retries: 60

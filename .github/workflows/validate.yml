@@ -767,7 +767,9 @@ jobs:
       - name: Compose logs on failure
         if: failure()
         working-directory: deployments/docker-compose
-        run: docker compose logs --no-color --tail 80 || true
+        run: |
+          docker compose logs --no-color --tail 80 || true
+          docker compose exec -T clickhouse tail -n 40 /var/log/clickhouse-server/clickhouse-server.err.log || true
       - name: systemd's exposure rating for each unit
         run: |
           for service in collector incident-manager api notifier mitigator; do
