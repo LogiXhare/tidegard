@@ -16,8 +16,11 @@
 //! - **Retried requests** replay through `incident_idempotency`, keyed by
 //!   tenant and key, with the request's fingerprint compared byte for byte.
 //! - **The safety guard** (ADR 0047) runs when a mitigation is requested or
-//!   proposed, when it is approved, and when announcing begins. Its
+//!   proposed, when it is approved, and when announcing begins, with the
+//!   runtime kill switch read in the same transaction (ADR 0049). Its
 //!   refusals are audited as `denied`, like a missing permission.
+//! - **The kill switch** lives in `mitigation_controls` (V20). Turning it
+//!   on or off is audited and emits an outbox event.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -28,13 +31,15 @@ use tokio_postgres::{Client, GenericClient, Row};
 use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
 use wetechinetmon_incident::correlation::TenantId;
 use wetechinetmon_incident::id::IncidentGenerator;
+use wetechinetmon_mitigation::mitigation::MAX_REASON_CHARS;
 use wetechinetmon_mitigation::{
     Action, ActionKind, ApprovalPolicy, FlowMatch, Guard, Mitigation, MitigationError,
-    MitigationId, MitigationRecord, MitigationRequest, MitigationState, Transition,
+    MitigationId, MitigationRecord, MitigationRequest, MitigationState, Prefix, Transition,
     WithdrawalCause,
 };
 
 use crate::error::PersistError;
+use crate::platform::PlatformAuthority;
 use crate::row::{actor_columns, actor_from, ActorColumns};
 
 const AUDIT_SCHEMA_VERSION: i32 = 1;
@@ -75,7 +80,8 @@ UPDATE mitigations SET
         THEN transaction_timestamp() + duration_seconds * interval '1 second'
         ELSE expires_at END,
     ended_at = CASE WHEN $3 IN ('withdrawn', 'rejected', 'expired', 'failed')
-        THEN transaction_timestamp() ELSE ended_at END
+        THEN transaction_timestamp() ELSE ended_at END,
+    route = COALESCE($10::text::jsonb, route)
 WHERE mitigation_id = $1::text::uuid AND version = $2";
 
 const INSERT_HISTORY: &str = "\
@@ -87,7 +93,49 @@ const INSERT_AUDIT: &str = "\
 INSERT INTO incident_audit (
     tenant_id, schema_version, actor_type, actor_id, action,
     resource_type, resource_id, result, reason, before, after
-) VALUES ($1, $2, $3, $4, $5, 'mitigation', $6, $7, $8, $9::text::jsonb, $10::text::jsonb)";
+) VALUES ($1, $2, $3, $4, $5, $11, $6, $7, $8, $9::text::jsonb, $10::text::jsonb)";
+
+const SELECT_CONTROLS: &str = "\
+SELECT kill_switch, version, changed_at::text AS changed_at, changed_by_type, changed_by, reason
+FROM mitigation_controls";
+
+const UPDATE_CONTROLS: &str = "\
+UPDATE mitigation_controls SET
+    kill_switch = $1,
+    version = version + 1,
+    changed_at = transaction_timestamp(),
+    changed_by_type = $2,
+    changed_by = $3,
+    reason = $4
+RETURNING kill_switch, version, changed_at::text AS changed_at, changed_by_type, changed_by, reason";
+
+const INSERT_CONTROLS_OUTBOX: &str = "\
+INSERT INTO incident_outbox (
+    tenant_id, aggregate_type, aggregate_id, aggregate_version, event_type, payload
+) VALUES ($1, 'mitigation_controls', 'kill_switch', $2, $3, $4::text::jsonb)";
+
+const WORK: &str = "\
+, (state IN ('proposed', 'requested')
+      AND created_at + $1::bigint * interval '1 second' <= transaction_timestamp()) AS approval_expired,
+  (state = 'active' AND expires_at <= transaction_timestamp()) AS duration_reached
+FROM mitigations
+WHERE state IN ('proposed', 'requested', 'approved', 'announcing', 'active', 'withdrawing')
+ORDER BY created_at, mitigation_id
+LIMIT $2";
+
+const CANDIDATES: &str = "\
+SELECT i.tenant_id, i.incident_id::text AS incident_id, host(i.target_addr) AS address,
+    i.severity
+FROM incidents i
+WHERE i.target_type = 'host'
+  AND i.target_addr IS NOT NULL
+  AND i.direction = 'incoming'
+  AND i.state IN ('open', 'acknowledged', 'investigating', 'monitoring')
+  AND i.severity = ANY($1)
+  AND i.opened_at >= transaction_timestamp() - $2::bigint * interval '1 second'
+  AND NOT EXISTS (SELECT 1 FROM mitigations m WHERE m.incident_id = i.incident_id)
+ORDER BY i.opened_at, i.incident_id
+LIMIT $3";
 
 const INSERT_OUTBOX: &str = "\
 INSERT INTO incident_outbox (
@@ -133,6 +181,36 @@ impl From<tokio_postgres::Error> for MitigationStoreError {
     }
 }
 
+/// The kill switch, and who last moved it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KillSwitch {
+    pub engaged: bool,
+    pub version: u64,
+    pub changed_at: Option<String>,
+    pub changed_by: Option<Actor>,
+    pub reason: Option<String>,
+}
+
+/// One live mitigation, as the mitigator sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkItem {
+    pub record: MitigationRecord,
+    /// Still waiting for an approver after the approval window.
+    pub approval_expired: bool,
+    /// Active for its whole duration.
+    pub duration_reached: bool,
+}
+
+/// An incident the mitigator may propose a mitigation for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProposalCandidate {
+    pub tenant: TenantId,
+    pub incident_id: String,
+    /// The attacked host, as a /32 or /128.
+    pub target: Prefix,
+    pub severity: String,
+}
+
 /// Reads and changes mitigations, for people (through the API) and for
 /// the mitigator.
 pub struct MitigationStore {
@@ -155,15 +233,16 @@ impl MitigationStore {
         &self.guard
     }
 
-    /// The guard's verdict on a mitigation as it stands.
-    fn guarded(&self, record: &MitigationRecord) -> Result<(), MitigationError> {
+    /// The guard's verdict on a mitigation as it stands, with the runtime
+    /// kill switch as it was just read.
+    fn guarded(&self, record: &MitigationRecord, kill_switch: bool) -> Result<(), MitigationError> {
         self.guard
             .check(
                 &record.tenant,
                 &record.prefix,
                 &record.action,
                 record.duration,
-                false,
+                kill_switch,
             )
             .map_err(MitigationError::Refused)
     }
@@ -231,10 +310,17 @@ impl MitigationStore {
         };
         let (mitigation, transition) = match built {
             Ok(built) => built,
-            Err(error) => return Err(self.refused(client, ctx, &id, error, attempted).await),
+            Err(error) => {
+                return Err(self
+                    .refused(client, ctx, ("mitigation", id.as_str()), error, attempted)
+                    .await)
+            }
         };
-        if let Err(error) = self.guarded(mitigation.record()) {
-            return Err(self.refused(client, ctx, &id, error, attempted).await);
+        let kill_switch = read_controls(&*client).await?.engaged;
+        if let Err(error) = self.guarded(mitigation.record(), kill_switch) {
+            return Err(self
+                .refused(client, ctx, ("mitigation", id.as_str()), error, attempted)
+                .await);
         }
 
         let tx = client.transaction().await?;
@@ -409,19 +495,23 @@ impl MitigationStore {
     /// The mitigator's steps (7D). Each takes the mitigation as it is now:
     /// the mitigator is the only actor in these states, and the row lock
     /// orders it against an operator's withdrawal.
+    /// Announcing begins. `route` is the exact route the mitigator built,
+    /// recorded whether or not it will be sent (dry-run).
     pub async fn begin_announcing(
         &self,
         client: &mut Client,
         ctx: &AuthorizationContext,
         id: &MitigationId,
         dry_run: bool,
+        route: &serde_json::Value,
     ) -> Result<MitigationRecord, MitigationStoreError> {
-        self.change(
+        self.change_recording(
             client,
             ctx,
             id,
             None,
             Permission::MitigationExecute,
+            Some(route.to_string()),
             |m, ctx| m.begin_announcing(ctx, dry_run),
         )
         .await
@@ -526,6 +616,24 @@ impl MitigationStore {
     where
         F: FnOnce(&mut Mitigation, &AuthorizationContext) -> Result<Transition, MitigationError>,
     {
+        self.change_recording(client, ctx, id, expected_version, attempted, None, command)
+            .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn change_recording<F>(
+        &self,
+        client: &mut Client,
+        ctx: &AuthorizationContext,
+        id: &MitigationId,
+        expected_version: Option<u64>,
+        attempted: Permission,
+        route: Option<String>,
+        command: F,
+    ) -> Result<MitigationRecord, MitigationStoreError>
+    where
+        F: FnOnce(&mut Mitigation, &AuthorizationContext) -> Result<Transition, MitigationError>,
+    {
         let tx = client.transaction().await?;
         let record = match load(&tx, id, true).await? {
             // Another tenant's mitigation does not exist, and its version
@@ -539,6 +647,7 @@ impl MitigationStore {
                 return Err(MitigationError::VersionConflict(loaded).into());
             }
         }
+        let kill_switch = read_controls(&tx).await?.engaged;
         let mut mitigation = Mitigation::from_record(record);
         let checked = command(&mut mitigation, ctx).and_then(|transition| {
             // Approval and announcing are the last moments a mitigation can
@@ -548,7 +657,7 @@ impl MitigationStore {
                 transition.to,
                 MitigationState::Approved | MitigationState::Announcing
             ) {
-                self.guarded(mitigation.record())?;
+                self.guarded(mitigation.record(), kill_switch)?;
             }
             Ok(transition)
         });
@@ -556,7 +665,9 @@ impl MitigationStore {
             Ok(transition) => transition,
             Err(error) => {
                 tx.rollback().await?;
-                return Err(self.refused(client, ctx, id, error, attempted).await);
+                return Err(self
+                    .refused(client, ctx, ("mitigation", id.as_str()), error, attempted)
+                    .await);
             }
         };
         let record = mitigation.record();
@@ -578,6 +689,7 @@ impl MitigationStore {
                     &record.dry_run,
                     &record.withdrawal.map(WithdrawalCause::as_str),
                     &record.last_error,
+                    &route,
                 ],
             )
             .await?;
@@ -589,6 +701,162 @@ impl MitigationStore {
         Ok(mitigation.into_record())
     }
 
+    /// The kill switch as it stands.
+    pub async fn kill_switch(
+        &self,
+        client: &impl GenericClient,
+    ) -> Result<KillSwitch, MitigationStoreError> {
+        read_controls(client).await
+    }
+
+    /// Turns the kill switch on (`mitigation.kill_switch.engage`) or off
+    /// (`mitigation.kill_switch.release`), with a reason. Setting it to
+    /// what it already is changes nothing and writes nothing.
+    pub async fn set_kill_switch(
+        &self,
+        client: &mut Client,
+        ctx: &AuthorizationContext,
+        engaged: bool,
+        reason: &str,
+    ) -> Result<KillSwitch, MitigationStoreError> {
+        let permission = if engaged {
+            Permission::MitigationKillSwitchEngage
+        } else {
+            Permission::MitigationKillSwitchRelease
+        };
+        if !ctx.has(permission) {
+            return Err(self
+                .refused(
+                    client,
+                    ctx,
+                    ("mitigation_controls", "kill_switch"),
+                    MitigationError::Forbidden(permission),
+                    permission,
+                )
+                .await);
+        }
+        let reason = reason.trim();
+        if reason.is_empty()
+            || reason.chars().count() > MAX_REASON_CHARS
+            || reason.chars().any(char::is_control)
+        {
+            return Err(MitigationError::Invalid(format!(
+                "a reason of 1 to {MAX_REASON_CHARS} characters, without control characters, is required"
+            ))
+            .into());
+        }
+        let actor = actor_columns(ctx.actor(), "actor")?;
+        let tx = client.transaction().await?;
+        let before = read_controls_locked(&tx).await?;
+        if before.engaged == engaged {
+            tx.commit().await?;
+            return Ok(before);
+        }
+        let row = tx
+            .query_one(
+                UPDATE_CONTROLS,
+                &[&engaged, &actor.actor_type, &actor.actor_id, &reason],
+            )
+            .await?;
+        let after = controls_from(&row)?;
+        let tenant = ctx.tenant().as_str();
+        tx.execute(
+            INSERT_AUDIT,
+            &[
+                &tenant,
+                &AUDIT_SCHEMA_VERSION,
+                &actor.actor_type,
+                &actor.actor_id,
+                &permission.name(),
+                &"kill_switch",
+                &"allowed",
+                &Some(reason.to_string()),
+                &Some(json!({ "kill_switch": before.engaged }).to_string()),
+                &Some(json!({ "kill_switch": after.engaged }).to_string()),
+                &"mitigation_controls",
+            ],
+        )
+        .await?;
+        let event = if engaged {
+            "mitigation.kill_switch_engaged"
+        } else {
+            "mitigation.kill_switch_released"
+        };
+        tx.execute(
+            INSERT_CONTROLS_OUTBOX,
+            &[
+                &tenant,
+                &version_column(after.version)?,
+                &event,
+                &json!({ "kill_switch": engaged, "reason": reason, "version": after.version })
+                    .to_string(),
+            ],
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(after)
+    }
+
+    /// Everything the mitigator has to look at, across every tenant: live
+    /// mitigations, with whether each has waited too long for an approver
+    /// or reached its duration. Oldest first.
+    pub async fn work(
+        &self,
+        _platform: &PlatformAuthority,
+        client: &impl GenericClient,
+        limit: u32,
+    ) -> Result<Vec<WorkItem>, MitigationStoreError> {
+        let window = i64::try_from(self.guard.approval_window().as_secs()).unwrap_or(i64::MAX);
+        let limit = i64::from(limit.clamp(1, MAX_PAGE));
+        let rows = client
+            .query(&format!("SELECT {COLUMNS}{WORK}"), &[&window, &limit])
+            .await?;
+        rows.iter()
+            .map(|row| {
+                Ok(WorkItem {
+                    record: from_row(row)?,
+                    approval_expired: row.try_get("approval_expired")?,
+                    duration_reached: row.try_get("duration_reached")?,
+                })
+            })
+            .collect::<Result<_, PersistError>>()
+            .map_err(Into::into)
+    }
+
+    /// Incoming attacks on one host, opened within `since`, of one of
+    /// `severities`, with no mitigation yet: what the mitigator may
+    /// propose an RTBH for (BQ-14). Oldest first.
+    pub async fn proposal_candidates(
+        &self,
+        _platform: &PlatformAuthority,
+        client: &impl GenericClient,
+        severities: &[String],
+        since: Duration,
+        limit: u32,
+    ) -> Result<Vec<ProposalCandidate>, MitigationStoreError> {
+        let since = i64::try_from(since.as_secs()).unwrap_or(i64::MAX);
+        let limit = i64::from(limit.clamp(1, MAX_PAGE));
+        let rows = client
+            .query(CANDIDATES, &[&severities, &since, &limit])
+            .await?;
+        let mut candidates = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let address: String = row.try_get("address")?;
+            let address: std::net::IpAddr = address
+                .parse()
+                .map_err(|_| PersistError::corrupt("target_addr", "not an address"))?;
+            let length = if address.is_ipv4() { 32 } else { 128 };
+            candidates.push(ProposalCandidate {
+                tenant: TenantId::new(row.try_get::<_, String>("tenant_id")?),
+                incident_id: row.try_get("incident_id")?,
+                target: Prefix::new(address, length)
+                    .map_err(|e| PersistError::corrupt("target_addr", e.to_string()))?,
+                severity: row.try_get("severity")?,
+            });
+        }
+        Ok(candidates)
+    }
+
     /// Audits a refusal that the caller is entitled to see as one, and
     /// passes the error on. Refusals of permission, of self-approval and by
     /// the guard are audited: an attempt on another tenant's prefix is a
@@ -597,7 +865,7 @@ impl MitigationStore {
         &self,
         client: &Client,
         ctx: &AuthorizationContext,
-        id: &MitigationId,
+        (resource_type, resource_id): (&str, &str),
         error: MitigationError,
         attempted: Permission,
     ) -> MitigationStoreError {
@@ -619,11 +887,12 @@ impl MitigationStore {
                     &actor.actor_type,
                     &actor.actor_id,
                     &action,
-                    &id.as_str(),
+                    &resource_id,
                     &"denied",
                     &error.code(),
                     &None::<String>,
                     &None::<String>,
+                    &resource_type,
                 ],
             )
             .await;
@@ -632,6 +901,41 @@ impl MitigationStore {
             Err(database) => database.into(),
         }
     }
+}
+
+async fn read_controls(client: &impl GenericClient) -> Result<KillSwitch, MitigationStoreError> {
+    let row = client.query_one(SELECT_CONTROLS, &[]).await?;
+    Ok(controls_from(&row)?)
+}
+
+async fn read_controls_locked(
+    client: &impl GenericClient,
+) -> Result<KillSwitch, MitigationStoreError> {
+    let row = client
+        .query_one(&format!("{SELECT_CONTROLS} FOR UPDATE"), &[])
+        .await?;
+    Ok(controls_from(&row)?)
+}
+
+fn controls_from(row: &Row) -> Result<KillSwitch, PersistError> {
+    let changed_by = match row.try_get::<_, Option<String>>("changed_by_type")? {
+        Some(actor_type) => Some(actor_from(
+            ActorColumns {
+                actor_type,
+                actor_id: row.try_get("changed_by")?,
+            },
+            "changed_by",
+        )?),
+        None => None,
+    };
+    Ok(KillSwitch {
+        engaged: row.try_get("kill_switch")?,
+        version: u64::try_from(row.try_get::<_, i64>("version")?)
+            .map_err(|_| PersistError::corrupt("version", "negative"))?,
+        changed_at: row.try_get("changed_at")?,
+        changed_by,
+        reason: row.try_get("reason")?,
+    })
 }
 
 /// The history row, the audit row and the outbox event for one change.
@@ -676,6 +980,7 @@ async fn record_change(
                 &transition.detail,
                 &before,
                 &Some(after),
+                &"mitigation",
             ],
         )
         .await?;

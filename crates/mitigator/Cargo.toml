@@ -6,8 +6,19 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[[bin]]
+name = "wetechinetmon-mitigator"
+path = "src/main.rs"
+
 [dependencies]
+wetechinetmon-common = { path = "../common", features = ["metrics-server"] }
+wetechinetmon-incident = { path = "../incident" }
+wetechinetmon-incident-postgres = { path = "../incident-postgres" }
 wetechinetmon-mitigation = { path = "../mitigation" }
+deadpool-postgres.workspace = true
+tokio-postgres.workspace = true
+tracing.workspace = true
+prometheus.workspace = true
 # GoBGP's gRPC API (ADR 0048). Client only, TLS through rustls with the
 # aws-lc-rs provider every other client here uses.
 tonic = { version = "0.14.6", default-features = false, features = ["codegen", "channel", "tls-aws-lc"] }
@@ -18,6 +29,10 @@ tokio = { workspace = true }
 thiserror.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[dev-dependencies]
+# tests/mitigator_service.rs opens an incident from a detection event.
+wetechinetmon-detector = { path = "../detector" }
 
 [build-dependencies]
 # Compiles the vendored GoBGP .proto files in pure Rust: no protoc binary

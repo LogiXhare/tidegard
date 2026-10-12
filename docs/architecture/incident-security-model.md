@@ -102,6 +102,8 @@ permissions are what the code checks.
 | `mitigation.withdraw` | Take an approved mitigation down |
 | `mitigation.propose` | Propose a mitigation for an incident — the mitigator only, never a human role |
 | `mitigation.execute` | Announce, withdraw and end mitigations — the mitigator only, never a human role |
+| `mitigation.kill_switch.engage` | Turn on the deployment-wide kill switch ([ADR 0049](decisions/0049-phase7d-mitigator-service.md)) |
+| `mitigation.kill_switch.release` | Turn it off again — platform administrators only |
 
 Suggested bundles, deployment-configurable:
 
@@ -110,7 +112,7 @@ Suggested bundles, deployment-configurable:
 | `viewer` | read, list, traffic.read, mitigation.read |
 | `operator` | viewer + acknowledge, assign, investigate, note.create |
 | `senior_operator` | operator + severity.change, priority.change, resolve, close, reopen, create, mitigation.request, mitigation.withdraw |
-| `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact, mitigation.approve |
+| `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact, mitigation.approve, mitigation.kill_switch.engage |
 | `platform_admin` | all, including platform permissions |
 
 `incident.closure_policy.override` appears in **no** default bundle, not

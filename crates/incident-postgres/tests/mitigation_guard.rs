@@ -181,7 +181,13 @@ async fn the_guard_decides_at_request_approval_and_announcing() {
     assert_eq!(
         refusal(
             switched_off
-                .begin_announcing(&mut client, &mitigator, &first.id, true)
+                .begin_announcing(
+                    &mut client,
+                    &mitigator,
+                    &first.id,
+                    true,
+                    &serde_json::json!({"lab": true})
+                )
                 .await
         ),
         GuardRefusal::KillSwitch
@@ -191,9 +197,15 @@ async fn the_guard_decides_at_request_approval_and_announcing() {
         MitigationState::Approved
     );
     assert_eq!(denied(&client, "mitigation.kill_switch").await, 2);
-    open.begin_announcing(&mut client, &mitigator, &first.id, true)
-        .await
-        .unwrap();
+    open.begin_announcing(
+        &mut client,
+        &mitigator,
+        &first.id,
+        true,
+        &serde_json::json!({"lab": true}),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         state(&open, &client, &first.id).await,
         MitigationState::Announcing

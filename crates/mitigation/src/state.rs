@@ -6,9 +6,11 @@
 //! ```text
 //! proposed ─┐
 //!           ├─► approved ─► announcing ─► active ─► withdrawing ─► withdrawn
-//! requested ┘      │            │  └──────────────────►┘
-//!   │              └────────────┼──────────────────────────────────► withdrawn
-//!   ├─► rejected                └─► failed
+//! requested ┘      │  │         │  │                  ▲
+//!   │              │  │         │  └──────────────────┘
+//!   │              │  └─────────┴─► failed
+//!   │              └─► withdrawn (nothing was announced yet)
+//!   ├─► rejected
 //!   └─► expired
 //! ```
 //!
@@ -108,6 +110,8 @@ impl MitigationState {
                 | (Approved, Announcing)
                 // Withdrawn before anything was announced.
                 | (Approved, Withdrawn)
+                // The guard refused it as announcing would begin (ADR 0049).
+                | (Approved, Failed)
                 | (Announcing, Active)
                 | (Announcing, Failed)
                 // A withdrawal or the kill switch while announcing.
@@ -123,7 +127,7 @@ mod tests {
     use super::*;
     use MitigationState::*;
 
-    const LEGAL: [(MitigationState, MitigationState); 13] = [
+    const LEGAL: [(MitigationState, MitigationState); 14] = [
         (Proposed, Approved),
         (Requested, Approved),
         (Proposed, Rejected),
@@ -132,6 +136,7 @@ mod tests {
         (Requested, Expired),
         (Approved, Announcing),
         (Approved, Withdrawn),
+        (Approved, Failed),
         (Announcing, Active),
         (Announcing, Failed),
         (Announcing, Withdrawing),

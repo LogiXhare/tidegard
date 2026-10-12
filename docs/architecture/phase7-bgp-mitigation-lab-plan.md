@@ -137,6 +137,8 @@ action is announced and withdrawn, and its attributes read back.
 **Exit:** restart reconciliation, stale-route removal, the maximum
 duration and the kill switch are each proven against a real `gobgpd`.
 
+**Progress:** 7D ([ADR 0049](decisions/0049-phase7d-mitigator-service.md)) adds the `wetechinetmon-mitigator` binary: one active instance by advisory lock; no GoBGP connection with BGP off; each pass expires, announces (recording the exact route, dry-run or not), withdraws at the duration and under the kill switch, and finishes what a restart left half-way; reconciliation withdraws unclaimed owned routes and restores missing ones; proposals come from the incidents table. V20 adds the runtime kill switch (`mitigation.kill_switch.engage` from `noc_lead`, `release` for platform administrators) and `mitigations.route`. The guard refusing at the last moment now ends a mitigation as `failed`. `tests/mitigator_service.rs` proves all of it against PostgreSQL 15 to 18 and a real `gobgpd`.
+
 ### 7E — API, CLI, UI and notifications
 
 - `/api/v1/mitigations` (list, get, request, approve, reject, withdraw),

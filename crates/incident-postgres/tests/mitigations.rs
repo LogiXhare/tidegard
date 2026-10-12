@@ -201,7 +201,13 @@ async fn mitigations_persist_atomically_refuse_duplicates_and_replay_retries() {
     assert_eq!(
         mitigation_error(
             store
-                .begin_announcing(&mut client, &lead, &first.id, false)
+                .begin_announcing(
+                    &mut client,
+                    &lead,
+                    &first.id,
+                    false,
+                    &serde_json::json!({"lab": true})
+                )
                 .await
         ),
         MitigationError::Forbidden(Permission::MitigationExecute)
@@ -233,7 +239,13 @@ async fn mitigations_persist_atomically_refuse_duplicates_and_replay_retries() {
     assert_eq!(approved.state, MitigationState::Approved);
     assert_eq!(approved.approved_by, Some(lead.actor().clone()));
     store
-        .begin_announcing(&mut client, &mitigator, &first.id, true)
+        .begin_announcing(
+            &mut client,
+            &mitigator,
+            &first.id,
+            true,
+            &serde_json::json!({"lab": true}),
+        )
         .await
         .unwrap();
     store
