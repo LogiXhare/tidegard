@@ -8,6 +8,26 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Added — Phase 6 dashboards, NOC UI and notifications
+
+- Four [Grafana dashboards](grafana/dashboards) as code, with
+  provisioning files, a static check, and a CI job that loads them in a
+  real Grafana. Grafana itself is not shipped.
+- A read-only traffic API over ClickHouse (`traffic.read`), bounded in
+  time and rows, for one configured traffic tenant.
+- Browser sessions: sign in with an API token, then an `HttpOnly`,
+  `SameSite=Strict` cookie with CSRF protection (migration V18).
+- The [NOC UI](apps/web/README.md), React and TypeScript, served by the
+  API under a strict Content-Security-Policy, with an end-to-end test in
+  a real browser.
+- The [notifier](crates/notification/README.md),
+  `wetechinetmon-notifier`: email, Slack, Teams, Telegram and
+  HMAC-signed webhooks, routed by tenant, event and severity, with SSRF
+  checks, deduplication, rate limits and dead-lettering. Every attempt
+  is on the incident's timeline.
+- Threats T-30 to T-41, runbook and installation guide updates, and the
+  [Gate 2 assessment](docs/development/phase6-gate2-assessment.md).
+
 ### Added — Phase 5 incident management
 
 - Incident management, built in six milestones (5A–5F): a tested

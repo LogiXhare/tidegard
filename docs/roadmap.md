@@ -1,7 +1,7 @@
 # Roadmap
 
-Status: Phases 0–5 complete; Phase 6 planned, 6A next
-Last updated: 2026-10-11
+Status: Phases 0–6 complete; Phase 7 planning next
+Last updated: 2026-10-12
 
 This roadmap mirrors the phased delivery model and versioning plan in the
 master prompt (sections 28–29). No phase begins until the prior phase has
@@ -19,8 +19,8 @@ an explicit decision record, a commit, and updated documentation.
 | Phase 3 (cont.) | v0.4.0 | ClickHouse and Prometheus metrics — ✅ complete |
 | Phase 4 | v0.5.0 | Static detection engine — ✅ complete |
 | Phase 5 | v0.6.0 | Incident lifecycle — ✅ complete |
-| Phase 6 | v0.7.0 | Grafana and native UI |
-| Phase 6 (cont.) | v0.8.0 | Notification integrations |
+| Phase 6 | v0.7.0 | Grafana and native UI — ✅ complete |
+| Phase 6 (cont.) | v0.8.0 | Notification integrations — ✅ complete |
 | Phase 7 | v0.9.0 | BGP mitigation lab |
 | Phase 8 | v1.1.0 | Multi-tenancy |
 | Phase 8 (cont.) | v1.2.0 | Enterprise authentication |
@@ -137,7 +137,32 @@ than configured — see
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
 
-## Phase 6: Dashboards, NOC UI and Notifications — Planned
+## Phase 6: Dashboards, NOC UI and Notifications — Complete
+
+**Complete on 2026-10-12**, in six milestones:
+
+- **6A:** four Grafana dashboards as code, checked against the code's
+  metrics and the schema's tables, and loaded in a real Grafana in CI
+  ([ADR 0041](architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)).
+- **6B:** a read-only, bounded traffic API over ClickHouse, for one
+  configured traffic tenant until Phase 8
+  ([ADR 0042](architecture/decisions/0042-phase6b-traffic-read-api.md)).
+- **6C:** browser sessions from an API token, with CSRF protection and
+  idle and absolute expiry
+  ([ADR 0043](architecture/decisions/0043-phase6c-browser-sessions.md)).
+- **6D:** the React NOC UI, served by the API under a strict
+  Content-Security-Policy, tested end to end in a real browser
+  ([ADR 0044](architecture/decisions/0044-phase6d-noc-ui.md)).
+- **6E:** the notifier: email, Slack, Teams, Telegram and signed
+  webhooks, with SSRF checks, deduplication and rate limits
+  ([ADR 0045](architecture/decisions/0045-phase6e-notification-delivery.md)).
+- **6F:** threats T-30 to T-41, the runbook and the installation guide.
+
+The [Gate 2 assessment](development/phase6-gate2-assessment.md) finds
+every criterion met. T-21 stays partial until Phase 8, and FU-64 is
+open.
+
+### Planning
 
 Planned on 2026-10-11, with the owner's decisions on BQ-2 and BQ-10 to
 BQ-12. Six milestones: Grafana dashboards as code (6A), read APIs for

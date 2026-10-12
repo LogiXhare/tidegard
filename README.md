@@ -7,7 +7,7 @@ detection, traffic analytics, and policy-controlled mitigation platform
 for ISPs, enterprises, data centers, hosting providers, and managed
 network service providers.
 
-> **Project status: Development Preview.** Phases 0–5 are complete, with
+> **Project status: Development Preview.** Phases 0–6 are complete, with
 > real, tested Rust source: collector, aggregator, detector, and incident
 > management with PostgreSQL persistence, a REST API, a CLI, a web NOC UI,
 > Grafana dashboards and notifications. There is no packaged release, and
@@ -37,7 +37,7 @@ Built by **WeTechi Solutions**.
 ## Project Status
 
 **Development Preview.** This repository follows an explicit, phased
-delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–5 are merged to
+delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–6 are merged to
 `main`:
 
 - **Phase 0–1**: product foundation, clean-room boundary, repository
@@ -51,6 +51,12 @@ delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–5 are merged to
   [REST API](apps/api/README.md) and the
   [`wetechinetmonctl` CLI](apps/cli/README.md). See the
   [Gate 2 assessment](docs/development/phase5-gate2-assessment.md).
+- **Phase 6**: dashboards, the NOC UI and notifications. Grafana
+  dashboards as code, a read API for traffic, browser sessions, a
+  [React NOC UI](apps/web/README.md) served by the API, and a
+  [notifier](crates/notification/README.md) for email, Slack, Teams,
+  Telegram and signed webhooks. See the
+  [Gate 2 assessment](docs/development/phase6-gate2-assessment.md).
 
 **Explicit safety boundaries, current as of this preview:**
 
@@ -177,7 +183,7 @@ which phase populates it — see [docs/roadmap.md](docs/roadmap.md).
 ## Documentation
 
 Product-foundation documentation set (Phase 0 + Phase 1; the full,
-current documentation tree — including Phase 2–5B architecture, ADRs,
+current documentation tree — including Phase 2–6 architecture, ADRs,
 and operational docs — is browsable via `mkdocs serve` or directly under
 `docs/`):
 
