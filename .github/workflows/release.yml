@@ -1,0 +1,399 @@
+name: Release
+
+# The release pipeline (Phase 10A, ADR 0057). A `v*` tag on a commit of
+# main builds the tarballs and images from that commit, describes them in
+# CycloneDX SBOMs, and, once the owner approves the `release`
+# environment, signs everything with cosign keyless, attests its build
+# provenance, pushes the images to GHCR and publishes the GitHub release.
+# A last job, on a clean runner, downloads the release as an operator
+# would, verifies every checksum, signature and attestation, installs it
+# and starts it.
+#
+# Only `publish` can write, and only after approval. Every other job
+# reads. Actions are pinned by commit SHA; downloaded tools by version and
+# SHA-256.
+
+on:
+  push:
+    tags: ["v*"]
+  # A dry run on pull requests that change how a release is made: check,
+  # build and SBOMs only, under a version no tag can have. Nothing is
+  # signed or published.
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/release.yml
+      - scripts/package.sh
+      - deployments/docker/Dockerfile
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COSIGN_VERSION: v3.1.3
+  COSIGN_SHA256: 4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71
+  SYFT_VERSION: 1.52.0
+  SYFT_SHA256: caeedb81fb0491615f1ebd1761e4145d41ee86dd2cc7bf80669f9f5ad9d6133d
+  REGISTRY: ghcr.io/logixhare
+  TARGETS: collector incident-manager api notifier mitigator
+
+jobs:
+  check:
+    name: Check the tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # A release is a commit of main, named by the workspace's version,
+      # with notes in the changelog. Anything else stops here.
+      - id: version
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            echo "version=0.0.0-dryrun.${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          version=${GITHUB_REF_NAME#v}
+          [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] \
+            || { echo "::error::$GITHUB_REF_NAME is not v<semver>"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
+          workspace=$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"$/\1/p' Cargo.toml)
+          [ "$workspace" = "$version" ] \
+            || { echo "::error::Cargo.toml says $workspace, the tag $version"; exit 1; }
+          grep -q "^## \[$version\]" CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ $version == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build (${{ matrix.arch }})
+    needs: check
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        # ADR 0052: built natively on 22.04, so glibc 2.35 is the floor.
+        include:
+          - arch: x86_64
+            platform: amd64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            platform: arm64
+            runner: ubuntu-22.04-arm
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Rust toolchain
+        run: |
+          if ! command -v cargo >/dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+      - name: Build the tarball
+        run: bash scripts/package.sh "$VERSION" out
+      # The images are built from the tarball, as the package job builds
+      # them, and saved for the publish job to push.
+      - name: Build the images
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          tar -xzf out/wetechinetmon-*.tar.gz -C "$RUNNER_TEMP/unpacked"
+          unpacked=$(echo "$RUNNER_TEMP"/unpacked/wetechinetmon-*/)
+          for target in $TARGETS; do
+            docker build -q -f deployments/docker/Dockerfile --target "$target" \
+              --build-arg VERSION="$VERSION" \
+              -t "wetechinetmon-$target:$VERSION-${{ matrix.platform }}" "$unpacked"
+            docker save "wetechinetmon-$target:$VERSION-${{ matrix.platform }}" \
+              | gzip > "out/wetechinetmon-$target-$VERSION-${{ matrix.platform }}.tar.gz"
+          done
+          ls -l out
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: build-${{ matrix.arch }}
+          path: out/*.tar.gz
+          if-no-files-found: error
+
+  sbom:
+    name: SBOMs (CycloneDX)
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: build-*
+          path: built
+          merge-multiple: true
+      - name: Install syft
+        run: |
+          set -euo pipefail
+          tarball="syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/$tarball"
+          echo "$SYFT_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" syft
+      # One SBOM for the Rust workspace and one for the UI, from their
+      # lock files, and one per image and architecture.
+      - name: Describe the release
+        run: |
+          set -euo pipefail
+          mkdir sbom
+          "$RUNNER_TEMP/syft" scan file:Cargo.lock --quiet \
+            -o "cyclonedx-json=sbom/wetechinetmon-$VERSION-rust.cdx.json"
+          "$RUNNER_TEMP/syft" scan file:apps/web/package-lock.json --quiet \
+            -o "cyclonedx-json=sbom/wetechinetmon-$VERSION-web.cdx.json"
+          for target in $TARGETS; do
+            for platform in amd64 arm64; do
+              name="wetechinetmon-$target-$VERSION-$platform"
+              gunzip -c "built/$name.tar.gz" > "$RUNNER_TEMP/image.tar"
+              "$RUNNER_TEMP/syft" scan "docker-archive:$RUNNER_TEMP/image.tar" --quiet \
+                -o "cyclonedx-json=sbom/$name.cdx.json"
+            done
+          done
+          for sbom in sbom/*.json; do
+            jq -e '.bomFormat == "CycloneDX" and (.components | length) > 0' "$sbom" > /dev/null \
+              || { echo "::error::$sbom lists no components"; exit 1; }
+          done
+          ls -l sbom
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom/*.json
+          if-no-files-found: error
+
+  publish:
+    name: Sign and publish
+    needs: [check, build, sbom]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # The owner approves every run of this job (ADR 0057).
+    environment: release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      PRERELEASE: ${{ needs.check.outputs.prerelease }}
+    outputs:
+      digests: ${{ steps.images.outputs.digests }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Install cosign
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/cosign" \
+            "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          echo "$COSIGN_SHA256  $RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/cosign"
+      # One checksum file over every file attached to the release, signed
+      # keyless: the certificate names this workflow and the tag.
+      - name: Checksums and signatures
+        run: |
+          set -euo pipefail
+          mkdir release
+          cp artifacts/wetechinetmon-"$VERSION"-linux-*.tar.gz artifacts/*.cdx.json release/
+          cd release
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+          for file in SHA256SUMS *.cdx.json; do
+            "$RUNNER_TEMP/cosign" sign-blob --yes --bundle "$file.sigstore.json" "$file"
+          done
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            release/*.tar.gz
+            release/*.cdx.json
+            release/SHA256SUMS
+      - name: Push the images
+        id: images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          digests=""
+          for target in $TARGETS; do
+            image="$REGISTRY/wetechinetmon-$target"
+            for platform in amd64 arm64; do
+              docker load -q < "artifacts/wetechinetmon-$target-$VERSION-$platform.tar.gz"
+              docker tag "wetechinetmon-$target:$VERSION-$platform" "$image:$VERSION-$platform"
+              docker push -q "$image:$VERSION-$platform"
+            done
+            docker buildx imagetools create -t "$image:$VERSION" \
+              "$image:$VERSION-amd64" "$image:$VERSION-arm64"
+            digest=$(docker buildx imagetools inspect "$image:$VERSION" --format '{{json .Manifest.Digest}}' | tr -d '"')
+            "$RUNNER_TEMP/cosign" sign --yes "$image@$digest"
+            digests="$digests $target=$digest"
+            echo "$target=$digest" >> "$GITHUB_OUTPUT"
+          done
+          echo "digests=${digests# }" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/wetechinetmon-collector
+          subject-digest: ${{ steps.images.outputs.collector }}
+          push-to-registry: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/wetechinetmon-incident-manager
+          subject-digest: ${{ steps.images.outputs.incident-manager }}
+          push-to-registry: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/wetechinetmon-api
+          subject-digest: ${{ steps.images.outputs.api }}
+          push-to-registry: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/wetechinetmon-notifier
+          subject-digest: ${{ steps.images.outputs.notifier }}
+          push-to-registry: true
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/wetechinetmon-mitigator
+          subject-digest: ${{ steps.images.outputs.mitigator }}
+          push-to-registry: true
+      # The notes are the changelog's section for this version.
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ]
+          {
+            echo
+            echo "### Images"
+            echo
+            for pair in ${{ steps.images.outputs.digests }}; do
+              echo "- \`$REGISTRY/wetechinetmon-${pair%%=*}:$VERSION\` (\`${pair#*=}\`)"
+            done
+            echo
+            echo "Verify before installing: [docs/operations/verifying-a-release.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/operations/verifying-a-release.md)."
+          } >> notes.md
+          flags=()
+          [ "$PRERELEASE" = true ] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "WetechiNetMon $VERSION" --notes-file notes.md "${flags[@]}" release/*
+
+  verify:
+    name: Verify and install on a clean runner
+    needs: [check, publish]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}
+      ISSUER: https://token.actions.githubusercontent.com
+    # The same throwaway credential as CI's other jobs; never a real database.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wetechinetmon
+          POSTGRES_PASSWORD: wetechinetmon_test_only
+          POSTGRES_DB: wetechinetmon
+        ports:
+          - 55432:5432
+        options: >-
+          --tmpfs /var/lib/postgresql/data
+          --health-cmd "pg_isready -U wetechinetmon -d wetechinetmon"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    # No checkout: only what the release itself provides, as an operator
+    # has. The steps follow docs/operations/verifying-a-release.md.
+    steps:
+      - name: Install cosign
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/cosign" \
+            "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          echo "$COSIGN_SHA256  $RUNNER_TEMP/cosign" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/cosign"
+      - name: Download the release
+        run: gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -D release
+      - name: Verify checksums, signatures and provenance
+        working-directory: release
+        run: |
+          set -euo pipefail
+          for file in SHA256SUMS *.cdx.json; do
+            "$RUNNER_TEMP/cosign" verify-blob --bundle "$file.sigstore.json" \
+              --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" "$file"
+          done
+          sha256sum -c SHA256SUMS
+          for file in *.tar.gz *.cdx.json SHA256SUMS; do
+            gh attestation verify "$file" -R "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+          done
+      - name: Verify the images
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          for target in $TARGETS; do
+            image="$REGISTRY/wetechinetmon-$target:$VERSION"
+            "$RUNNER_TEMP/cosign" verify "$image" \
+              --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" > /dev/null
+            gh attestation verify "oci://$image" -R "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+          done
+      - name: Install and start the release
+        run: |
+          set -euo pipefail
+          tar -xzf "release/wetechinetmon-$VERSION-linux-x86_64.tar.gz" -C "$RUNNER_TEMP"
+          sudo "$RUNNER_TEMP/wetechinetmon-$VERSION-linux-x86_64/install.sh"
+          sudo sed -i \
+            's/host=127.0.0.1 user=wetechinetmon password=CHANGE_ME/host=127.0.0.1 port=55432 user=wetechinetmon password=wetechinetmon_test_only/' \
+            /etc/wetechinetmon/*.env
+          ready() {
+            for _ in $(seq 60); do
+              curl -sf "http://127.0.0.1:$1/readyz" >/dev/null && return 0
+              sleep 1
+            done
+            curl -sS --fail-with-body "http://127.0.0.1:$1/readyz"
+          }
+          sudo systemctl start wetechinetmon-incident-manager
+          ready 9091
+          sudo systemctl start wetechinetmon-api wetechinetmon-collector \
+            wetechinetmon-notifier wetechinetmon-mitigator
+          for port in 8080 9090 9093 9094; do ready "$port"; done
+          /opt/wetechinetmon/bin/wetechinetmonctl --version | grep -qx "wetechinetmonctl $VERSION"
+          echo "WetechiNetMon $VERSION verified and running."

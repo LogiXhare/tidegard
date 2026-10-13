@@ -125,6 +125,7 @@ nav:
       - Capacity Planning: operations/capacity-planning.md
       - Backup and Restore: operations/backup-and-restore.md
       - Disaster Recovery: operations/disaster-recovery.md
+      - Verifying a Release: operations/verifying-a-release.md
       - Incident Runbook: operations/incident-runbook.md
       - RTBH Guide: operations/rtbh-guide.md
       - FlowSpec Guide: operations/flowspec-guide.md
