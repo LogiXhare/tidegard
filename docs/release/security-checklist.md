@@ -10,7 +10,7 @@ before `v1.0.0` is tagged. Every item links to what proves it.
 | S-1 | No Critical or High finding is open | [Security review](../security/security-review.md) |
 | S-2 | Every threat in the model has a passing test, or a recorded reason it does not | [Threat tests](../security/incident-threat-tests.md): 55 of 57 met; T-21 partial (Phase 8), T-55 met by S-9 once the first release verifies |
 | S-3 | The collector's untrusted input cannot crash it or exhaust its memory | T-49 and T-50; the [allowlist and bounds](../architecture/decisions/0056-phase9d-collector-input-bounds.md); the fuzz workflow |
-| S-4 | The IPFIX decoder was fuzzed for a stated time, with its coverage reported | The fuzzing report (FU-3) in the [security review](../security/security-review.md) |
+| S-4 | The IPFIX decoder was fuzzed for a stated time, with its coverage reported | The [fuzzing report](../security/security-review.md#fuzzing-report-fu-3): three hours, 957,841,448 executions, no crash |
 | S-5 | API tokens are stored as SHA-256 only; sessions are bound to them and expire with them | [ADR 0038](../architecture/decisions/0038-phase5d-api-boundary.md), [ADR 0043](../architecture/decisions/0043-phase6c-browser-sessions.md), and their tests |
 | S-6 | Every action is authorized and audited, denials included; tenants are isolated | T-05, T-06, T-19 to T-21, T-40, T-48 in the [threat tests](../security/incident-threat-tests.md) |
 | S-7 | No route is announced without approval, outside the allowlist, or past the prefix floors | T-42 to T-48 |
