@@ -22,6 +22,8 @@ Written so far:
   pull request.
 - [Verifying a Release](verifying-a-release.md) — Phase 10A: checking a
   release's signatures, checksums and provenance before installing it
+- [Upgrading and Rolling Back](upgrading.md) — Phase 10B: moving to a new
+  release, from v0.9.0 on, and back
 - [Backup and Restore](backup-and-restore.md) — Phase 5F: the incident
   database, and the drill CI runs on every pull request
 - [RTBH Guide](rtbh-guide.md) — Phase 7F: blackholing, and what the edge
