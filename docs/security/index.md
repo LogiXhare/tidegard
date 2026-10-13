@@ -10,6 +10,9 @@ Phase 9 (production security review).
 
 For reporting a vulnerability, see [Security Policy](security-policy.md).
 
+- [Phase 9D Security Review](security-review.md): every finding of the
+  production review, with its severity and disposition
+
 Component security notes:
 
 - [Detection Safety](detection-safety.md) — what the detection engine
