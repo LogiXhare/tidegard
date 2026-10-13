@@ -7,7 +7,9 @@ The release tarball installs WetechiNetMon on Ubuntu 22.04 or 24.04, or
 Debian 12 or 13, as five systemd services. `scripts/package.sh` builds
 the tarball from this directory and
 [`../config`](../config), and CI installs every build with `install.sh`
-and starts every service.
+and starts every service. Building it needs cargo, npm and
+[cargo-about](https://github.com/EmbarkStudios/cargo-about) 0.9.2, which
+writes the third-party licence notices the tarball ships.
 
 | File | Installed as |
 |---|---|
