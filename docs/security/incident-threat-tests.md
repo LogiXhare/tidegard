@@ -1,6 +1,6 @@
 # Incident Threat Tests
 
-Status: **Phase 5F security review**, 2026-10-05; Phase 6 threats T-30 to T-41 added, and T-08 updated, 2026-10-12; Phase 7 threats T-42 to T-48 added, 2026-10-12.
+Status: **Phase 5F security review**, 2026-10-05; Phase 6 threats T-30 to T-41 added, and T-08 updated, 2026-10-12; Phase 7 threats T-42 to T-48 added, 2026-10-12; Phase 9D threats T-49 to T-57 added, 2026-10-13.
 
 This maps each threat in the [threat model](incident-threat-model.md) to
 the tests that prove its control. Gate 2 requires that every threat has a
@@ -86,17 +86,27 @@ jobs must show the test as `ok`, and it must not have skipped.
 | T-46 Exposed GoBGP API | Met, as implemented (7C) | `crates/mitigator/src/gobgp.rs` `plain_http_is_refused_off_loopback_and_https_needs_a_bundle`. `gobgpd`'s own listening address is the operator's configuration: the installation guide binds it to loopback, and CI's labs do. |
 | T-47 Kill-switch release by a stolen token | Met (7E) | `apps/api/tests/mitigations.rs` (a lead's release is `403`; the host command releases); `apps/cli/tests/mitigation_commands.rs` |
 | T-48 Cross-tenant blackhole | Met (7B, 7E) | `crates/mitigation/tests/unauthorized_prefixes.rs` `another_tenants_space_is_refused_with_the_same_answer_as_nobodys`; `apps/api/tests/tenant_isolation.rs` |
+| T-49 Hostile flow datagram | Met (9D) | `crates/protocol-ipfix/src/lib.rs` `decode_message_never_panics` and siblings (proptest); `crates/protocol-ipfix/src/decoder.rs` `the_fuzzer_s_out_of_memory_input_ends`, `a_template_of_zero_length_records_is_refused`, `a_huge_field_count_in_a_short_record_is_truncated`; the fuzz workflow on decoder pull requests |
+| T-50 Memory exhaustion through spoofed exporters and templates | Met (9D) | `crates/collector/src/exporter.rs` `a_new_exporter_past_the_limit_is_refused_until_one_goes_idle`, `the_allowlist_admits_its_networks_only`; `crates/collector/src/lib.rs` `datagrams_outside_the_exporter_limits_are_refused_before_decoding`; `crates/protocol-ipfix/src/template_cache.rs` `a_template_past_the_count_limit_is_refused_and_the_cache_kept`, `templates_past_the_field_limit_are_refused` |
+| T-51 Flow flood | Met (3, 9B) | `crates/aggregator/src/bounded_map.rs` `evicts_least_recently_updated_entry_when_at_capacity`; the benchmark workflow's load test and soak |
+| T-52 Forged flows that trigger detection | Met, as implemented (7, 9D) | As T-45 (no route without approval) and T-50 (the allowlist). Nothing mitigates automatically in v1.0.0 (BQ-17) |
+| T-53 ClickHouse credential or data exposure | Met (9A) | `crates/storage/src/connection.rs` `plain_http_reaches_loopback_only`, `https_needs_a_ca_bundle`, `credentials_never_ride_in_the_url`, `logs_show_only_scheme_host_and_port`; the Grafana job's export over TLS |
+| T-54 A compromised service reaching further | Met (9A) | The package job: `systemd-analyze verify` and `security` on every unit, each image's user, the collector run `--read-only --cap-drop ALL`, hadolint, Trivy |
+| T-55 A tampered release | Deferred (10A) | The release pipeline's signatures and provenance, verified on a clean runner, are Phase 10A's exit |
+| T-56 A compromised dependency or build tool | Met (9D) | The Rust job's `cargo-deny` step; the web job's `npm audit`; the package job's Trivy scan |
+| T-57 A secret in the public history | Met (9D) | The history job's gitleaks scan of the full history |
 
 ## Summary
 
 | Status | Count |
 |---|---|
-| Met | 43 |
-| Met, as implemented | 4 (T-03, T-18, T-34, T-46) |
+| Met | 50 |
+| Met, as implemented | 5 (T-03, T-18, T-34, T-46, T-52) |
 | Partial | 1 (T-21 → FU-60) |
-| Deferred | 0 |
+| Deferred | 1 (T-55 → Phase 10A) |
 
-One of the 48 threats is partial, so the Gate 2 criterion "every threat
-has a passing test" is not fully met. T-21 needs a user directory, which
+One of the 57 threats is partial, so the Gate 2 criterion "every threat
+has a passing test" is not fully met. T-55 is deferred to the release
+pipeline, which does not exist yet; nothing is released until it does. T-21 needs a user directory, which
 arrives with Phase 8. Being named as assignee grants nothing, and a test
 proves it.
