@@ -93,9 +93,11 @@ jobs:
           - arch: x86_64
             platform: amd64
             runner: ubuntu-22.04
+            cargo_about_sha256: 9099a59e820c38a68b9d65f300662a567d56562f9a10f6aa4c7e86c17c2566af
           - arch: aarch64
             platform: arm64
             runner: ubuntu-22.04-arm
+            cargo_about_sha256: af5169282fb6f84e13471493f405437e43ac517744c9ae12fbe2cdf0a6f0e5a8
     env:
       VERSION: ${{ needs.check.outputs.version }}
     steps:
@@ -110,6 +112,18 @@ jobs:
               | sh -s -- -y --profile minimal
             echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
+      # The tarball's third-party licence notices (FU-53).
+      - name: Install cargo-about
+        env:
+          CARGO_ABOUT_VERSION: 0.9.2
+        run: |
+          set -euo pipefail
+          name="cargo-about-${CARGO_ABOUT_VERSION}-${{ matrix.arch }}-unknown-linux-musl"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$name.tar.gz" \
+            "https://github.com/EmbarkStudios/cargo-about/releases/download/${CARGO_ABOUT_VERSION}/$name.tar.gz"
+          echo "${{ matrix.cargo_about_sha256 }}  $RUNNER_TEMP/$name.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$name.tar.gz" -C "$RUNNER_TEMP" "$name/cargo-about"
+          echo "CARGO_ABOUT=$RUNNER_TEMP/$name/cargo-about" >> "$GITHUB_ENV"
       - name: Build the tarball
         run: bash scripts/package.sh "$VERSION" out
       # The images are built from the tarball, as the package job builds
