@@ -1,11 +1,18 @@
 name: Fuzz (IPFIX decoder)
 
-# Scheduled/manual only — deliberately not part of validate.yml, since
+# Scheduled, manual and on decoder pull requests — not part of validate.yml, since
 # fuzzing needs a nightly toolchain that normal builds/tests never
 # require (Phase 3 objective 13: "without making nightly mandatory for
 # normal builds"). See crates/protocol-ipfix/fuzz/README.md.
 
 on:
+  # Also on pull requests that touch the decoder, so a change is fuzzed
+  # before it merges: the weekly run failed unnoticed for weeks (Phase 9D).
+  pull_request:
+    branches: [main]
+    paths:
+      - crates/protocol-ipfix/**
+      - .github/workflows/fuzz.yml
   schedule:
     - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
   workflow_dispatch:
