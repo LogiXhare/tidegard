@@ -90,6 +90,12 @@ nav:
       - Incident Observability: architecture/incident-observability.md
       - Incident Testing Plan: architecture/incident-testing-plan.md
       - Decision Records: architecture/decisions/index.md
+  - Release:
+      - Overview: release/index.md
+      - Migration Notes: release/migration-notes.md
+      - Known Issues: release/known-issues.md
+      - Production Checklist: release/production-checklist.md
+      - Security Checklist: release/security-checklist.md
   - Security:
       - Overview: security/index.md
       - Security Principles: security-principles.md
@@ -127,6 +133,7 @@ nav:
       - Backup and Restore: operations/backup-and-restore.md
       - Disaster Recovery: operations/disaster-recovery.md
       - Verifying a Release: operations/verifying-a-release.md
+      - Upgrading and Rolling Back: operations/upgrading.md
       - Incident Runbook: operations/incident-runbook.md
       - RTBH Guide: operations/rtbh-guide.md
       - FlowSpec Guide: operations/flowspec-guide.md
