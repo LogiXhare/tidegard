@@ -35,7 +35,7 @@ pub use error::DecodeError;
 pub use header::{MessageHeader, IPFIX_VERSION, MESSAGE_HEADER_LEN};
 pub use record::{decode_data_record, DataRecord, DecodedField};
 pub use template::{FieldSpecifier, Template, VARIABLE_LENGTH};
-pub use template_cache::{SamplingInfo, TemplateCache};
+pub use template_cache::{SamplingInfo, TemplateCache, MAX_TEMPLATES, MAX_TEMPLATE_FIELDS};
 
 #[cfg(test)]
 mod proptests {
@@ -73,7 +73,7 @@ mod proptests {
                     FieldSpecifier { information_element_id: 12, field_length: 4, enterprise_number: None },
                     FieldSpecifier { information_element_id: 11, field_length: VARIABLE_LENGTH, enterprise_number: None },
                 ],
-            });
+            }).unwrap();
             let _ = decode_message(&bytes, &mut cache);
         }
 

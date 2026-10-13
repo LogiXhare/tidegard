@@ -160,7 +160,7 @@ fn parse_template_records(
                 template_id: template.template_id,
             });
         }
-        templates.insert(template.clone());
+        templates.insert(template.clone())?;
         parsed.push(template);
     }
 
@@ -284,15 +284,17 @@ mod tests {
     #[test]
     fn decodes_multiple_records_packed_in_one_data_set() {
         let mut cache = TemplateCache::new();
-        cache.insert(Template {
-            template_id: 300,
-            scope_field_count: 0,
-            fields: vec![crate::template::FieldSpecifier {
-                information_element_id: 1,
-                field_length: 4,
-                enterprise_number: None,
-            }],
-        });
+        cache
+            .insert(Template {
+                template_id: 300,
+                scope_field_count: 0,
+                fields: vec![crate::template::FieldSpecifier {
+                    information_element_id: 1,
+                    field_length: 4,
+                    enterprise_number: None,
+                }],
+            })
+            .unwrap();
 
         let mut record_bytes = Vec::new();
         record_bytes.extend_from_slice(&10u32.to_be_bytes());
@@ -453,5 +455,38 @@ mod tests {
             DecodeError::ZeroLengthTemplate { template_id: 302 }
         );
         assert!(!cache.contains(302));
+    }
+
+    /// One datagram can define thousands of templates. Past the cache's
+    /// limit the message is refused, and what was cached stays bounded.
+    #[test]
+    fn a_message_of_too_many_templates_is_refused() {
+        let mut cache = TemplateCache::new();
+        let mut sets = Vec::new();
+        for id in 0..=crate::MAX_TEMPLATES as u16 {
+            sets.extend_from_slice(&template_set_bytes(256 + id, &[(8, 4)]));
+        }
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + sets.len()) as u16, 1);
+        msg.extend_from_slice(&sets);
+        let last = 256 + crate::MAX_TEMPLATES as u16;
+        assert_eq!(
+            decode_message(&msg, &mut cache).unwrap_err(),
+            DecodeError::TemplateLimit { template_id: last }
+        );
+        assert_eq!(cache.len(), crate::MAX_TEMPLATES);
+    }
+
+    /// A template record that claims 65,535 fields in a few bytes is
+    /// truncated, and reserves only what those bytes could hold.
+    #[test]
+    fn a_huge_field_count_in_a_short_record_is_truncated() {
+        let mut record = Vec::new();
+        record.extend_from_slice(&256u16.to_be_bytes());
+        record.extend_from_slice(&u16::MAX.to_be_bytes());
+        record.extend_from_slice(&[0, 8, 0, 4]);
+        assert!(matches!(
+            Template::parse_template_record(&record),
+            Err(DecodeError::TemplateRecordTruncated { .. })
+        ));
     }
 }

@@ -53,7 +53,7 @@ use wetechinetmon_classifier::{build_registry, classify, Direction};
 use wetechinetmon_protocol_ipfix::{decode_message, DecodedSet};
 
 pub use config::Config;
-pub use exporter::ExporterRegistry;
+pub use exporter::{AllowedNetwork, ExporterLimits, ExporterRegistry};
 pub use metrics::Metrics;
 pub use pipeline::{Pipeline, SamplingConfig};
 
@@ -247,7 +247,12 @@ pub async fn run_until(
         metrics.queue_depth.clone(),
     ));
 
-    let mut exporters = ExporterRegistry::new();
+    if config.exporters.allowed.is_empty() {
+        tracing::warn!(
+            "WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS is not set: datagrams from any source are decoded; set it, or firewall the flow port to the routers"
+        );
+    }
+    let mut exporters = ExporterRegistry::with_limits(config.exporters.clone());
     let mut expire_interval = tokio::time::interval(EXPIRATION_INTERVAL);
 
     // ClickHouse export is entirely optional — see
@@ -307,6 +312,14 @@ pub async fn run_until(
                 if expired > 0 {
                     metrics.expired_entries_total.inc_by(expired as u64);
                     tracing::debug!(expired, "swept inactive aggregation entries");
+                }
+                let forgotten = exporters.evict_idle(Instant::now());
+                if forgotten > 0 {
+                    metrics.active_exporters.set(exporters.exporter_count() as i64);
+                    metrics
+                        .template_cache_size
+                        .set(exporters.total_template_count() as i64);
+                    tracing::info!(forgotten, "forgot idle exporters and their templates");
                 }
             }
             _ = detection_interval.tick(), if detection.is_some() => {
@@ -475,6 +488,17 @@ fn process_datagram(
     mut detection: Option<&mut detection::DetectionStage>,
     metrics: &Metrics,
 ) {
+    // Phase 9D (ADR 0056): a source outside the allowlist is dropped
+    // before a byte of it is parsed.
+    if !registry.permits(src.ip()) {
+        metrics
+            .datagrams_refused_total
+            .with_label_values(&["not_allowed"])
+            .inc();
+        tracing::debug!(%src, "datagram from a source outside the allowed exporters");
+        return;
+    }
+
     // Peek the header first (cheap — 16 bytes, no allocation) purely to
     // get the sequence number for restart detection *before* we hand the
     // (possibly stale) template cache to the full decoder.
@@ -487,7 +511,14 @@ fn process_datagram(
         }
     };
 
-    let exporter = registry.get_or_create(src);
+    let Some(exporter) = registry.get_or_create((src, header.observation_domain_id)) else {
+        metrics
+            .datagrams_refused_total
+            .with_label_values(&["exporter_limit"])
+            .inc();
+        tracing::debug!(%src, observation_domain_id = header.observation_domain_id, "exporter limit reached; datagram dropped");
+        return;
+    };
     if exporter.observe_sequence(header.sequence_number) {
         metrics.exporter_restarts_total.inc();
         tracing::warn!(%src, sequence_number = header.sequence_number, "exporter restart detected, template cache cleared");
@@ -726,6 +757,43 @@ mod tests {
             &metrics,
         );
         assert_eq!(metrics.parser_failures_total.get(), 1);
+    }
+
+    /// ADR 0056: a source outside the allowlist, or a new exporter past
+    /// the limit, is dropped before decoding and counted by reason.
+    #[test]
+    fn datagrams_outside_the_exporter_limits_are_refused_before_decoding() {
+        let (metrics, _registry) = Metrics::new().unwrap();
+        let mut pipeline = test_pipeline();
+        let set = template_set_bytes(&[(8, 4), (12, 4), (1, 8), (2, 8)]);
+        let mut msg = message_header_bytes((16 + set.len()) as u16);
+        msg.extend_from_slice(&set);
+        let refused = |reason: &str| {
+            metrics
+                .datagrams_refused_total
+                .with_label_values(&[reason])
+                .get()
+        };
+
+        let mut elsewhere = ExporterRegistry::with_limits(ExporterLimits {
+            allowed: vec![AllowedNetwork::new("192.0.2.0".parse().unwrap(), 24).unwrap()],
+            ..ExporterLimits::default()
+        });
+        process_datagram(&msg, addr(), &mut elsewhere, &mut pipeline, None, &metrics);
+        assert_eq!(refused("not_allowed"), 1);
+        assert_eq!(elsewhere.exporter_count(), 0);
+
+        let mut one = ExporterRegistry::with_limits(ExporterLimits {
+            max_exporters: 1,
+            ..ExporterLimits::default()
+        });
+        process_datagram(&msg, addr(), &mut one, &mut pipeline, None, &metrics);
+        let other: std::net::SocketAddr = "127.0.0.1:40000".parse().unwrap();
+        process_datagram(&msg, other, &mut one, &mut pipeline, None, &metrics);
+        assert_eq!(refused("exporter_limit"), 1);
+        assert_eq!(one.exporter_count(), 1);
+        assert_eq!(one.total_template_count(), 1);
+        assert_eq!(metrics.parser_failures_total.get(), 0);
     }
 
     #[test]

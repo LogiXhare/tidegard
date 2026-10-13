@@ -38,6 +38,35 @@ provides `bgpSourceAsNumber`/`bgpDestinationAsNumber`). Default `10000`.
 | Related metrics | `wetechinetmon_collector_expired_entries_total` |
 | Troubleshooting | Swept every 30 seconds (`EXPIRATION_INTERVAL` in `crates/collector/src/lib.rs`, not itself configurable in Phase 3) — an entry can be up to ~30s past its nominal TTL before actually being removed |
 
+## `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`
+
+| Field | Value |
+|---|---|
+| Type | Comma-separated networks (`192.0.2.0/24`, `2001:db8::/32`) or addresses (`198.51.100.7`), in canonical form |
+| Default | Unset: datagrams from any source are decoded, and the collector warns at startup |
+| Security implications | UDP is unauthenticated. A datagram from outside these networks is dropped before it is parsed ([ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md)). Set it to your routers' addresses, and firewall the flow port to them as well |
+| Related metrics | `wetechinetmon_collector_datagrams_refused_total{reason="not_allowed"}` |
+| Troubleshooting | A router missing from the list shows as that counter rising and no flows from it. A network with host bits set (`192.0.2.1/24`) stops the collector at startup |
+
+## `WETECHINETMON_COLLECTOR_MAX_EXPORTERS`
+
+| Field | Value |
+|---|---|
+| Type | Positive integer |
+| Default | `1000` |
+| Security implications | Bounds the exporters tracked, each a source address and observation domain with its own template cache of at most 512 templates and 8,192 fields: about 125 MiB at the default, whatever is sent |
+| Related metrics | `wetechinetmon_collector_active_exporters`, `wetechinetmon_collector_datagrams_refused_total{reason="exporter_limit"}` |
+| Troubleshooting | Past the limit, a new exporter's datagrams are dropped and counted; those already tracked carry on |
+
+## `WETECHINETMON_COLLECTOR_EXPORTER_IDLE_SECS`
+
+| Field | Value |
+|---|---|
+| Type | Non-negative integer (seconds) |
+| Default | `3600` |
+| Related metrics | `wetechinetmon_collector_active_exporters`, `wetechinetmon_collector_template_cache_size` |
+| Troubleshooting | An exporter silent this long is forgotten with its templates, swept every 30 seconds. When it returns, its data is unknown until it sends templates again |
+
 ## `WETECHINETMON_COLLECTOR_QUEUE_CAPACITY`
 
 | Field | Value |

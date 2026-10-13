@@ -37,7 +37,9 @@ summary of what to watch and why.
 **Pipeline health:** `queue_depth`, `aggregation_latency_seconds`.
 
 **Exporter health (Phase 2):** `active_exporters`, `template_cache_size`,
-`exporter_restarts_total`.
+`exporter_restarts_total`, and since Phase 9D
+`datagrams_refused_total{reason}` (`not_allowed`, `exporter_limit`;
+[ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md)).
 
 ## No Unbounded Labels
 

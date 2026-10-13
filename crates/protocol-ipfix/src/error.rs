@@ -64,4 +64,10 @@ pub enum DecodeError {
     /// must never be possible on untrusted input.
     #[error("a data record for template {template_id} consumed no bytes")]
     EmptyDataRecord { template_id: u16 },
+
+    /// A template the exporter's cache has no room for (Phase 9D,
+    /// ADR 0056): see `template_cache::MAX_TEMPLATES` and
+    /// `MAX_TEMPLATE_FIELDS`.
+    #[error("template {template_id} would take the exporter's template cache past its limit")]
+    TemplateLimit { template_id: u16 },
 }

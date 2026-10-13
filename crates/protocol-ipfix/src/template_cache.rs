@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::error::DecodeError;
 use crate::record::DataRecord;
 use crate::template::Template;
 
@@ -20,6 +21,16 @@ pub struct SamplingInfo {
     pub sampling_algorithm: Option<u8>,
 }
 
+/// The most templates one cache holds: one exporter's observation
+/// domain. Routers define tens; a cache full of hundreds is an exporter
+/// misbehaving or someone else's datagrams (Phase 9D, ADR 0056).
+pub const MAX_TEMPLATES: usize = 512;
+
+/// The most field specifiers one cache holds across all its templates.
+/// With [`MAX_TEMPLATES`] it bounds a cache's memory to about 128 KiB,
+/// whatever an exporter sends; a router's templates total a few hundred.
+pub const MAX_TEMPLATE_FIELDS: usize = 8_192;
+
 const IE_SAMPLING_INTERVAL: u16 = 34;
 const IE_SAMPLING_ALGORITHM: u16 = 35;
 
@@ -37,6 +48,9 @@ const IE_SAMPLING_ALGORITHM: u16 = 35;
 #[derive(Debug, Default)]
 pub struct TemplateCache {
     templates: HashMap<u16, Template>,
+    /// Field specifiers across every cached template, against
+    /// [`MAX_TEMPLATE_FIELDS`].
+    fields: usize,
     sampling: SamplingInfo,
 }
 
@@ -53,13 +67,37 @@ impl TemplateCache {
     /// docs/security-principles.md) is the collector's job, since only it
     /// has the context of "is this an exporter restart or something
     /// suspicious."
-    pub fn insert(&mut self, template: Template) {
+    ///
+    /// Refuses a template that would take the cache past
+    /// [`MAX_TEMPLATES`] or [`MAX_TEMPLATE_FIELDS`], and keeps what it
+    /// had: the limits are what keep an exporter, or anyone who can send
+    /// to the collector's port, from growing it without bound.
+    pub fn insert(&mut self, template: Template) -> Result<(), DecodeError> {
+        let (templates, replaced) = match self.templates.get(&template.template_id) {
+            Some(old) => (self.templates.len(), old.fields.len()),
+            None => (self.templates.len() + 1, 0),
+        };
+        let fields = self.fields - replaced + template.fields.len();
+        if templates > MAX_TEMPLATES || fields > MAX_TEMPLATE_FIELDS {
+            return Err(DecodeError::TemplateLimit {
+                template_id: template.template_id,
+            });
+        }
+        self.fields = fields;
         self.templates.insert(template.template_id, template);
+        Ok(())
     }
 
     /// Forgets one template: a Template Withdrawal (RFC 7011 §8.1).
     pub fn remove(&mut self, template_id: u16) {
-        self.templates.remove(&template_id);
+        if let Some(old) = self.templates.remove(&template_id) {
+            self.fields -= old.fields.len();
+        }
+    }
+
+    /// Field specifiers across every cached template.
+    pub fn field_count(&self) -> usize {
+        self.fields
     }
 
     pub fn get(&self, template_id: u16) -> Option<&Template> {
@@ -85,6 +123,7 @@ impl TemplateCache {
     /// template IDs are stable across an exporter restart).
     pub fn clear(&mut self) {
         self.templates.clear();
+        self.fields = 0;
         self.sampling = SamplingInfo::default();
     }
 
@@ -135,11 +174,66 @@ mod tests {
         }
     }
 
+    fn template_of(id: u16, fields: usize) -> Template {
+        Template {
+            template_id: id,
+            scope_field_count: 0,
+            fields: vec![
+                FieldSpecifier {
+                    information_element_id: 8,
+                    field_length: 4,
+                    enterprise_number: None,
+                };
+                fields
+            ],
+        }
+    }
+
+    #[test]
+    fn a_template_past_the_count_limit_is_refused_and_the_cache_kept() {
+        let mut cache = TemplateCache::new();
+        for id in 0..MAX_TEMPLATES {
+            cache.insert(template_of(256 + id as u16, 1)).unwrap();
+        }
+        let next = 256 + MAX_TEMPLATES as u16;
+        assert_eq!(
+            cache.insert(template_of(next, 1)),
+            Err(DecodeError::TemplateLimit { template_id: next })
+        );
+        assert_eq!(cache.len(), MAX_TEMPLATES);
+        assert!(!cache.contains(next));
+        // Redefining a template already held needs no room.
+        cache.insert(template_of(256, 3)).unwrap();
+        assert_eq!(cache.field_count(), MAX_TEMPLATES + 2);
+    }
+
+    #[test]
+    fn templates_past_the_field_limit_are_refused() {
+        let mut cache = TemplateCache::new();
+        cache
+            .insert(template_of(256, MAX_TEMPLATE_FIELDS - 10))
+            .unwrap();
+        assert_eq!(
+            cache.insert(template_of(257, 11)),
+            Err(DecodeError::TemplateLimit { template_id: 257 })
+        );
+        cache.insert(template_of(257, 10)).unwrap();
+        assert_eq!(cache.field_count(), MAX_TEMPLATE_FIELDS);
+        // Withdrawing and clearing give the room back.
+        cache.remove(256);
+        assert_eq!(cache.field_count(), 10);
+        cache
+            .insert(template_of(258, MAX_TEMPLATE_FIELDS - 10))
+            .unwrap();
+        cache.clear();
+        assert_eq!(cache.field_count(), 0);
+    }
+
     #[test]
     fn insert_and_get_round_trip() {
         let mut cache = TemplateCache::new();
         assert!(cache.is_empty());
-        cache.insert(sample_template(256));
+        cache.insert(sample_template(256)).unwrap();
         assert_eq!(cache.len(), 1);
         assert!(cache.contains(256));
         assert_eq!(cache.get(256).unwrap().template_id, 256);
@@ -149,14 +243,14 @@ mod tests {
     #[test]
     fn redefinition_replaces_rather_than_errors() {
         let mut cache = TemplateCache::new();
-        cache.insert(sample_template(256));
+        cache.insert(sample_template(256)).unwrap();
         let mut replacement = sample_template(256);
         replacement.fields.push(FieldSpecifier {
             information_element_id: 12,
             field_length: 4,
             enterprise_number: None,
         });
-        cache.insert(replacement);
+        cache.insert(replacement).unwrap();
         assert_eq!(cache.len(), 1);
         assert_eq!(cache.get(256).unwrap().fields.len(), 2);
     }
@@ -164,7 +258,7 @@ mod tests {
     #[test]
     fn clear_drops_templates_and_sampling() {
         let mut cache = TemplateCache::new();
-        cache.insert(sample_template(256));
+        cache.insert(sample_template(256)).unwrap();
         cache.observe_options_data(&DataRecord {
             template_id: 300,
             fields: vec![DecodedField {

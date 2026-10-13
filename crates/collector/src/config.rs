@@ -8,12 +8,17 @@
 //! simplification, not an oversight. Full docs:
 //! docs/configuration/aggregation.md, docs/configuration/prefixes.md.
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
+use std::time::Duration;
 
 use wetechinetmon_classifier::PrefixConfigEntry;
 use wetechinetmon_incident_postgres::connect::TlsFiles;
 use wetechinetmon_storage::ClickHouseSettings;
+
+use crate::exporter::{
+    AllowedNetwork, ExporterLimits, DEFAULT_EXPORTER_IDLE_SECS, DEFAULT_MAX_EXPORTERS,
+};
 
 const DEFAULT_BIND: &str = "0.0.0.0:2055";
 const DEFAULT_METRICS_BIND: &str = "0.0.0.0:9090";
@@ -32,6 +37,9 @@ const BIND_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_BIND";
 const METRICS_BIND_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_METRICS_BIND";
 const QUEUE_CAPACITY_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_QUEUE_CAPACITY";
 const LOCAL_PREFIXES_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_LOCAL_PREFIXES";
+const ALLOWED_EXPORTERS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS";
+const MAX_EXPORTERS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_MAX_EXPORTERS";
+const EXPORTER_IDLE_SECS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_EXPORTER_IDLE_SECS";
 const MAX_HOSTS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_MAX_HOSTS";
 const MAX_NETWORKS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_MAX_NETWORKS";
 const MAX_HOSTGROUPS_ENV_VAR: &str = "WETECHINETMON_COLLECTOR_MAX_HOSTGROUPS";
@@ -70,6 +78,9 @@ pub struct Config {
     pub queue_capacity: usize,
     /// Local-prefix registry entries, per docs/configuration/prefixes.md.
     pub local_prefixes: Vec<PrefixConfigEntry>,
+    /// Which sources may send flows, how many exporters are tracked and
+    /// for how long (Phase 9D, ADR 0056).
+    pub exporters: ExporterLimits,
     pub max_hosts: usize,
     pub max_networks: usize,
     pub max_hostgroups: usize,
@@ -144,6 +155,21 @@ impl Config {
             parse_u64_or_default(INACTIVITY_TTL_SECS_ENV_VAR, DEFAULT_INACTIVITY_TTL_SECS)?;
         let sampling_global_default = parse_optional_u32(SAMPLING_GLOBAL_DEFAULT_ENV_VAR)?;
         let local_prefixes = parse_local_prefixes(LOCAL_PREFIXES_ENV_VAR)?;
+        let exporters = ExporterLimits {
+            allowed: parse_allowed_exporters(ALLOWED_EXPORTERS_ENV_VAR)?,
+            max_exporters: parse_usize_or_default(MAX_EXPORTERS_ENV_VAR, DEFAULT_MAX_EXPORTERS)?,
+            idle_timeout: Duration::from_secs(parse_u64_or_default(
+                EXPORTER_IDLE_SECS_ENV_VAR,
+                DEFAULT_EXPORTER_IDLE_SECS,
+            )?),
+        };
+        if exporters.max_exporters == 0 {
+            return Err(ConfigError::InvalidValue {
+                var: MAX_EXPORTERS_ENV_VAR.to_string(),
+                value: "0".to_string(),
+                expected: "at least 1",
+            });
+        }
         let clickhouse = match env_value(CLICKHOUSE_URL_ENV_VAR)? {
             Some(url) if !url.trim().is_empty() => {
                 let settings = ClickHouseSettings {
@@ -190,6 +216,7 @@ impl Config {
             metrics_bind,
             queue_capacity,
             local_prefixes,
+            exporters,
             max_hosts,
             max_networks,
             max_hostgroups,
@@ -312,6 +339,36 @@ fn parse_local_prefixes(var: &str) -> Result<Vec<PrefixConfigEntry>, ConfigError
     Ok(entries)
 }
 
+/// Parses `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`: a comma-separated
+/// list of networks (`192.0.2.0/24`) or single addresses (`192.0.2.1`,
+/// read as /32 or /128). A network with bits set below its length is
+/// refused, as a likely typo. Unset or empty allows any source.
+fn parse_allowed_exporters(var: &str) -> Result<Vec<AllowedNetwork>, ConfigError> {
+    let Some(raw) = env_value(var)? else {
+        return Ok(Vec::new());
+    };
+    let invalid = || ConfigError::InvalidValue {
+        var: var.to_string(),
+        value: raw.clone(),
+        expected: "comma-separated networks in canonical form, e.g. 192.0.2.0/24,2001:db8::/32",
+    };
+    let mut allowed = Vec::new();
+    for part in raw.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        let (address, length) = match part.split_once('/') {
+            Some((address, length)) => {
+                let address: IpAddr = address.parse().map_err(|_| invalid())?;
+                (address, length.parse::<u8>().map_err(|_| invalid())?)
+            }
+            None => {
+                let address: IpAddr = part.parse().map_err(|_| invalid())?;
+                (address, if address.is_ipv4() { 32 } else { 128 })
+            }
+        };
+        allowed.push(AllowedNetwork::new(address, length).ok_or_else(invalid)?);
+    }
+    Ok(allowed)
+}
+
 fn env_value(var: &str) -> Result<Option<String>, ConfigError> {
     match std::env::var(var) {
         Ok(value) => Ok(Some(value)),
@@ -352,6 +409,9 @@ mod tests {
         METRICS_BIND_ENV_VAR,
         QUEUE_CAPACITY_ENV_VAR,
         LOCAL_PREFIXES_ENV_VAR,
+        ALLOWED_EXPORTERS_ENV_VAR,
+        MAX_EXPORTERS_ENV_VAR,
+        EXPORTER_IDLE_SECS_ENV_VAR,
         MAX_HOSTS_ENV_VAR,
         MAX_NETWORKS_ENV_VAR,
         MAX_HOSTGROUPS_ENV_VAR,
@@ -375,6 +435,38 @@ mod tests {
     }
 
     #[test]
+    fn the_exporter_limits_are_read_and_checked() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        clear_all();
+        std::env::set_var(
+            ALLOWED_EXPORTERS_ENV_VAR,
+            " 192.0.2.0/24, 198.51.100.7 ,2001:db8::/32,",
+        );
+        std::env::set_var(MAX_EXPORTERS_ENV_VAR, "20");
+        std::env::set_var(EXPORTER_IDLE_SECS_ENV_VAR, "600");
+        let config = Config::from_env().unwrap();
+        assert_eq!(config.exporters.allowed.len(), 3);
+        assert!(config.exporters.allowed[1].contains("198.51.100.7".parse().unwrap()));
+        assert!(!config.exporters.allowed[1].contains("198.51.100.8".parse().unwrap()));
+        assert_eq!(config.exporters.max_exporters, 20);
+        assert_eq!(config.exporters.idle_timeout, Duration::from_secs(600));
+
+        for bad in [
+            "192.0.2.1/24",
+            "192.0.2.0/33",
+            "not-an-address",
+            "192.0.2.0/x",
+        ] {
+            std::env::set_var(ALLOWED_EXPORTERS_ENV_VAR, bad);
+            assert!(Config::from_env().is_err(), "{bad}");
+        }
+        std::env::remove_var(ALLOWED_EXPORTERS_ENV_VAR);
+        std::env::set_var(MAX_EXPORTERS_ENV_VAR, "0");
+        assert!(Config::from_env().is_err());
+        clear_all();
+    }
+
+    #[test]
     fn defaults_are_used_when_env_vars_are_unset() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         clear_all();
@@ -385,6 +477,7 @@ mod tests {
         assert_eq!(config.queue_capacity, DEFAULT_QUEUE_CAPACITY);
         assert_eq!(config.max_hosts, DEFAULT_MAX_HOSTS);
         assert!(config.local_prefixes.is_empty());
+        assert_eq!(config.exporters, ExporterLimits::default());
         assert_eq!(config.sampling_global_default, None);
         assert_eq!(config.clickhouse, None);
         assert_eq!(config.incident_database, None);
