@@ -16,6 +16,9 @@
       "pattern": "^https://github.com/LogiXhare/wetechi-netmon/compare/"
     },
     {
+      "pattern": "^https://github.com/LogiXhare/wetechi-netmon/releases/"
+    },
+    {
       "pattern": "^https://github.com/LogiXhare/wetechi-netmon/blob/"
     },
     {

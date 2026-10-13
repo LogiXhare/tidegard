@@ -8,6 +8,87 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-10-13
+
+The first release candidate of WetechiNetMon 1.0.0: IPFIX flow
+collection, traffic analytics, static threshold DDoS detection, incident
+management and approved BGP mitigation, as a signed release for one
+host. Before installing, [verify it](docs/operations/verifying-a-release.md);
+before upgrading from v0.9.0, read
+[Upgrading](docs/operations/upgrading.md#from-v090) and the
+[known issues](docs/release/known-issues.md).
+
+### Changed — needs action when upgrading from v0.9.0
+
+- The collector's ClickHouse export refuses plain HTTP to any host but
+  this one, and takes credentials only from
+  `WETECHINETMON_COLLECTOR_CLICKHOUSE_USER` and `_PASSWORD_FILE`: a remote
+  `http://` URL, or a URL carrying a password, now stops it at startup
+  ([ADR 0053](docs/architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)).
+- The collector tracks each exporter by source address and observation
+  domain, as RFC 7011 scopes templates and sequence numbers.
+- `scripts/package.sh` needs cargo-about 0.9.2 to write the licence
+  notices.
+
+### Added — Phase 10 release
+
+- A release pipeline: native x86_64 and aarch64 tarballs and images,
+  CycloneDX SBOMs, `SHA256SUMS`, cosign keyless signatures, build
+  provenance, multi-architecture images on GHCR, published only after
+  the owner's approval, and verified and installed on a clean runner
+  ([ADR 0057](docs/architecture/decisions/0057-phase10a-release-pipeline.md)).
+- Operator documentation: the [quick start](docs/quick-start.md),
+  [verifying a release](docs/operations/verifying-a-release.md),
+  [upgrading and rolling back](docs/operations/upgrading.md),
+  [migration notes](docs/release/migration-notes.md),
+  [known issues](docs/release/known-issues.md),
+  [customer onboarding](docs/operations/customer-onboarding.md), the
+  [commercial deployment guide](docs/commercial/deployment-guide.md), and
+  the [production](docs/release/production-checklist.md) and
+  [security](docs/release/security-checklist.md) checklists.
+
+### Added — Phase 9 production hardening
+
+- Packages: a release tarball with hardened systemd units and one system
+  user per service; non-root, read-only images on distroless; a Docker
+  Compose stack with TLS between every container; `/healthz` and
+  `/readyz` on every service
+  ([ADR 0052](docs/architecture/decisions/0052-phase9a-packaging.md)).
+- Measured capacity: no loss at 200,000 flow records a second, API p99
+  of 107 ms at worst with 10,000 incidents, and five hours at 50,000
+  records a second with memory flat
+  ([capacity planning](docs/operations/capacity-planning.md)).
+- A ClickHouse backup and restore, an upgrade from v0.9.0 with a
+  rollback, and a rebuild of a lost host, each drilled in CI on every
+  pull request, with the [disaster recovery runbook](docs/operations/disaster-recovery.md)
+  ([ADR 0055](docs/architecture/decisions/0055-phase9c-backup-upgrade-rollback.md)).
+- The exporter allowlist and limits:
+  `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`, `_MAX_EXPORTERS` and
+  `_EXPORTER_IDLE_SECS`, with
+  `wetechinetmon_collector_datagrams_refused_total`
+  ([ADR 0056](docs/architecture/decisions/0056-phase9d-collector-input-bounds.md)).
+- The third-party licence notices of every dependency, in each tarball
+  and image.
+- `cargo deny` in CI, and the [security review](docs/security/security-review.md)
+  with threats T-49 to T-57.
+
+### Security — Phase 9D review
+
+- A 46-byte IPFIX message could make the collector allocate until it ran
+  out of memory (a template of zero-length records). Fixed.
+- Spoofed UDP senders could grow the collector's exporter and template
+  state without bound. Bounded, with an allowlist (ADR 0056).
+- The collector's ClickHouse export could travel in plain HTTP with
+  credentials in its URL. Now TLS with a configured CA, and credentials
+  from a file (ADR 0053).
+
+### Fixed — Phase 9
+
+- The collector's ClickHouse writer panicked on its first row.
+- The shipped detection policy's window did not match the collector's,
+  so a fresh install never evaluated it; the collector now logs each
+  policy it cannot evaluate.
+
 ### Added — Phase 7 BGP mitigation lab
 
 - Mitigations (`crates/mitigation`, migrations V19 to V21): RTBH,
@@ -348,4 +429,5 @@ this environment. Property-based tests (`proptest`) cover the same
   out-of-scope list, risk register, roadmap, acceptance criteria, blocking
   questions, and naming/branding decisions under `docs/`.
 
-[Unreleased]: https://github.com/badshashorif/wetechi-netmon/compare/main...HEAD
+[Unreleased]: https://github.com/LogiXhare/wetechi-netmon/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/LogiXhare/wetechi-netmon/releases/tag/v1.0.0-rc.1
