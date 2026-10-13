@@ -167,6 +167,8 @@ severity and disposition, and none rated Critical or High is open.
 downloads it, verifies every checksum, signature and attestation, installs
 it and passes the smoke test.
 
+**Progress:** 10A-1 ([ADR 0057](decisions/0057-phase10a-release-pipeline.md)) adds `release.yml`: a read-only check of the tag (on `main`, equal to the workspace version, with a changelog section), native builds of the tarballs and images, CycloneDX SBOMs by syft for the workspace, the UI and every image, and, after the owner approves the `release` environment, `SHA256SUMS`, cosign keyless signatures, build provenance for every file and image, the images on GHCR and the GitHub release. A last job verifies and installs the release on a clean runner, following the new [Verifying a Release](../operations/verifying-a-release.md) guide. Pull requests that change the pipeline run it as a dry run up to the SBOMs. The exit, `v1.0.0-rc.1`, waits for 9D and 10B.
+
 ### 10B — Release documentation
 
 What the master prompt requires of every release, written for operators:
