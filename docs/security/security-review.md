@@ -1,9 +1,9 @@
 # Phase 9D Security Review
 
 Status: **In progress**, 2026-10-13. The supply chain checks, the
-threat model's extension and the first findings are done; the fuzzing
-report (FU-3) and the independent adversarial review of the release
-candidate are still to come
+threat model's extension, the findings and the fuzzing report are
+done; the independent adversarial review of the release candidate is
+still to come
 ([plan](../architecture/phase9-10-production-release-plan.md), 9D).
 
 Phase 9's exit needs every finding listed with its severity and
@@ -66,10 +66,35 @@ No Critical finding. No High finding is open.
 | gitleaks, full history | History job, every pull request | No leak in 406 commits |
 | Actions pinned by commit SHA, downloaded tools by SHA-256 | Every workflow | Yes |
 
+## Fuzzing report (FU-3)
+
+The IPFIX decoder's fuzz target (`crates/protocol-ipfix/fuzz`,
+`decode_message`: an empty template cache, then arbitrary bytes as a
+message) ran for three hours on `main` at `39959e9`, which includes the
+input bounds of finding 2: run
+[38350471775](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38350471775),
+2026-10-13, libFuzzer on a nightly toolchain, one GitHub-hosted runner.
+
+| Measure | Result |
+|---|---|
+| Time | 10,801 s |
+| Executions | 957,841,448 (88,680 a second) |
+| Coverage | 457 edges, 1,942 features |
+| Corpus at the end | 400 inputs, 42 KB, the longest 640 bytes |
+| Crashes, timeouts, out-of-memory | **None** |
+| Peak memory (the fuzzer's process) | 631 MiB, within libFuzzer's 2 GiB limit |
+
+Coverage grew in the first minutes and then only slowly, which a
+decoder of this size (a header, three set kinds, template and data
+records) is expected to show. The fuzz workflow keeps running weekly and
+on every pull request that changes the decoder, for five minutes each.
+
+What it does not cover: the collector around the decoder (exporter
+tracking, normalisation, aggregation), which proptest and the unit tests
+of finding 2 cover instead; and NetFlow and sFlow, which v1.0.0 does not
+parse.
+
 ## Still to do
 
-- **Fuzzing report (FU-3):** the IPFIX decoder fuzzed for a stated
-  time, with coverage. NetFlow and sFlow have no parser to fuzz: their
-  crates are empty, and v1.0.0 collects IPFIX only.
 - **Independent adversarial review** of the release candidate, as
   Phase 5's code had, with every finding added here.
