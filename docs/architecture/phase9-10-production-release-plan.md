@@ -103,7 +103,7 @@ published in [capacity planning](../operations/capacity-planning.md),
 replacing "No sustained-throughput benchmark has been run". FU-12 is
 closed with numbers.
 
-**Progress:** 9B-1 ([ADR 0054](decisions/0054-phase9b-load-and-soak.md)) wrote the pass criteria before any run, added `flow-replay --rate` and `scripts/load_test.py`, and ran the load test in the benchmark workflow. On the reference runner the whole collector took 200,000 records a second with no loss, 13 MiB peak memory and under half a core; the 100,000 step meets every criterion. The figures, with their machine and what they do not cover, are in [capacity planning](../operations/capacity-planning.md#flow-pipeline-measured). FU-12 is closed. 9B-2 measured the API with 10,000 incidents the pipeline itself created and 16 clients at their read quotas: p99 of 23 ms for the incident list, 107 ms for an incident's detail and 20 ms for the mitigation list, with no errors, within the 250 ms budget that NFR-1 now states. The five-hour soak (9B-3) follows.
+**Progress:** 9B-1 ([ADR 0054](decisions/0054-phase9b-load-and-soak.md)) wrote the pass criteria before any run, added `flow-replay --rate` and `scripts/load_test.py`, and ran the load test in the benchmark workflow. On the reference runner the whole collector took 200,000 records a second with no loss, 13 MiB peak memory and under half a core; the 100,000 step meets every criterion. The figures, with their machine and what they do not cover, are in [capacity planning](../operations/capacity-planning.md#flow-pipeline-measured). FU-12 is closed. 9B-2 measured the API with 10,000 incidents the pipeline itself created and 16 clients at their read quotas: p99 of 23 ms for the incident list, 107 ms for an incident's detail and 20 ms for the mitigation list, with no errors, within the 250 ms budget that NFR-1 now states. 9B-3, the five-hour soak at 50,000 records a second, passed: 899,999,914 records with no loss, the deepest queue 57 of 10,000, and mean memory 11.16 MiB in the first hour and 11.55 MiB in the fifth (+3.5%, the limit is 10%), with no error or restart ([capacity planning](../operations/capacity-planning.md#soak-measured)). **9B is complete.**
 
 ### 9C — Backup, restore, upgrade and rollback
 
@@ -142,6 +142,8 @@ round-trip in CI, not only on paper (the Phase 9 acceptance criterion).
 
 **Exit:** a security review document lists every finding with its
 severity and disposition, and none rated Critical or High is open.
+
+**Progress:** the supply chain checks are in CI: `cargo deny` (RustSec advisories, licences, wildcards, sources) in the Rust job, `npm audit` in the web job, Trivy over every image in the package job, and gitleaks over the full history in the history job, which found nothing in 406 commits. The first findings: a 46-byte IPFIX message that made the collector allocate without bound, through a template of zero-length records (High; the fix is in review); a weekly fuzz run that had been failing unnoticed; the collector's ClickHouse export in plain HTTP (fixed, ADR 0053); and a panic in the collector's ClickHouse writer on the first row (fixed).
 
 ## Phase 10 milestones
 
