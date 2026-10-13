@@ -307,7 +307,9 @@ jobs:
             index($0, heading) == 1 { found = 1; next }
             found && /^## \[/ { exit }
             found { print }
-          ' CHANGELOG.md > notes.md
+          ' CHANGELOG.md \
+            | sed "s#](docs/#](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/#g" \
+            > notes.md
           [ -s notes.md ]
           {
             echo

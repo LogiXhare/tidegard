@@ -2746,7 +2746,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-aggregator"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "proptest",
  "thiserror 2.0.21",
@@ -2756,7 +2756,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-api"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "axum",
  "bytes",
@@ -2789,7 +2789,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-classifier"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "proptest",
  "thiserror 2.0.21",
@@ -2798,7 +2798,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-cli"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "axum",
  "bytes",
@@ -2816,7 +2816,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-collector"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "deadpool-postgres",
  "prometheus",
@@ -2839,7 +2839,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-common"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "prometheus",
  "proptest",
@@ -2851,7 +2851,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-dashboard-check"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "serde_json",
  "wetechinetmon-collector",
@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-detector"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "proptest",
  "serde",
@@ -2876,7 +2876,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-flow-replay"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "tokio",
  "wetechinetmon-protocol-ipfix",
@@ -2884,7 +2884,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-incident"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "proptest",
  "serde",
@@ -2895,7 +2895,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-incident-manager"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "deadpool-postgres",
  "prometheus",
@@ -2911,7 +2911,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-incident-postgres"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "deadpool-postgres",
  "refinery",
@@ -2931,7 +2931,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-mitigation"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "proptest",
  "serde",
@@ -2942,7 +2942,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-mitigator"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "deadpool-postgres",
  "prometheus",
@@ -2967,7 +2967,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-notification"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "axum",
  "bytes",
@@ -2996,7 +2996,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-protocol-ipfix"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "proptest",
  "thiserror 2.0.21",
@@ -3004,7 +3004,7 @@ dependencies = [
 
 [[package]]
 name = "wetechinetmon-storage"
-version = "0.0.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "clickhouse",
  "hyper-rustls",
