@@ -20,6 +20,8 @@ Written so far:
 - [Disaster Recovery](disaster-recovery.md) — Phase 9C: rebuilding a lost
   host from the release tarball and the two backups, as CI does on every
   pull request.
+- [Verifying a Release](verifying-a-release.md) — Phase 10A: checking a
+  release's signatures, checksums and provenance before installing it
 - [Backup and Restore](backup-and-restore.md) — Phase 5F: the incident
   database, and the drill CI runs on every pull request
 - [RTBH Guide](rtbh-guide.md) — Phase 7F: blackholing, and what the edge
