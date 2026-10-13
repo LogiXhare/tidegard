@@ -4,8 +4,10 @@
 #   scripts/package.sh <version> [output directory, default dist]
 #
 # Linux only: x86_64 or aarch64, built natively. CI builds on Ubuntu
-# 22.04 so the binaries need nothing newer than glibc 2.35. Needs cargo
-# and npm. Writes wetechinetmon-<version>-linux-<arch>.tar.gz.
+# 22.04 so the binaries need nothing newer than glibc 2.35. Needs cargo,
+# npm and cargo-about 0.9.2 (on PATH, or named by CARGO_ABOUT), which
+# writes the third-party licence notices (FU-53). Writes
+# wetechinetmon-<version>-linux-<arch>.tar.gz.
 set -euo pipefail
 
 version=${1:?usage: scripts/package.sh <version> [output directory]}
@@ -13,6 +15,9 @@ out=${2:-dist}
 case "$version" in
   *[!0-9A-Za-z.+-]*) echo "the version may hold only letters, digits and . + -" >&2; exit 1 ;;
 esac
+
+about=${CARGO_ABOUT:-cargo-about}
+command -v "$about" >/dev/null || { echo "cargo-about is needed for the licence notices (FU-53)" >&2; exit 1; }
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 target=${CARGO_TARGET_DIR:-$root/target}
@@ -58,6 +63,11 @@ install -m 0644 deployments/systemd/wetechinetmon.sysusers "$dir/share/sysusers.
 install -m 0644 deployments/systemd/env/*.env deployments/config/*.json "$dir/etc/"
 install -m 0755 deployments/systemd/install.sh "$dir/"
 install -m 0644 LICENSE NOTICE CHANGELOG.md "$dir/"
+# Every third-party licence the binaries and the UI carry, with its
+# text, as MIT, BSD and Apache-2.0 require of a binary distribution.
+"$about" generate --frozen --fail --all-features --workspace about.hbs \
+  -o "$dir/THIRD-PARTY-NOTICES.txt"
+node scripts/web-licenses.mjs apps/web > "$dir/THIRD-PARTY-NOTICES-WEB.txt"
 printf '%s\n' "$version" > "$dir/VERSION"
 
 mkdir -p "$out"

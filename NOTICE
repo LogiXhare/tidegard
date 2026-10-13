@@ -29,6 +29,12 @@ the full clean-room policy governing this codebase.
 THIRD-PARTY SOFTWARE
 ============================================================
 
+Every release tarball and image carries the full licence text of each
+third-party component it contains: THIRD-PARTY-NOTICES.txt for the
+binaries (generated from Cargo.lock by cargo-about) and
+THIRD-PARTY-NOTICES-WEB.txt for the NOC UI. The list below is the
+dependency review's record, not the notices themselves.
+
 Starting Phase 2, the following third-party Rust crates are vendored.
 Each has a completed, license-verified row in
 docs/dependency-license-matrix.md (verified against `cargo metadata`, not
