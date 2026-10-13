@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "WetechiNetMon Incident API",
+    "title": "Tidegard Incident API",
     "description": "Incident management REST API. Errors are RFC 9457 problem details with a stable `error` code.",
     "license": {
       "name": "Apache-2.0",
@@ -5800,7 +5800,7 @@
           },
           "format": {
             "type": "string",
-            "description": "Always `wetechinetmon.incident-export`."
+            "description": "Always `tidegard.incident-export`."
           },
           "format_version": {
             "type": "integer",
@@ -7134,7 +7134,7 @@
       "bearer": {
         "type": "http",
         "scheme": "bearer",
-        "description": "An API token, `wnm_` and 64 hex characters, from `wetechinetmon-api token create`."
+        "description": "An API token, `wnm_` and 64 hex characters, from `tidegard-api token create`."
       }
     }
   },

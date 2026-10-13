@@ -42,15 +42,15 @@ T-49 to T-57.
 
 | # | Finding | Severity | Disposition |
 |---|---|---|---|
-| 1 | A 46-byte IPFIX message, a template whose records are zero bytes long, made the decoder produce empty records until the collector ran out of memory | High | Fixed, [#133](https://github.com/LogiXhare/wetechi-netmon/pull/133); T-49 |
-| 2 | UDP senders could grow the collector's memory without bound: an exporter state per spoofed source, never forgotten, and up to 65,280 templates per exporter | High | Fixed, [#136](https://github.com/LogiXhare/wetechi-netmon/pull/136), [ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md); T-50 |
-| 3 | The collector exported to ClickHouse in plain HTTP to any host, with no CA pinning and credentials allowed in the URL | Medium | Fixed, [#123](https://github.com/LogiXhare/wetechi-netmon/pull/123), [ADR 0053](../architecture/decisions/0053-phase9a-collector-clickhouse-tls.md); T-53 |
+| 1 | A 46-byte IPFIX message, a template whose records are zero bytes long, made the decoder produce empty records until the collector ran out of memory | High | Fixed, [#133](https://github.com/LogiXhare/tidegard/pull/133); T-49 |
+| 2 | UDP senders could grow the collector's memory without bound: an exporter state per spoofed source, never forgotten, and up to 65,280 templates per exporter | High | Fixed, [#136](https://github.com/LogiXhare/tidegard/pull/136), [ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md); T-50 |
+| 3 | The collector exported to ClickHouse in plain HTTP to any host, with no CA pinning and credentials allowed in the URL | Medium | Fixed, [#123](https://github.com/LogiXhare/tidegard/pull/123), [ADR 0053](../architecture/decisions/0053-phase9a-collector-clickhouse-tls.md); T-53 |
 | 4 | Exporters were keyed by socket alone, not by observation domain: a multi-domain exporter's templates collided and its domains looked like restarts | Medium | Fixed, #136 |
-| 5 | The collector's ClickHouse writer panicked on its first row: the client refuses the map that `#[serde(flatten)]` serialises to | Medium | Fixed, [#124](https://github.com/LogiXhare/wetechi-netmon/pull/124) |
+| 5 | The collector's ClickHouse writer panicked on its first row: the client refuses the map that `#[serde(flatten)]` serialises to | Medium | Fixed, [#124](https://github.com/LogiXhare/tidegard/pull/124) |
 | 6 | The weekly fuzz run had failed for weeks without anyone seeing it, and pull requests that changed the decoder never ran the fuzzer | Medium | Fixed, #133: the fuzzer now runs on those pull requests too |
 | 7 | The shipped detection policy's window (10 s) differed from the collector's (5 s), so a fresh install never evaluated it, silently | Medium | Fixed, #124: the example matches, and the collector logs an error for each policy it cannot evaluate |
 | 8 | The distroless base image carried a fixable High (CVE-2026-84782, `libssl3t64`) | Medium | Fixed, #124: a newer digest, and Trivy fails CI on any fixable Critical or High |
-| 9 | No tool enforced the dependency policy: licences, advisories and sources were checked by hand when a dependency was added | Low | Fixed, [#135](https://github.com/LogiXhare/wetechi-netmon/pull/135): `cargo deny` on every pull request; T-56 |
+| 9 | No tool enforced the dependency policy: licences, advisories and sources were checked by hand when a dependency was added | Low | Fixed, [#135](https://github.com/LogiXhare/tidegard/pull/135): `cargo deny` on every pull request; T-56 |
 | 10 | The Compose stack's collector and API share one ClickHouse user, so the API's could write | Low | Open, [FU-66](../development/follow-ups.md) |
 | 11 | A detection event counts the exporters behind it but does not name them, which slows tracing forged flows | Low | Open, [FU-67](../development/follow-ups.md); T-52 |
 
@@ -72,7 +72,7 @@ The IPFIX decoder's fuzz target (`crates/protocol-ipfix/fuzz`,
 `decode_message`: an empty template cache, then arbitrary bytes as a
 message) ran for three hours on `main` at `39959e9`, which includes the
 input bounds of finding 2: run
-[38350471775](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38350471775),
+[38350471775](https://github.com/LogiXhare/tidegard/actions/runs/38350471775),
 2026-10-13, libFuzzer on a nightly toolchain, one GitHub-hosted runner.
 
 | Measure | Result |

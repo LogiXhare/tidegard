@@ -5,7 +5,7 @@
 //! reviewable spec diff. To regenerate after an intended change:
 //!
 //! ```sh
-//! WETECHINETMON_UPDATE_OPENAPI=1 cargo test -p wetechinetmon-api openapi
+//! TIDEGARD_UPDATE_OPENAPI=1 cargo test -p tidegard-api openapi
 //! ```
 
 use serde::Serialize;
@@ -30,7 +30,7 @@ pub struct ProblemDocument {
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "WetechiNetMon Incident API",
+        title = "Tidegard Incident API",
         description = "Incident management REST API. Errors are RFC 9457 problem details with a stable `error` code.",
         license(name = "Apache-2.0", identifier = "Apache-2.0"),
     ),
@@ -166,7 +166,7 @@ impl utoipa::Modify for BearerAuth {
                 HttpBuilder::new()
                     .scheme(HttpAuthScheme::Bearer)
                     .description(Some(
-                        "An API token, `wnm_` and 64 hex characters, from `wetechinetmon-api token create`.",
+                        "An API token, `wnm_` and 64 hex characters, from `tidegard-api token create`.",
                     ))
                     .build(),
             ),
@@ -193,7 +193,7 @@ mod tests {
     fn openapi_document_matches_the_committed_file() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(COMMITTED);
         let generated = document();
-        if std::env::var_os("WETECHINETMON_UPDATE_OPENAPI").is_some() {
+        if std::env::var_os("TIDEGARD_UPDATE_OPENAPI").is_some() {
             std::fs::write(&path, &generated).expect("write docs/api/openapi.json");
             return;
         }
@@ -203,7 +203,7 @@ mod tests {
         assert!(
             committed == generated,
             "docs/api/openapi.json is out of date; regenerate it with \
-             WETECHINETMON_UPDATE_OPENAPI=1 cargo test -p wetechinetmon-api openapi"
+             TIDEGARD_UPDATE_OPENAPI=1 cargo test -p tidegard-api openapi"
         );
     }
 }

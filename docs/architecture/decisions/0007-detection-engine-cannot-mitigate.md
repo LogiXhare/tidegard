@@ -6,7 +6,7 @@ Deciders: WeTechi Solutions (badshashorif)
 
 ## Context
 
-Phase 4 adds the piece of WetechiNetMon that decides traffic is
+Phase 4 adds the piece of Tidegard that decides traffic is
 abnormal. Every product in this category eventually pairs that decision
 with an action — a blackhole route, a FlowSpec rule, an RTBH
 announcement — and the Mitigation Controller is a later phase in
@@ -67,8 +67,8 @@ and are then hard to change.
 
 - `ExecutionMode` has no mitigation-capable variant, and adding one is a
   later phase's decision rather than a placeholder.
-- `wetechinetmon-detector` depends only on `wetechinetmon-common`,
-  `wetechinetmon-classifier`, `wetechinetmon-aggregator`, `serde`,
+- `tidegard-detector` depends only on `tidegard-common`,
+  `tidegard-classifier`, `tidegard-aggregator`, `serde`,
   `serde_json`, `thiserror`, and `tracing`. None of these can reach a
   network device. This is a property of the dependency graph, checkable
   by reading `Cargo.toml`, not a runtime assertion that could be

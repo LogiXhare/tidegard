@@ -17,7 +17,7 @@ when `CLICKHOUSE_TEST_URL` is unset.
 ## Testing
 
 ```bash
-cargo test -p wetechinetmon-storage
+cargo test -p tidegard-storage
 ```
 
 13 unit tests (batch queue, retry backoff/overflow, schema/DDL shape,

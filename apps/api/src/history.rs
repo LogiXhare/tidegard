@@ -19,12 +19,10 @@ use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::Serialize;
 use serde_json::Value;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::queries::{self, AuditRow, DetectionLinkRow, TimelineEntryRow};
+use tidegard_incident_postgres::row::{IncidentRow, NoteRow};
 use utoipa::{IntoParams, ToSchema};
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::queries::{
-    self, AuditRow, DetectionLinkRow, TimelineEntryRow,
-};
-use wetechinetmon_incident_postgres::row::{IncidentRow, NoteRow};
 
 use crate::auth::Principal;
 use crate::incidents::{limit, parse_id};

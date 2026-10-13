@@ -11,24 +11,24 @@
 # Never point it at a real database.
 #
 # Environment:
-#   WETECHINETMON_INCIDENT_POSTGRES_TEST_URL  libpq key=value form; the
+#   TIDEGARD_INCIDENT_POSTGRES_TEST_URL  libpq key=value form; the
 #                       source. The restored copy's URL is this with dbname
 #                       replaced.
 #   DRILL_PG_TOOL       Prefix that runs the PostgreSQL client tools, such as
 #                       "docker exec -i <container>" so they match the
 #                       server's major version. Empty runs the local ones.
-#   DRILL_PG_USER       Role the tools connect as (default wetechinetmon_test).
-#   DRILL_SOURCE_DB     Default wetechinetmon_incident_test.
-#   DRILL_RESTORED_DB   Default wetechinetmon_incident_drill_restored.
+#   DRILL_PG_USER       Role the tools connect as (default tidegard_test).
+#   DRILL_SOURCE_DB     Default tidegard_incident_test.
+#   DRILL_RESTORED_DB   Default tidegard_incident_drill_restored.
 #   DRILL_WORK_DIR      Where the dump and fingerprints go (default a mktemp
 #                       directory).
 set -euo pipefail
 
-: "${WETECHINETMON_INCIDENT_POSTGRES_TEST_URL:?names the ephemeral source database}"
+: "${TIDEGARD_INCIDENT_POSTGRES_TEST_URL:?names the ephemeral source database}"
 tool=${DRILL_PG_TOOL:-}
-user=${DRILL_PG_USER:-wetechinetmon_test}
-source_db=${DRILL_SOURCE_DB:-wetechinetmon_incident_test}
-restored_db=${DRILL_RESTORED_DB:-wetechinetmon_incident_drill_restored}
+user=${DRILL_PG_USER:-tidegard_test}
+source_db=${DRILL_SOURCE_DB:-tidegard_incident_test}
+restored_db=${DRILL_RESTORED_DB:-tidegard_incident_drill_restored}
 work=${DRILL_WORK_DIR:-$(mktemp -d)}
 mkdir -p "$work"
 
@@ -39,7 +39,7 @@ pg() { $tool "$@"; }
 # a filter that matches nothing would otherwise pass with zero tests.
 drill_test() {
   local name=$1 log="$work/$1.log"
-  cargo test -p wetechinetmon-incident-postgres --test backup_restore_drill \
+  cargo test -p tidegard-incident-postgres --test backup_restore_drill \
     -- --ignored --exact "$name" 2>&1 | tee "$log"
   grep -q "test $name ... ok" "$log" || { echo "drill: $name did not pass"; exit 1; }
 }
@@ -89,7 +89,7 @@ echo "drill: $tables tables identical"
 
 echo "drill: verifying the restored copy works"
 # libpq key=value form: the last dbname wins.
-export WETECHINETMON_INCIDENT_POSTGRES_DRILL_RESTORED_URL="$WETECHINETMON_INCIDENT_POSTGRES_TEST_URL dbname=$restored_db"
+export TIDEGARD_INCIDENT_POSTGRES_DRILL_RESTORED_URL="$TIDEGARD_INCIDENT_POSTGRES_TEST_URL dbname=$restored_db"
 drill_test drill_verify
 
 echo "drill: passed"

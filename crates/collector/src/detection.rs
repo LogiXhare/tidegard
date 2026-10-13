@@ -1,6 +1,6 @@
 //! Wiring the detection engine into the collector.
 //!
-//! Three things live here that cannot live in `wetechinetmon-detector`
+//! Three things live here that cannot live in `tidegard-detector`
 //! itself: the Prometheus implementation of its metrics trait (the
 //! collector owns this project's registry), the sink that hands events
 //! to ClickHouse (the detector does not depend on storage), and the
@@ -16,15 +16,15 @@ use std::time::{Duration, Instant, SystemTime};
 
 use prometheus::core::Collector;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, Opts, Registry};
-use wetechinetmon_classifier::{ClassificationResult, PrefixRegistry};
-use wetechinetmon_common::NormalizedFlow;
-use wetechinetmon_detector::config::CompiledPolicies;
-use wetechinetmon_detector::{
+use tidegard_classifier::{ClassificationResult, PrefixRegistry};
+use tidegard_common::NormalizedFlow;
+use tidegard_detector::config::CompiledPolicies;
+use tidegard_detector::{
     DetectionEngine, DetectionEvent, DetectionEventSink, DetectionMetrics, DetectionState,
     DetectionWindows, EngineConfig, EngineReport, EventKind, ScopeType, SinkError, StepIgnored,
     Suppression, ThresholdDetectionEngine, TransitionReason, WindowConfig,
 };
-use wetechinetmon_storage::DetectionEventRow;
+use tidegard_storage::DetectionEventRow;
 
 /// Prometheus counters and gauges for the detection engine.
 ///
@@ -54,65 +54,65 @@ impl DetectionPrometheusMetrics {
         };
 
         let snapshots_evaluated_total = counter_vec(
-            "wetechinetmon_detector_snapshots_evaluated_total",
+            "tidegard_detector_snapshots_evaluated_total",
             "Traffic snapshots handed to the detection engine, by scope type.",
             &["scope_type"],
         )?;
         let snapshots_unmatched_total = IntCounter::new(
-            "wetechinetmon_detector_snapshots_unmatched_total",
+            "tidegard_detector_snapshots_unmatched_total",
             "Traffic snapshots for which no detection policy applied.",
         )?;
         let snapshots_ignored_total = counter_vec(
-            "wetechinetmon_detector_snapshots_ignored_total",
+            "tidegard_detector_snapshots_ignored_total",
             "Traffic snapshots the state machine refused, by reason.",
             &["reason"],
         )?;
         let transitions_total = counter_vec(
-            "wetechinetmon_detector_state_transitions_total",
+            "tidegard_detector_state_transitions_total",
             "Detection state machine transitions, by source state, target state, and reason.",
             &["from", "to", "reason"],
         )?;
         let suppressed_total = counter_vec(
-            "wetechinetmon_detector_suppressed_total",
+            "tidegard_detector_suppressed_total",
             "Threshold crossings that deliberately produced no detection, by reason.",
             &["reason"],
         )?;
         let events_total = counter_vec(
-            "wetechinetmon_detector_events_total",
+            "tidegard_detector_events_total",
             "Detection events built, by kind. Includes observe-mode events, which are never published.",
             &["kind"],
         )?;
         let events_published_total = counter_vec(
-            "wetechinetmon_detector_events_published_total",
+            "tidegard_detector_events_published_total",
             "Detection events accepted by every sink, by kind.",
             &["kind"],
         )?;
         let events_failed_total = counter_vec(
-            "wetechinetmon_detector_events_failed_total",
+            "tidegard_detector_events_failed_total",
             "Detection events at least one sink refused, by kind and sink.",
             &["kind", "sink"],
         )?;
         let metrics_skipped_total = IntCounter::new(
-            "wetechinetmon_detector_thresholds_skipped_total",
+            "tidegard_detector_thresholds_skipped_total",
             "Thresholds not evaluated because the flow data never carried their source field.",
         )?;
         let scopes_in_state = prometheus::IntGaugeVec::new(
             Opts::new(
-                "wetechinetmon_detector_scopes_in_state",
+                "tidegard_detector_scopes_in_state",
                 "Scopes currently in each detection state.",
             ),
             &["state"],
         )?;
         let tracked_scopes = IntGauge::new(
-            "wetechinetmon_detector_tracked_scopes",
+            "tidegard_detector_tracked_scopes",
             "Scopes the windowing layer is currently accumulating counters for.",
         )?;
         let state_table_full_total = IntCounter::new(
-            "wetechinetmon_detector_state_table_full_total",
+            "tidegard_detector_state_table_full_total",
             "Scopes refused admission because the detection state table is full. Each one is a detection that cannot be opened.",
         )?;
         let detections_stale_total = IntCounter::new(
-            "wetechinetmon_detector_detections_stale_total",
+            "tidegard_detector_detections_stale_total",
             "Open detections force-closed because their snapshots stopped arriving.",
         )?;
 
@@ -298,14 +298,14 @@ impl DetectionStage {
         now: Instant,
     ) -> Self {
         let mut sinks: Vec<Box<dyn DetectionEventSink>> =
-            vec![Box::new(wetechinetmon_detector::TracingSink)];
+            vec![Box::new(tidegard_detector::TracingSink)];
         if let Some(sink) = clickhouse.clone() {
             sinks.push(Box::new(SharedSink(sink)));
         }
         sinks.extend(extra_sinks);
         let engine = ThresholdDetectionEngine::new(config.engine)
             .with_policies(policies.policies)
-            .with_sink(Arc::new(wetechinetmon_detector::FanOutSink::new(sinks)))
+            .with_sink(Arc::new(tidegard_detector::FanOutSink::new(sinks)))
             .with_metrics(metrics.clone());
         DetectionStage {
             windows: DetectionWindows::new(config.window, now),
@@ -332,7 +332,7 @@ impl DetectionStage {
     pub fn tick(&mut self, now: Instant, wall: SystemTime) -> EngineReport {
         self.metrics.tracked_scopes(self.windows.tracked());
         let snapshots = self.windows.tick(now, wall);
-        wetechinetmon_detector::cycle(&mut self.engine, &snapshots, now, wall)
+        tidegard_detector::cycle(&mut self.engine, &snapshots, now, wall)
     }
 
     pub fn open_detections(&self) -> usize {
@@ -372,7 +372,7 @@ impl DetectionEventSink for SharedSink {
 /// in the metrics — no detection counters ever move.
 pub fn load_policy_file(path: &str) -> Result<CompiledPolicies, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
-    wetechinetmon_detector::load_policies(&text).map_err(|e| e.to_string())
+    tidegard_detector::load_policies(&text).map_err(|e| e.to_string())
 }
 
 /// How often the detection stage is ticked.
@@ -424,9 +424,9 @@ impl DetectionPrometheusMetrics {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use wetechinetmon_classifier::classify;
-    use wetechinetmon_common::{NormalizedFlowBuilder, Protocol, SamplingRate, SamplingSource};
-    use wetechinetmon_detector::{CountingMetrics, StateTableConfig};
+    use tidegard_classifier::classify;
+    use tidegard_common::{NormalizedFlowBuilder, Protocol, SamplingRate, SamplingSource};
+    use tidegard_detector::{CountingMetrics, StateTableConfig};
 
     use super::*;
 
@@ -489,7 +489,7 @@ mod tests {
     }
 
     fn stage(now: Instant, clickhouse: Option<Arc<ClickHouseEventSink>>) -> DetectionStage {
-        let policies = wetechinetmon_detector::load_policies(POLICIES).expect("valid policies");
+        let policies = tidegard_detector::load_policies(POLICIES).expect("valid policies");
         DetectionStage::new(
             DetectionStageConfig {
                 window: WindowConfig {
@@ -621,7 +621,7 @@ mod tests {
         assert_eq!(families.len(), 13);
         for family in families {
             assert!(
-                family.name().starts_with("wetechinetmon_detector_"),
+                family.name().starts_with("tidegard_detector_"),
                 "unexpected metric name {}",
                 family.name()
             );
@@ -657,9 +657,9 @@ mod tests {
         let text = prometheus::TextEncoder::new()
             .encode_to_string(&registry.gather())
             .expect("encodes");
-        assert!(text.contains("wetechinetmon_detector_scopes_in_state{state=\"active\"} 4"));
-        assert!(text.contains("wetechinetmon_detector_tracked_scopes 9"));
-        assert!(text.contains("wetechinetmon_detector_detections_stale_total 1"));
+        assert!(text.contains("tidegard_detector_scopes_in_state{state=\"active\"} 4"));
+        assert!(text.contains("tidegard_detector_tracked_scopes 9"));
+        assert!(text.contains("tidegard_detector_detections_stale_total 1"));
     }
 
     #[test]
@@ -670,7 +670,7 @@ mod tests {
 
     fn sample_event(id: &str) -> DetectionEvent {
         use std::collections::BTreeMap;
-        use wetechinetmon_detector::{
+        use tidegard_detector::{
             ActionTaken, AddressFamily, DataCompleteness, EventTarget, ExecutionMode, MetricRates,
             SamplingStatus, ScopeId, Severity, TrafficDirection,
         };

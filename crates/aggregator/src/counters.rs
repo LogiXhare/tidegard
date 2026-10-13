@@ -1,6 +1,6 @@
 //! Per-key traffic counters (Phase 3 objective 6).
 
-use wetechinetmon_common::{NormalizedFlow, Protocol};
+use tidegard_common::{NormalizedFlow, Protocol};
 
 /// Cumulative traffic counters for one aggregation key (a host, a
 /// network, a hostgroup, an ASN, ...). Every counter saturates rather
@@ -67,7 +67,7 @@ impl TrafficCounters {
 mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr};
-    use wetechinetmon_common::{NormalizedFlowBuilder, SamplingRate, SamplingSource};
+    use tidegard_common::{NormalizedFlowBuilder, SamplingRate, SamplingSource};
 
     fn tcp_syn_flow() -> NormalizedFlow {
         NormalizedFlowBuilder {
@@ -76,7 +76,7 @@ mod tests {
             source_port: Some(51000),
             destination_port: Some(443),
             protocol: Some(Protocol::Tcp),
-            tcp_flags: Some(wetechinetmon_common::flow::TCP_FLAG_SYN),
+            tcp_flags: Some(tidegard_common::flow::TCP_FLAG_SYN),
             raw_bytes: 64,
             raw_packets: 1,
             input_interface: None,

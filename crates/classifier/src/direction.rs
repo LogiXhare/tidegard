@@ -1,6 +1,6 @@
 //! Traffic direction classification (FR-3.1, FR-3.3).
 
-use wetechinetmon_common::NormalizedFlow;
+use tidegard_common::NormalizedFlow;
 
 use crate::registry::PrefixRegistry;
 
@@ -21,7 +21,7 @@ pub enum Direction {
 /// The outcome of classifying one flow, including *why* — FR-3.3's
 /// "diagnostic endpoint that explains a given classification decision"
 /// is built directly on this type (see
-/// `wetechinetmon-collector`'s diagnostics wiring).
+/// `tidegard-collector`'s diagnostics wiring).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClassificationResult {
     pub direction: Direction,
@@ -114,7 +114,7 @@ mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use std::time::SystemTime;
-    use wetechinetmon_common::{NormalizedFlowBuilder, Protocol, SamplingRate, SamplingSource};
+    use tidegard_common::{NormalizedFlowBuilder, Protocol, SamplingRate, SamplingSource};
 
     fn registry_with_local_v4_and_v6() -> PrefixRegistry {
         let mut r = PrefixRegistry::new();

@@ -173,7 +173,7 @@ difference matters:
 - **The timeline is never truncated.** It is the audit narrative. If an
   incident reaches 50 000 timeline entries, something is wrong
   operationally — a flapping detection, most likely — and the answer is
-  an alert on `wetechinetmon_incident_timeline_pressure`, not silent data
+  an alert on `tidegard_incident_timeline_pressure`, not silent data
   loss. Truncating audit-bearing content to stay inside a limit converts
   a capacity problem into an integrity problem, which is the same
   reasoning that made Phase 4's state table *refuse* rather than evict.

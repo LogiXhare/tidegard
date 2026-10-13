@@ -12,9 +12,9 @@ explain the routes themselves.
 
 | Part | Does | Where |
 |---|---|---|
-| API | Records requests and decisions, and checks the guard. Never speaks to GoBGP | `wetechinetmon-api` |
-| Mitigator | Announces what was approved, withdraws what ended, reconciles, proposes, and records peers. The only process that speaks to GoBGP | `wetechinetmon-mitigator`, metrics on `127.0.0.1:9094` |
-| `gobgpd` | WetechiNetMon's BGP speaker. Its gRPC API must listen on loopback only | beside the mitigator |
+| API | Records requests and decisions, and checks the guard. Never speaks to GoBGP | `tidegard-api` |
+| Mitigator | Announces what was approved, withdraws what ended, reconciles, proposes, and records peers. The only process that speaks to GoBGP | `tidegard-mitigator`, metrics on `127.0.0.1:9094` |
+| `gobgpd` | Tidegard's BGP speaker. Its gRPC API must listen on loopback only | beside the mitigator |
 | Edge routers | Act on the routes: discard, rate limit | yours |
 
 One mitigator acts at a time. A second one waits as a standby on a
@@ -25,18 +25,18 @@ ends.
 
 | Alert on | Meaning | Do |
 |---|---|---|
-| `wetechinetmon_mitigator_kill_switch == 1` | Nothing may be announced | Find out who engaged it and why (`kill-switch status`). Release it only when that is settled |
-| `wetechinetmon_mitigator_bgp_peers{state="other"} > 0` | An iBGP session with an edge router is down | See [A peer is down](#a-peer-is-down) |
-| `increase(wetechinetmon_mitigator_actions_total{result="failed"}[10m]) > 0` | A mitigation could not be announced | `mitigations show ID` gives `last_error` |
-| `increase(wetechinetmon_mitigator_actions_total{result="error"}[10m]) > 0` | The mitigator's pass failed: the database or GoBGP | The mitigator's log |
-| `increase(wetechinetmon_mitigator_reconcile_total[1h]) > 0` | Reconciliation withdrew a stale route or restored a lost one | See [Stale routes](#stale-routes) |
+| `tidegard_mitigator_kill_switch == 1` | Nothing may be announced | Find out who engaged it and why (`kill-switch status`). Release it only when that is settled |
+| `tidegard_mitigator_bgp_peers{state="other"} > 0` | An iBGP session with an edge router is down | See [A peer is down](#a-peer-is-down) |
+| `increase(tidegard_mitigator_actions_total{result="failed"}[10m]) > 0` | A mitigation could not be announced | `mitigations show ID` gives `last_error` |
+| `increase(tidegard_mitigator_actions_total{result="error"}[10m]) > 0` | The mitigator's pass failed: the database or GoBGP | The mitigator's log |
+| `increase(tidegard_mitigator_reconcile_total[1h]) > 0` | Reconciliation withdrew a stale route or restored a lost one | See [Stale routes](#stale-routes) |
 | The metrics endpoint is down | No mitigator is running: approved mitigations wait | Start it; nothing is lost |
 | `/readyz` on every mitigator answers `503` | None holds the lock, or the active one's passes fail | One instance should answer `200`; a standby answers `503` by design. Check the log of the one that should be active |
 
 The notifier tells channels about `mitigation.failed`,
 `mitigation.kill_switch_engaged` and `bgp.peer_down` if routes send
 those events there. See the
-[notifier README](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/notification).
+[notifier README](https://github.com/LogiXhare/tidegard/tree/main/crates/notification).
 
 ## The kill switch
 
@@ -44,7 +44,7 @@ Engage it when an announcement is wrong and you cannot yet tell which:
 a route leak, a blackhole that is too broad, or a misbehaving edge.
 
 ```sh
-wetechinetmonctl kill-switch engage --reason "route leak suspected"   # any noc_lead
+tidegardctl kill-switch engage --reason "route leak suspected"   # any noc_lead
 ```
 
 The UI's Mitigations page does the same. Within one poll interval (2 s
@@ -55,7 +55,7 @@ every tenant's mitigations (FU-65).
 To release it, decide first what was wrong. Then, **on the API host**:
 
 ```sh
-wetechinetmon-api kill-switch release --actor-id <you> --reason "<what was fixed>"
+tidegard-api kill-switch release --actor-id <you> --reason "<what was fixed>"
 ```
 
 No API token can release it, by design (T-47). The release is audited
@@ -73,15 +73,15 @@ reconciles at start and every `reconcile_interval_seconds` (60 by
 default). It withdraws every route carrying its ownership community that
 no `announcing` or `active` mitigation claims, and it restores routes
 that live mitigations have lost. Each step is counted in
-`wetechinetmon_mitigator_reconcile_total`.
+`tidegard_mitigator_reconcile_total`.
 
 To check by hand, compare the three views:
 
 ```sh
-wetechinetmonctl bgp routes                    # what WetechiNetMon says is announced
+tidegardctl bgp routes                    # what Tidegard says is announced
 gobgp -p 50051 global rib                      # what gobgpd holds (on the mitigator's host)
 gobgp -p 50051 global rib -a ipv4-flowspec
-# and on each edge router, the routes received from WetechiNetMon's gobgpd
+# and on each edge router, the routes received from Tidegard's gobgpd
 ```
 
 If the mitigator is down and a route must go now, withdraw it with the
@@ -91,21 +91,21 @@ If the mitigator is down and a route must go now, withdraw it with the
 gobgp -p 50051 global rib del 203.0.113.9/32
 ```
 
-Then mark the mitigation withdrawn with `wetechinetmonctl mitigations
-withdraw`. Never add routes to WetechiNetMon's `gobgpd` by hand. A route
+Then mark the mitigation withdrawn with `tidegardctl mitigations
+withdraw`. Never add routes to Tidegard's `gobgpd` by hand. A route
 without the ownership community is invisible to reconciliation and is
 never withdrawn for you.
 
 ## A peer is down
 
-`bgp.peer_down` names the neighbour and its state. `wetechinetmonctl bgp
+`bgp.peer_down` names the neighbour and its state. `tidegardctl bgp
 peers` shows every session as the mitigator last saw it. **If `SEEN` is
 old, the mitigator has stopped**, and the states shown may no longer be
 true.
 
 1. Check the session on both sides: `gobgp -p 50051 neighbor` on the
    mitigator's host, and the router's BGP summary.
-2. While it is down, that router has none of WetechiNetMon's routes.
+2. While it is down, that router has none of Tidegard's routes.
    When a BGP session ends, the router drops what it learned over it,
    unless graceful restart keeps it for a while. Active mitigations stop
    working on that router.
@@ -133,7 +133,7 @@ with `dry_run` set, and nothing is announced. The UI marks them
 blackhole is in place and traffic still arrives, check this first:
 
 ```sh
-wetechinetmonctl mitigations show <id>   # "Dry run  true" means nothing was announced
+tidegardctl mitigations show <id>   # "Dry run  true" means nothing was announced
 ```
 
 ## Changing the guard

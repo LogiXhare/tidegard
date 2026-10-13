@@ -38,26 +38,26 @@ say who the senders are.
 
 - **The exporter is (source address, observation domain).** Each pair
   gets its own template cache and sequence tracking.
-- **`WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`**: a comma-separated
+- **`TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`**: a comma-separated
   list of networks or addresses. A datagram from anywhere else is
   dropped before its header is parsed. Unset accepts any source, as
   before, and the collector warns at startup that it does. A network
   with host bits set (`192.0.2.1/24`) is refused at startup, as a typo.
-- **`WETECHINETMON_COLLECTOR_MAX_EXPORTERS`** (default 1,000): past it,
+- **`TIDEGARD_COLLECTOR_MAX_EXPORTERS`** (default 1,000): past it,
   a datagram from a new exporter is dropped; exporters already tracked
   carry on. It must be at least 1.
-- **`WETECHINETMON_COLLECTOR_EXPORTER_IDLE_SECS`** (default 3,600): an
+- **`TIDEGARD_COLLECTOR_EXPORTER_IDLE_SECS`** (default 3,600): an
   exporter silent this long is forgotten with its templates, swept every
   30 seconds with the aggregation entries. An hour is well past any
   router's template refresh, so a live exporter is never forgotten.
 - **Each template cache holds at most 512 templates and 8,192 field
   specifiers** (`MAX_TEMPLATES`, `MAX_TEMPLATE_FIELDS` in
-  `wetechinetmon-protocol-ipfix`). A message defining a template past
+  `tidegard-protocol-ipfix`). A message defining a template past
   either limit is refused as malformed, and the cache keeps what it had.
   A router defines tens of templates with a few hundred fields in all.
 - **A template record reserves at most what its bytes can hold**: four
   per field specifier.
-- **`wetechinetmon_collector_datagrams_refused_total{reason}`** counts
+- **`tidegard_collector_datagrams_refused_total{reason}`** counts
   the drops, with two fixed reasons: `not_allowed` and `exporter_limit`.
 
 Together these bound the collector's template memory at about 128 KiB
@@ -77,7 +77,7 @@ is sent to it.
   failures. No router we know of comes close. The limits are constants;
   making them settings waits for an exporter that needs it.
 - A deployment with more than 1,000 exporter and domain pairs must raise
-  `WETECHINETMON_COLLECTOR_MAX_EXPORTERS`, and the refusal counter says
+  `TIDEGARD_COLLECTOR_MAX_EXPORTERS`, and the refusal counter says
   so.
 
 ## Alternatives considered

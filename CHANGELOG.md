@@ -10,7 +10,7 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [1.0.0-rc.1] - 2026-10-13
 
-The first release candidate of WetechiNetMon 1.0.0: IPFIX flow
+The first release candidate of Tidegard 1.0.0: IPFIX flow
 collection, traffic analytics, static threshold DDoS detection, incident
 management and approved BGP mitigation, as a signed release for one
 host. Before installing, [verify it](docs/operations/verifying-a-release.md);
@@ -20,9 +20,16 @@ before upgrading from v0.9.0, read
 
 ### Changed — needs action when upgrading from v0.9.0
 
+- **WetechiNetMon is now Tidegard** ([ADR 0058](docs/architecture/decisions/0058-rename-to-tidegard.md)):
+  binaries `tidegard-*` and `tidegardctl`, settings `TIDEGARD_*`, metrics
+  `tidegard_*`, images `ghcr.io/logixhare/tidegard-*`, paths
+  `/opt/tidegard` and `/etc/tidegard`, and the repository
+  `LogiXhare/tidegard`. `WETECHINETMON_*` settings are still read, with
+  a warning, through 1.x. The database role, the ClickHouse tables and
+  the token prefix keep their names.
 - The collector's ClickHouse export refuses plain HTTP to any host but
   this one, and takes credentials only from
-  `WETECHINETMON_COLLECTOR_CLICKHOUSE_USER` and `_PASSWORD_FILE`: a remote
+  `TIDEGARD_COLLECTOR_CLICKHOUSE_USER` and `_PASSWORD_FILE`: a remote
   `http://` URL, or a URL carrying a password, now stops it at startup
   ([ADR 0053](docs/architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)).
 - The collector tracks each exporter by source address and observation
@@ -63,9 +70,9 @@ before upgrading from v0.9.0, read
   pull request, with the [disaster recovery runbook](docs/operations/disaster-recovery.md)
   ([ADR 0055](docs/architecture/decisions/0055-phase9c-backup-upgrade-rollback.md)).
 - The exporter allowlist and limits:
-  `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`, `_MAX_EXPORTERS` and
+  `TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`, `_MAX_EXPORTERS` and
   `_EXPORTER_IDLE_SECS`, with
-  `wetechinetmon_collector_datagrams_refused_total`
+  `tidegard_collector_datagrams_refused_total`
   ([ADR 0056](docs/architecture/decisions/0056-phase9d-collector-input-bounds.md)).
 - The third-party licence notices of every dependency, in each tarball
   and image.
@@ -99,7 +106,7 @@ before upgrading from v0.9.0, read
   allowlist, prefix floors of /16 and /32 that no configuration can
   lower, bounded durations, and a kill switch that any NOC lead can
   engage and only the API host can release.
-- `wetechinetmon-mitigator`, the only process that speaks to GoBGP
+- `tidegard-mitigator`, the only process that speaks to GoBGP
   (v4.9.0, over gRPC, plaintext to loopback only). It announces,
   expires, reconciles by an ownership community, proposes for critical
   incidents, and records BGP peers.
@@ -129,7 +136,7 @@ before upgrading from v0.9.0, read
   API under a strict Content-Security-Policy, with an end-to-end test in
   a real browser.
 - The [notifier](crates/notification/README.md),
-  `wetechinetmon-notifier`: email, Slack, Teams, Telegram and
+  `tidegard-notifier`: email, Slack, Teams, Telegram and
   HMAC-signed webhooks, routed by tenant, event and severity, with SSRF
   checks, deduplication, rate limits and dead-lettering. Every attempt
   is on the incident's timeline.
@@ -142,7 +149,7 @@ before upgrading from v0.9.0, read
   domain, PostgreSQL persistence (migrations V1–V17), ingestion of
   detection events through an inbox, the
   [REST API](apps/api/README.md), and the
-  [`wetechinetmonctl` CLI](apps/cli/README.md). Incidents correlate
+  [`tidegardctl` CLI](apps/cli/README.md). Incidents correlate
   detections, move through a seven-state lifecycle, and record every
   change on an append-only timeline and audit trail. Nothing notifies
   and nothing mitigates: those are Phases 6 and 7.
@@ -205,7 +212,7 @@ changelog entry, and this file claims to record all notable changes.
   sequence; observe, alert-only, and dry-run execution modes.
 - ClickHouse `wetechinetmon_detection_events` with 365-day retention,
   alongside the unchanged 30-day traffic retention.
-- Thirteen `wetechinetmon_detector_*` Prometheus metrics, every label a
+- Thirteen `tidegard_detector_*` Prometheus metrics, every label a
   closed set.
 - Traffic patterns in `flow-replay`, and a full IPFIX-bytes-to-event
   end-to-end test.
@@ -359,16 +366,16 @@ dropped — see `docs/risk-register.md` and the relevant docs pages above.
   (fixed and variable-length fields), per-exporter `TemplateCache`, and
   structural sampling-parameter extraction (`SamplingInfo`). 34 tests
   including 3 `proptest` properties ("never panics on arbitrary bytes").
-- `crates/collector` (`wetechinetmon-collector` binary): UDP IPFIX
+- `crates/collector` (`tidegard-collector` binary): UDP IPFIX
   listener, per-exporter template caching with sequence-number-regression
   restart detection, a hand-rolled `/metrics` HTTP endpoint (Prometheus
   text format), and environment-variable configuration
-  (`WETECHINETMON_COLLECTOR_BIND`, `WETECHINETMON_COLLECTOR_METRICS_BIND`).
+  (`TIDEGARD_COLLECTOR_BIND`, `TIDEGARD_COLLECTOR_METRICS_BIND`).
   16 tests, including a real `tokio` TCP integration test of the metrics
   endpoint. Verified end-to-end against a real running process (not just
   unit tests) — see `docs/roadmap.md` Phase 2 section.
 - `crates/common`: shared structured JSON logging setup
-  (`wetechinetmon_common::logging::init`).
+  (`tidegard_common::logging::init`).
 - `tools/flow-replay` (`flow-replay` binary): synthetic-only IPFIX
   traffic generator for safely testing the collector, with a round-trip
   test against the real decoder.
@@ -429,5 +436,5 @@ this environment. Property-based tests (`proptest`) cover the same
   out-of-scope list, risk register, roadmap, acceptance criteria, blocking
   questions, and naming/branding decisions under `docs/`.
 
-[Unreleased]: https://github.com/LogiXhare/wetechi-netmon/compare/v1.0.0-rc.1...HEAD
-[1.0.0-rc.1]: https://github.com/LogiXhare/wetechi-netmon/releases/tag/v1.0.0-rc.1
+[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/LogiXhare/tidegard/releases/tag/v1.0.0-rc.1

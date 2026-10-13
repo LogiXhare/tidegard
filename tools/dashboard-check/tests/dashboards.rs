@@ -4,19 +4,17 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use wetechinetmon_dashboard_check::{check_dashboard, Known};
+use tidegard_dashboard_check::{check_dashboard, Known};
 
 fn known() -> Known {
-    let mut metrics: BTreeSet<String> = wetechinetmon_collector::metric_names()
-        .into_iter()
-        .collect();
+    let mut metrics: BTreeSet<String> = tidegard_collector::metric_names().into_iter().collect();
     let (manager, _registry) =
-        wetechinetmon_incident_manager::metrics::ManagerMetrics::new().expect("registers");
+        tidegard_incident_manager::metrics::ManagerMetrics::new().expect("registers");
     metrics.extend(manager.metric_names());
     let (notifier, _registry) =
-        wetechinetmon_notification::metrics::NotifierMetrics::new().expect("registers");
+        tidegard_notification::metrics::NotifierMetrics::new().expect("registers");
     metrics.extend(notifier.metric_names());
-    let tables = wetechinetmon_storage::schema::CREATE_TABLE_STATEMENTS
+    let tables = tidegard_storage::schema::CREATE_TABLE_STATEMENTS
         .iter()
         .map(|(name, _)| name.to_string())
         .collect();

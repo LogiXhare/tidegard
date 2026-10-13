@@ -33,7 +33,7 @@ Settled inputs:
 
 ## Decision
 
-The API is a new binary, `wetechinetmon-api`, in `apps/api`, on `axum`
+The API is a new binary, `tidegard-api`, in `apps/api`, on `axum`
 (ADR 0037).
 
 ### Gate 3: the TLS boundary is the service, not an assumption
@@ -86,7 +86,7 @@ kind. OIDC/JWT and SSO are Phase 8.
   implementation. Nothing past the trait knows how the caller proved who
   they are.
 - **Issuing tokens:** an admin subcommand of the API binary
-  (`wetechinetmon-api token create|revoke|list`) talks to the database
+  (`tidegard-api token create|revoke|list`) talks to the database
   directly. This is the bootstrap path, and it needs no running API and
   no prior token. The 5E CLI may wrap it later.
 

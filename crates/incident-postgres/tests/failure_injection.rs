@@ -4,7 +4,7 @@
 //! Uses the `fault-injection` feature, which this crate's dev-dependency on
 //! itself turns on for tests. Like the other PostgreSQL tests, this only
 //! connects to the opt-in, ephemeral database named by
-//! `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, skips with a message when it
+//! `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, skips with a message when it
 //! is unset, and fails CI if it skips there (FU-46). One test function,
 //! because it resets the `public` schema and the armed fault is
 //! process-wide.
@@ -14,22 +14,22 @@ mod support;
 use std::sync::Arc;
 
 use support::{event, host_scope, operator, Scope};
+use tidegard_detector::{DetectionEvent, EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::TestIncidentGenerator;
+use tidegard_incident::idempotency::IdempotencyKey;
+use tidegard_incident::unit_of_work::IngestOutcomeKind;
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::fault::{self, FlushPoint};
+use tidegard_incident_postgres::retry::RetryPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_incident_postgres::sql::{load_incident, Locking};
 use tokio_postgres::types::ToSql;
 use tokio_postgres::Client;
-use wetechinetmon_detector::{DetectionEvent, EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::TestIncidentGenerator;
-use wetechinetmon_incident::idempotency::IdempotencyKey;
-use wetechinetmon_incident::unit_of_work::IngestOutcomeKind;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::fault::{self, FlushPoint};
-use wetechinetmon_incident_postgres::retry::RetryPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_incident_postgres::sql::{load_incident, Locking};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 /// Every table an ingest writes for its tenant.
 const TENANT_TABLES: [&str; 6] = [
@@ -87,7 +87,7 @@ async fn an_injected_failure_at_any_flush_point_commits_nothing_and_a_transient_
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");

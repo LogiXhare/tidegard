@@ -24,7 +24,7 @@ Written so far:
   release's signatures, checksums and provenance before installing it
 - [Customer Onboarding](customer-onboarding.md) — Phase 10B: bringing a
   customer's prefixes, routers, policies, alerts and people under
-  WetechiNetMon, each step with its check
+  Tidegard, each step with its check
 - [Upgrading and Rolling Back](upgrading.md) — Phase 10B: moving to a new
   release, from v0.9.0 on, and back
 - [Backup and Restore](backup-and-restore.md) — Phase 5F: the incident

@@ -1,8 +1,8 @@
-# WetechiNetMon
+# Tidegard
 
 **See Every Flow. Defend Every Network.**
 
-WetechiNetMon is an independently engineered open network telemetry, DDoS
+Tidegard is an independently engineered open network telemetry, DDoS
 detection, traffic analytics, and policy-controlled mitigation platform
 for ISPs, enterprises, data centers, hosting providers, and managed
 network service providers.
@@ -22,8 +22,8 @@ Built by **WeTechi Solutions**.
 ## Table of Contents
 
 - [Project Status](#project-status)
-- [What WetechiNetMon Is](#what-wetechinetmon-is)
-- [What WetechiNetMon Is Not](#what-wetechinetmon-is-not)
+- [What Tidegard Is](#what-tidegard-is)
+- [What Tidegard Is Not](#what-tidegard-is-not)
 - [Architecture](#architecture)
 - [Core Capabilities (Planned)](#core-capabilities-planned)
 - [Getting Started](#getting-started)
@@ -50,7 +50,7 @@ delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–7 are merged to
   correlates detections, PostgreSQL persistence with an append-only
   timeline and audit trail, the incident manager process, a
   [REST API](apps/api/README.md) and the
-  [`wetechinetmonctl` CLI](apps/cli/README.md). See the
+  [`tidegardctl` CLI](apps/cli/README.md). See the
   [Gate 2 assessment](docs/development/phase5-gate2-assessment.md).
 - **Phase 6**: dashboards, the NOC UI and notifications. Grafana
   dashboards as code, a read API for traffic, browser sessions, a
@@ -83,9 +83,9 @@ There is no packaged release yet — the first runnable component (the
 IPFIX telemetry collector) shipped in Phase 2, and the repository has
 carried real, tested source code since.
 
-## What WetechiNetMon Is
+## What Tidegard Is
 
-WetechiNetMon is an independently engineered open network telemetry, DDoS
+Tidegard is an independently engineered open network telemetry, DDoS
 detection, traffic analytics, and policy-controlled mitigation platform.
 Planned product categories:
 
@@ -99,9 +99,9 @@ Planned product categories:
 
 Full detail: [docs/product-charter.md](docs/product-charter.md).
 
-## What WetechiNetMon Is Not
+## What Tidegard Is Not
 
-WetechiNetMon is not a clone, replica, copy, alternative build,
+Tidegard is not a clone, replica, copy, alternative build,
 reverse-engineered edition, or replacement edition of any proprietary
 product, named or unnamed. It is built exclusively from public RFCs,
 public protocol specifications, vendor documentation, and independently
@@ -111,7 +111,7 @@ binding clean-room policy.
 
 ## Architecture
 
-WetechiNetMon is designed as a modular, event-driven platform of 15
+Tidegard is designed as a modular, event-driven platform of 15
 logical services (Telemetry Collector, Traffic Aggregator, Direction
 Classifier, Detection Engine, Incident Manager, Mitigation Controller,
 Notification Service, Public REST API, Internal gRPC API, Web Application,
@@ -164,7 +164,7 @@ quick-start walkthrough are not written yet.*
 ## Repository Layout
 
 ```text
-wetechi-netmon/
+tidegard/
 ├── .github/          CI, issue/PR templates, CODEOWNERS, Dependabot
 ├── apps/             api and cli (Phase 5); web, the NOC UI (Phase 6)
 ├── crates/           Rust service crates — 13 populated with real,
@@ -262,6 +262,6 @@ See [SUPPORT.md](SUPPORT.md).
 
 ---
 
-© 2026 WeTechi Solutions. WetechiNetMon, SentinelFlow Engine, and
-`wetechinetmonctl` are original names — see
+© 2026 WeTechi Solutions. Tidegard, SentinelFlow Engine, and
+`tidegardctl` are original names — see
 [docs/naming-and-branding.md](docs/naming-and-branding.md).

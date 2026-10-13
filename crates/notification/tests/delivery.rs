@@ -6,7 +6,7 @@
 //! refused, and every attempt is on the incident's timeline.
 //!
 //! Like the other PostgreSQL tests, this connects only to the opt-in,
-//! throwaway database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! throwaway database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there.
 
 #[path = "../../incident-postgres/tests/support/mod.rs"]
@@ -24,20 +24,20 @@ use axum::routing::post;
 use axum::Router;
 use serde_json::Value;
 use support::{event, host_scope};
-use wetechinetmon_detector::{EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::retry::RetryPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_notification::config::parse_file;
-use wetechinetmon_notification::hmac::signature;
-use wetechinetmon_notification::metrics::NotifierMetrics;
-use wetechinetmon_notification::worker::Notifier;
+use tidegard_detector::{EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::retry::RetryPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_notification::config::parse_file;
+use tidegard_notification::hmac::signature;
+use tidegard_notification::metrics::NotifierMetrics;
+use tidegard_notification::worker::Notifier;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 const HOOK_SECRET: &str = "a-test-signing-secret";
 const BOT_TOKEN: &str = "123456:test-token";
 
@@ -135,7 +135,7 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .unwrap();
@@ -208,7 +208,7 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
     );
     let file = parse_file(&config).unwrap();
 
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {
@@ -217,7 +217,7 @@ async fn the_notifier_delivers_retries_refuses_and_records() {
         },
     )
     .unwrap();
-    let platform = wetechinetmon_notification::platform_authority();
+    let platform = tidegard_notification::platform_authority();
     let policy = OutboxPolicy {
         lease: Duration::from_secs(30),
         ..OutboxPolicy::default()

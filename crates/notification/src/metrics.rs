@@ -33,14 +33,14 @@ impl NotifierMetrics {
         let metrics = NotifierMetrics {
             notifications_total: IntCounterVec::new(
                 Opts::new(
-                    "wetechinetmon_notifier_notifications_total",
+                    "tidegard_notifier_notifications_total",
                     "Notification attempts and skips, by result.",
                 ),
                 &["result"],
             )?,
             messages_total: IntCounterVec::new(
                 Opts::new(
-                    "wetechinetmon_notifier_messages_total",
+                    "tidegard_notifier_messages_total",
                     "Outbox messages the notifier finished, by result.",
                 ),
                 &["result"],

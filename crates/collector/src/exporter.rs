@@ -4,7 +4,7 @@
 //! Per RFC 7011 §8.1, template IDs are only meaningful within one
 //! exporter's observation domain, and an exporter that restarts may
 //! reuse template IDs to mean something different than before. This
-//! module is what lets `wetechinetmon-collector` keep one
+//! module is what lets `tidegard-collector` keep one
 //! `TemplateCache` per exporter and clear it when a restart is detected,
 //! per docs/functional-requirements.md FR-1.4 ("handle exporter
 //! restarts") and FR-1.5.
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
-use wetechinetmon_protocol_ipfix::TemplateCache;
+use tidegard_protocol_ipfix::TemplateCache;
 
 /// State tracked for one exporter, keyed by [`ExporterKey`] in
 /// [`ExporterRegistry`].
@@ -106,7 +106,7 @@ impl Default for ExporterLimits {
     }
 }
 
-/// A network in `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`, in canonical
+/// A network in `TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`, in canonical
 /// form: no bit set below its length.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AllowedNetwork {
@@ -243,7 +243,7 @@ mod tests {
         state.observe_sequence(1000);
         state
             .template_cache
-            .insert(wetechinetmon_protocol_ipfix::Template {
+            .insert(tidegard_protocol_ipfix::Template {
                 template_id: 256,
                 scope_field_count: 0,
                 fields: vec![],
@@ -365,7 +365,7 @@ mod tests {
             .get_or_create((addr(1), 0))
             .unwrap()
             .template_cache
-            .insert(wetechinetmon_protocol_ipfix::Template {
+            .insert(tidegard_protocol_ipfix::Template {
                 template_id: 1,
                 scope_field_count: 0,
                 fields: vec![],
@@ -375,7 +375,7 @@ mod tests {
             .get_or_create((addr(2), 0))
             .unwrap()
             .template_cache
-            .insert(wetechinetmon_protocol_ipfix::Template {
+            .insert(tidegard_protocol_ipfix::Template {
                 template_id: 2,
                 scope_field_count: 0,
                 fields: vec![],

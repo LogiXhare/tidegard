@@ -23,9 +23,9 @@ use axum::{Extension, Json};
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tidegard_incident::authorization::Actor;
+use tidegard_incident_postgres::pool::acquire;
 use utoipa::ToSchema;
-use wetechinetmon_incident::authorization::Actor;
-use wetechinetmon_incident_postgres::pool::acquire;
 
 use crate::auth::{is_well_formed, token_hash, Principal, Role};
 use crate::problem::{ErrorCode, Problem};
@@ -74,7 +74,7 @@ pub fn session_hash(id: &str) -> Vec<u8> {
 /// page's JavaScript never sees.
 pub fn csrf_token(id: &str) -> String {
     let digest = Sha256::new()
-        .chain_update(b"wetechinetmon csrf\0")
+        .chain_update(b"tidegard csrf\0")
         .chain_update(id.as_bytes())
         .finalize();
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
@@ -306,7 +306,7 @@ pub async fn sign_in(State(state): State<AppState>, request: Request) -> Respons
         };
         let role = Role::parse(row.get::<_, &str>("role")).ok_or_else(rejected)?;
         let principal = Principal {
-            tenant: wetechinetmon_incident::correlation::TenantId::new(
+            tenant: tidegard_incident::correlation::TenantId::new(
                 row.get::<_, String>("tenant_id"),
             ),
             actor,

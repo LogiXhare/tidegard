@@ -27,7 +27,7 @@ API reads it:
 - A new permission, **`traffic.read`**, is in every human role bundle,
   from `viewer` up.
 - **One tenant is the traffic tenant**, named by
-  `WETECHINETMON_API_TRAFFIC_TENANT`. Only its callers can reach the
+  `TIDEGARD_API_TRAFFIC_TENANT`. Only its callers can reach the
   traffic endpoints. Every other tenant gets `404`, the same answer as
   for an endpoint that does not exist, checked before anything is read.
   If the variable is unset, traffic is off and everyone gets `404`.

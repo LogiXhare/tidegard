@@ -29,7 +29,7 @@ before any commercial distribution.
 | 11 | ClickHouse (server, external service) | Analytics storage | Apache-2.0 — REQUIRES VERIFICATION | None expected | Safe as external service dependency | REQUIRES VERIFICATION — integration code written (Phase 3, `crates/storage`) and unit-tested, but no live ClickHouse server was reachable in this environment to verify the actual write path end to end; see docs/integrations/clickhouse.md |
 | 12 | PostgreSQL (server, external service) | Config/metadata storage | PostgreSQL License (permissive) — REQUIRES VERIFICATION | None | Safe | REQUIRES VERIFICATION |
 | 13 | Prometheus (server) | Metrics collection | Apache-2.0 — REQUIRES VERIFICATION | None | Safe | REQUIRES VERIFICATION |
-| 14 | Grafana | Dashboards | AGPLv3 for core Grafana (post-2021 relicensing) | **None for this repository: BQ-2 resolved 2026-10-11, external only.** WetechiNetMon ships original dashboard JSON and provisioning files and never bundles, modifies or redistributes a Grafana binary. CI runs the unmodified official `grafana/grafana` 13.2.3 image as a throwaway test service ([ADR 0041](architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)) | Operator-supplied | **Resolved** — external service; revisit only if a release would ever bundle Grafana |
+| 14 | Grafana | Dashboards | AGPLv3 for core Grafana (post-2021 relicensing) | **None for this repository: BQ-2 resolved 2026-10-11, external only.** Tidegard ships original dashboard JSON and provisioning files and never bundles, modifies or redistributes a Grafana binary. CI runs the unmodified official `grafana/grafana` 13.2.3 image as a throwaway test service ([ADR 0041](architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)) | Operator-supplied | **Resolved** — external service; revisit only if a release would ever bundle Grafana |
 | 15 | NATS JetStream (candidate transport) | Event transport | Apache-2.0 — REQUIRES VERIFICATION | None expected | Safe | REQUIRES VERIFICATION |
 | 16 | Redpanda (candidate transport) | Event transport | **Business Source License (BSL) for some components — REQUIRES VERIFICATION**, converts to Apache-2.0 after a time delay per version | Commercial-use restrictions possible under BSL depending on version/edition | **Needs legal check before selection** if BSL-covered version is used | REQUIRES VERIFICATION — flagged as risk |
 | 17 | Kafka (candidate transport) | Event transport | Apache-2.0 — REQUIRES VERIFICATION | None | Safe | REQUIRES VERIFICATION |
@@ -67,7 +67,7 @@ before any commercial distribution.
 | 49 | email-encoding, email_address, nom, quoted_printable, base64 | lettre's own dependencies | MIT OR Apache-2.0 (email-encoding 0.4.2, base64 0.22.1), MIT (email_address 0.2.9, nom 8.0.0), 0BSD (quoted_printable 0.5.2) — verified 2026-10-12 | None | `cargo audit` clean | **Approved** — through lettre, notifier only |
 | 50 | webpki-roots | Satisfies lettre's compile-time requirement for a root store | CDLA-Permissive-2.0 — verified 2026-10-12 for v1.0.9; a permissive data licence | None | Compiled in but **never used**: every SMTP connection is built with `CertificateStore::None` and the configured CA bundle alone | **Approved** — notifier only ([ADR 0045](architecture/decisions/0045-phase6e-notification-delivery.md)) |
 | 51 | hyper-rustls | TLS from the collector to ClickHouse, verified against the configured CA bundle (Phase 9A-3a); the `clickhouse` crate accepts only a hyper-util client, and this is its TLS connector | Apache-2.0 OR ISC OR MIT — verified 2026-10-12 for v0.27.10 (released 2026-09-20) | None | `cargo audit` clean 2026-10-12; `default-features = false` with `http1`, `tls12` and `aws-lc-rs` only: no native or webpki roots, the CA bundle alone | **Approved** — `crates/storage` only, the one new crate in `Cargo.lock` ([ADR 0053](architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)) |
-| 52 | gcr.io/distroless/cc-debian13 (base image) | The base of every WetechiNetMon container image (Phase 9A-3b): glibc, libgcc, CA certificates and time zone data, no shell or package manager | Distroless itself Apache-2.0; its Debian 13 packages under their own free licences (glibc LGPL-2.1+, libgcc GPL-3.0+ with the GCC Runtime Library Exception, ca-certificates MPL-2.0 and GPL-2.0+, tzdata public domain) — shipped as separate, unmodified system libraries, which these licences allow; the image carries their copyright files | None | Trivy in CI fails on any fixable Critical or High finding; pinned by digest (`sha256:e792ab3d…`, published 2026-10-01: newer than the 14-day rule allows, because the 2026-09-13 digest carried a fixable High in `libssl3t64`, CVE-2026-84782, and a security fix overrides the wait), updated by Dependabot after 14 days | **Approved** — container images only, never linked into the source ([ADR 0052](architecture/decisions/0052-phase9a-packaging.md)) |
+| 52 | gcr.io/distroless/cc-debian13 (base image) | The base of every Tidegard container image (Phase 9A-3b): glibc, libgcc, CA certificates and time zone data, no shell or package manager | Distroless itself Apache-2.0; its Debian 13 packages under their own free licences (glibc LGPL-2.1+, libgcc GPL-3.0+ with the GCC Runtime Library Exception, ca-certificates MPL-2.0 and GPL-2.0+, tzdata public domain) — shipped as separate, unmodified system libraries, which these licences allow; the image carries their copyright files | None | Trivy in CI fails on any fixable Critical or High finding; pinned by digest (`sha256:e792ab3d…`, published 2026-10-01: newer than the 14-day rule allows, because the 2026-09-13 digest carried a fixable High in `libssl3t64`, CVE-2026-84782, and a security fix overrides the wait), updated by Dependabot after 14 days | **Approved** — container images only, never linked into the source ([ADR 0052](architecture/decisions/0052-phase9a-packaging.md)) |
 
 ## Toolchain-Only, Not Shipped in Any Binary
 
@@ -76,7 +76,7 @@ The Rust GNU toolchain requires a MinGW-w64 build environment (binutils —
 to link `windows-sys`-dependent crates on Windows dev machines. Installed
 locally via winget (`BrechtSanders.WinLibs.POSIX.UCRT`, multiple licenses
 — see <https://winlibs.com/#license>). This is **build tooling only**
-— none of it is linked into or distributed with WetechiNetMon binaries, so
+— none of it is linked into or distributed with Tidegard binaries, so
 it carries no distribution obligations for the product itself. Not added
 as a numbered row above since it is not a dependency of the product in any
 license-relevant sense; noted here for engineering-environment
@@ -102,7 +102,7 @@ actually added to `Cargo.toml`, `package.json`, or a deployment manifest:
 the Phase 5B candidates while the crate's version, license, and advisory
 history were independently verified against live sources but the crate
 was not yet added to any `Cargo.toml`. Rows 32–37 carried that state
-until the Phase 5B-1 probe (2026-09-03, [PR #23](https://github.com/LogiXhare/wetechi-netmon/pull/23))
+until the Phase 5B-1 probe (2026-09-03, [PR #23](https://github.com/LogiXhare/tidegard/pull/23))
 added all six to `crates/incident-postgres` and measured transitive
 closure, `cargo audit`, `unsafe` inventory, a Windows-GNU build locally,
 and a Linux build via that PR's own required Rust check on
@@ -113,10 +113,10 @@ candidate that needs the same two-step review.
 
 ## Known Legal Flags Raised in Phase 0
 
-- **Grafana AGPLv3 relicensing (2021)**: if WetechiNetMon bundles or
+- **Grafana AGPLv3 relicensing (2021)**: if Tidegard bundles or
   modifies Grafana itself (rather than shipping original dashboard JSON
   that an operator loads into their own separately-installed Grafana),
-  AGPLv3's network-copyleft terms could require WetechiNetMon's own source
+  AGPLv3's network-copyleft terms could require Tidegard's own source
   to be made available. Recommended default posture: ship Grafana
   dashboard JSON and provisioning config only, treat Grafana server as an
   operator-supplied external dependency (like PostgreSQL), never bundle a
@@ -130,7 +130,7 @@ candidate that needs the same two-step review.
 ## Enforcement
 
 Since Phase 9D, CI runs `cargo deny check` on every pull request
-([`deny.toml`](https://github.com/LogiXhare/wetechi-netmon/blob/main/deny.toml)):
+([`deny.toml`](https://github.com/LogiXhare/tidegard/blob/main/deny.toml)):
 any RustSec advisory, a licence outside the permissive list this matrix
 approves, a wildcard version or a source other than crates.io fails the
 build. A dependency still needs its row here first; `cargo deny` catches

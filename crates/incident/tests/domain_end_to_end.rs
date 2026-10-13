@@ -13,27 +13,27 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
-use wetechinetmon_detector::{
+use tidegard_detector::{
     ActionTaken, AddressFamily, Clock, DataCompleteness, DetectionEvent, DetectionState, EventKind,
     EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates, SamplingStatus, ScopeId,
     ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
 };
-use wetechinetmon_incident::authorization::{
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, Permission, PermissionResolver,
 };
-use wetechinetmon_incident::closure::ClosureReason;
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::TestIncidentGenerator;
-use wetechinetmon_incident::idempotency::IdempotencyKey;
-use wetechinetmon_incident::incident::NoteVisibility;
-use wetechinetmon_incident::number::InMemoryNumberAllocator;
-use wetechinetmon_incident::state::IncidentState;
-use wetechinetmon_incident::timeline::{
+use tidegard_incident::closure::ClosureReason;
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::TestIncidentGenerator;
+use tidegard_incident::idempotency::IdempotencyKey;
+use tidegard_incident::incident::NoteVisibility;
+use tidegard_incident::number::InMemoryNumberAllocator;
+use tidegard_incident::state::IncidentState;
+use tidegard_incident::timeline::{
     AutomaticCause, OperatorCommandKind, TimelinePayload, TransitionCause,
 };
-use wetechinetmon_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
+use tidegard_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
 
 /// Delegates to a shared, externally-advanceable [`TestClock`] so a test
 /// can control elapsed time (reopen windows, auto-close delays) after the
@@ -84,7 +84,7 @@ fn event(
         }]
     };
     DetectionEvent {
-        schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+        schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
         event_id: format!("{detection_id}-{sequence}"),
         detection_id: detection_id.to_string(),
         sequence,
@@ -219,7 +219,7 @@ fn detection_to_incident_full_lifecycle_end_to_end() {
     let incident = uow.get(&incident_id).unwrap();
     assert_eq!(
         incident.category,
-        wetechinetmon_incident::category::IncidentCategory::TcpSynFlood
+        tidegard_incident::category::IncidentCategory::TcpSynFlood
     );
     assert_eq!(incident.version, 2);
 
@@ -325,7 +325,7 @@ fn detection_to_incident_full_lifecycle_end_to_end() {
     );
     assert!(matches!(
         conflict,
-        Err(wetechinetmon_incident::error::IncidentError::VersionConflict { .. })
+        Err(tidegard_incident::error::IncidentError::VersionConflict { .. })
     ));
     assert_eq!(
         uow.get(&incident_id).unwrap(),
@@ -413,7 +413,7 @@ fn critical_incident_does_not_auto_close_but_manual_close_works() {
     uow.enter_recovering(
         &correlator,
         incident_id,
-        wetechinetmon_incident::transition::DetectionEndReason::TrafficCleared,
+        tidegard_incident::transition::DetectionEndReason::TrafficCleared,
     )
     .unwrap();
     // Recovery confirmation is satisfied because the injected TestClock
@@ -529,7 +529,7 @@ fn severity_downgrade_does_not_unlock_automatic_closure_for_a_formerly_critical_
     uow.enter_recovering(
         &correlator,
         incident_id,
-        wetechinetmon_incident::transition::DetectionEndReason::TrafficCleared,
+        tidegard_incident::transition::DetectionEndReason::TrafficCleared,
     )
     .unwrap();
     assert!(uow
@@ -655,7 +655,7 @@ fn cross_tenant_command_returns_not_found_not_forbidden() {
     );
     assert_eq!(
         result,
-        Err(wetechinetmon_incident::error::IncidentError::NotFound)
+        Err(tidegard_incident::error::IncidentError::NotFound)
     );
     let _ = Permission::IncidentAcknowledge;
 }
@@ -687,7 +687,7 @@ fn duplicate_idempotency_key_replays_and_conflicting_body_conflicts() {
         .incident_id
         .unwrap();
 
-    let key = wetechinetmon_incident::idempotency::IdempotencyKey::new("a".repeat(20)).unwrap();
+    let key = tidegard_incident::idempotency::IdempotencyKey::new("a".repeat(20)).unwrap();
     let v1 = uow
         .handle_command(
             &operator,
@@ -728,7 +728,7 @@ fn duplicate_idempotency_key_replays_and_conflicting_body_conflicts() {
     );
     assert_eq!(
         conflict,
-        Err(wetechinetmon_incident::error::IncidentError::IdempotencyConflict)
+        Err(tidegard_incident::error::IncidentError::IdempotencyConflict)
     );
 }
 
@@ -1153,10 +1153,10 @@ fn begin_investigation_and_mark_monitoring_emit_their_own_metadata() {
         "BeginInvestigation must not be audited under IncidentAcknowledge"
     );
     match &uow.timeline().last().unwrap().payload {
-        wetechinetmon_incident::timeline::TimelinePayload::StateChanged { cause, .. } => {
+        tidegard_incident::timeline::TimelinePayload::StateChanged { cause, .. } => {
             assert_eq!(
                 *cause,
-                wetechinetmon_incident::timeline::TransitionCause::Operator(
+                tidegard_incident::timeline::TransitionCause::Operator(
                     OperatorCommandKind::BeginInvestigation
                 ),
                 "BeginInvestigation must not be recorded as Acknowledge on the timeline"
@@ -1175,10 +1175,10 @@ fn begin_investigation_and_mark_monitoring_emit_their_own_metadata() {
     )
     .unwrap();
     match &uow.timeline().last().unwrap().payload {
-        wetechinetmon_incident::timeline::TimelinePayload::StateChanged { cause, .. } => {
+        tidegard_incident::timeline::TimelinePayload::StateChanged { cause, .. } => {
             assert_eq!(
                 *cause,
-                wetechinetmon_incident::timeline::TransitionCause::Operator(
+                tidegard_incident::timeline::TransitionCause::Operator(
                     OperatorCommandKind::MarkMonitoring
                 ),
                 "MarkMonitoring must not be recorded as Acknowledge or BeginInvestigation"
@@ -1231,7 +1231,7 @@ fn unauthorized_context_cannot_drive_automatic_maintenance_methods() {
         uow.enter_recovering(
             &unauthorized,
             incident_id,
-            wetechinetmon_incident::transition::DetectionEndReason::TrafficCleared,
+            tidegard_incident::transition::DetectionEndReason::TrafficCleared,
         ),
         Err(IncidentError::Unauthorized)
     );
@@ -1270,7 +1270,7 @@ fn unauthorized_context_cannot_drive_automatic_maintenance_methods() {
     uow.enter_recovering(
         &correlator,
         incident_id,
-        wetechinetmon_incident::transition::DetectionEndReason::TrafficCleared,
+        tidegard_incident::transition::DetectionEndReason::TrafficCleared,
     )
     .unwrap();
     assert_eq!(
@@ -1518,7 +1518,7 @@ fn automatic_closure_waits_for_the_closure_delay() {
     uow.enter_recovering(
         &correlator,
         incident_id,
-        wetechinetmon_incident::transition::DetectionEndReason::TrafficCleared,
+        tidegard_incident::transition::DetectionEndReason::TrafficCleared,
     )
     .unwrap();
     assert!(uow
@@ -1526,7 +1526,7 @@ fn automatic_closure_waits_for_the_closure_delay() {
         .unwrap());
 
     let delay =
-        wetechinetmon_incident::closure::ClosurePolicy::approved_default().automatic_closure_delay;
+        tidegard_incident::closure::ClosurePolicy::approved_default().automatic_closure_delay;
     assert!(!uow
         .attempt_automatic_closure(&correlator, incident_id)
         .unwrap());

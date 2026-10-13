@@ -1,4 +1,4 @@
-//! WetechiNetMon incident REST API (Milestone 5D).
+//! Tidegard incident REST API (Milestone 5D).
 //!
 //! The boundary decisions are [ADR 0037](../../docs/architecture/decisions/0037-phase5d-http-framework-and-openapi.md)
 //! (axum, OpenAPI from code) and [ADR 0038](../../docs/architecture/decisions/0038-phase5d-api-boundary.md)
@@ -41,13 +41,13 @@ use axum::{Json, Router};
 use deadpool_postgres::Pool;
 use serde::Serialize;
 use std::sync::Arc;
+use tidegard_incident::authorization::{FixedBundleResolver, PermissionResolver};
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::mitigation::MitigationStore;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::service::IncidentPersistence;
 use utoipa::ToSchema;
-use wetechinetmon_incident::authorization::{FixedBundleResolver, PermissionResolver};
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::mitigation::MitigationStore;
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
 
 use crate::auth::{AuthLayerState, TokenAuthenticator};
 use crate::problem::{ErrorCode, Problem};
@@ -97,10 +97,8 @@ impl AppState {
             mitigations: Arc::new(MitigationStore::new(
                 Arc::new(UuidV7IncidentGenerator::new()),
                 Arc::new(
-                    wetechinetmon_mitigation::Guard::new(
-                        wetechinetmon_mitigation::GuardConfig::default(),
-                    )
-                    .expect("the default guard is valid"),
+                    tidegard_mitigation::Guard::new(tidegard_mitigation::GuardConfig::default())
+                        .expect("the default guard is valid"),
                 ),
             )),
             pool,
@@ -108,7 +106,7 @@ impl AppState {
     }
 
     /// Checks mitigation requests against `guard` (ADR 0047, ADR 0050).
-    pub fn with_guard(mut self, guard: wetechinetmon_mitigation::Guard) -> Self {
+    pub fn with_guard(mut self, guard: tidegard_mitigation::Guard) -> Self {
         self.mitigations = Arc::new(MitigationStore::new(
             Arc::new(UuidV7IncidentGenerator::new()),
             Arc::new(guard),
@@ -300,7 +298,7 @@ pub async fn readyz(State(state): State<AppState>) -> Response {
     let ready = async {
         let client = acquire(&state.pool).await?;
         client.query_one("SELECT 1", &[]).await?;
-        Ok::<_, wetechinetmon_incident_postgres::error::PersistError>(())
+        Ok::<_, tidegard_incident_postgres::error::PersistError>(())
     }
     .await;
     match ready {
@@ -327,10 +325,10 @@ mod tests {
 
     /// A pool that is never connected: building one opens nothing.
     fn state() -> AppState {
-        let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+        let (pool, _) = tidegard_incident_postgres::connect::connect(
             "host=127.0.0.1 port=1 user=nobody connect_timeout=1",
             None,
-            wetechinetmon_incident_postgres::pool::PoolPolicy {
+            tidegard_incident_postgres::pool::PoolPolicy {
                 max_size: 1,
                 wait_timeout: std::time::Duration::from_millis(200),
                 create_timeout: std::time::Duration::from_millis(500),

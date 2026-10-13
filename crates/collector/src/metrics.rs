@@ -34,8 +34,8 @@ pub struct Metrics {
     pub sets_by_kind_total: IntCounterVec,
     /// Datagrams dropped before decoding (Phase 9D, ADR 0056), labeled by
     /// `reason`: `not_allowed` (the source is outside
-    /// `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`) or `exporter_limit`
-    /// (a new exporter while `WETECHINETMON_COLLECTOR_MAX_EXPORTERS` are
+    /// `TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`) or `exporter_limit`
+    /// (a new exporter while `TIDEGARD_COLLECTOR_MAX_EXPORTERS` are
     /// already tracked). Two fixed values, never an address.
     pub datagrams_refused_total: IntCounterVec,
 
@@ -75,134 +75,134 @@ impl Metrics {
         let registry = Registry::new();
 
         let datagrams_received_total = IntCounter::new(
-            "wetechinetmon_collector_flow_datagrams_received_total",
+            "tidegard_collector_flow_datagrams_received_total",
             "Total UDP datagrams received by the collector, before parsing.",
         )?;
         let parsed_flow_records_total = IntCounter::new(
-            "wetechinetmon_collector_parsed_flow_records_total",
+            "tidegard_collector_parsed_flow_records_total",
             "Total Data Records successfully decoded across all exporters.",
         )?;
         let ipv4_flows_total = IntCounter::new(
-            "wetechinetmon_collector_ipv4_flows_total",
+            "tidegard_collector_ipv4_flows_total",
             "Total decoded Data Records containing at least one IPv4 address field.",
         )?;
         let ipv6_flows_total = IntCounter::new(
-            "wetechinetmon_collector_ipv6_flows_total",
+            "tidegard_collector_ipv6_flows_total",
             "Total decoded Data Records containing at least one IPv6 address field.",
         )?;
         let parser_failures_total = IntCounter::new(
-            "wetechinetmon_collector_parser_failures_total",
+            "tidegard_collector_parser_failures_total",
             "Total datagrams that failed to decode as a valid IPFIX message.",
         )?;
         let unknown_templates_total = IntCounter::new(
-            "wetechinetmon_collector_unknown_templates_total",
+            "tidegard_collector_unknown_templates_total",
             "Total Data Sets received referencing a template not yet known for that exporter.",
         )?;
         let exporter_restarts_total = IntCounter::new(
-            "wetechinetmon_collector_exporter_restarts_total",
+            "tidegard_collector_exporter_restarts_total",
             "Total detected exporter restarts (sequence-number regression), which clear that exporter's template cache.",
         )?;
         let reserved_set_id_total = IntCounter::new(
-            "wetechinetmon_collector_reserved_set_id_total",
+            "tidegard_collector_reserved_set_id_total",
             "Total Sets received using a reserved (invalid) Set ID.",
         )?;
         let template_cache_size = IntGauge::new(
-            "wetechinetmon_collector_template_cache_size",
+            "tidegard_collector_template_cache_size",
             "Current total number of cached templates across all known exporters.",
         )?;
         let active_exporters = IntGauge::new(
-            "wetechinetmon_collector_active_exporters",
+            "tidegard_collector_active_exporters",
             "Current number of exporters tracked: source address and observation domain pairs.",
         )?;
         let sets_by_kind_total = IntCounterVec::new(
             Opts::new(
-                "wetechinetmon_collector_sets_by_kind_total",
+                "tidegard_collector_sets_by_kind_total",
                 "Total decoded Sets, labeled by kind.",
             ),
             &["kind"],
         )?;
         let datagrams_refused_total = IntCounterVec::new(
             Opts::new(
-                "wetechinetmon_collector_datagrams_refused_total",
+                "tidegard_collector_datagrams_refused_total",
                 "Total datagrams dropped before decoding, labeled by reason (not_allowed, exporter_limit).",
             ),
             &["reason"],
         )?;
 
         let normalized_flows_total = IntCounter::new(
-            "wetechinetmon_collector_normalized_flows_total",
+            "tidegard_collector_normalized_flows_total",
             "Total Data Records successfully converted into a NormalizedFlow.",
         )?;
         let incomplete_records_total = IntCounter::new(
-            "wetechinetmon_collector_incomplete_records_total",
+            "tidegard_collector_incomplete_records_total",
             "Total Data Records rejected during normalization for missing required fields (e.g. no address).",
         )?;
         let unsupported_protocol_fields_total = IntCounter::new(
-            "wetechinetmon_collector_unsupported_protocol_fields_total",
+            "tidegard_collector_unsupported_protocol_fields_total",
             "Total normalized flows whose IP protocol number is not one of the well-known ones this project names (TCP/UDP/ICMP/ICMPv6).",
         )?;
         let corrected_samples_total = IntCounter::new(
-            "wetechinetmon_collector_corrected_samples_total",
+            "tidegard_collector_corrected_samples_total",
             "Total normalized flows that had a sampling rate greater than 1 applied.",
         )?;
         let sampling_errors_total = IntCounter::new(
-            "wetechinetmon_collector_sampling_errors_total",
+            "tidegard_collector_sampling_errors_total",
             "Total flows where a declared sampling rate of zero had to be skipped, or sampling correction overflowed.",
         )?;
         let classified_flows_by_direction_total = IntCounterVec::new(
             Opts::new(
-                "wetechinetmon_collector_classified_flows_by_direction_total",
+                "tidegard_collector_classified_flows_by_direction_total",
                 "Total normalized flows, labeled by classified direction.",
             ),
             &["direction"],
         )?;
         let prefix_lookup_failures_total = IntCounter::new(
-            "wetechinetmon_collector_prefix_lookup_failures_total",
+            "tidegard_collector_prefix_lookup_failures_total",
             "Total flows classified as Unknown direction because no local prefixes are configured.",
         )?;
         let active_hosts = IntGauge::new(
-            "wetechinetmon_collector_active_hosts",
+            "tidegard_collector_active_hosts",
             "Current number of distinct hosts (IPv4 + IPv6) tracked by the aggregator.",
         )?;
         let active_networks = IntGauge::new(
-            "wetechinetmon_collector_active_networks",
+            "tidegard_collector_active_networks",
             "Current number of distinct networks (all prefix-length dimensions combined) tracked by the aggregator.",
         )?;
         let active_hostgroups = IntGauge::new(
-            "wetechinetmon_collector_active_hostgroups",
+            "tidegard_collector_active_hostgroups",
             "Current number of distinct hostgroups tracked by the aggregator.",
         )?;
         let active_asns = IntGauge::new(
-            "wetechinetmon_collector_active_asns",
+            "tidegard_collector_active_asns",
             "Current number of distinct ASNs tracked by the aggregator.",
         )?;
         let queue_depth = IntGauge::new(
-            "wetechinetmon_collector_queue_depth",
+            "tidegard_collector_queue_depth",
             "Current number of datagrams queued between the UDP receive loop and the classify/aggregate stage.",
         )?;
         let aggregation_latency_seconds = Histogram::with_opts(HistogramOpts::new(
-            "wetechinetmon_collector_aggregation_latency_seconds",
+            "tidegard_collector_aggregation_latency_seconds",
             "Time to normalize, classify, and aggregate one Data Record.",
         ))?;
         let expired_entries_total = IntCounter::new(
-            "wetechinetmon_collector_expired_entries_total",
+            "tidegard_collector_expired_entries_total",
             "Total aggregation entries removed by inactivity expiration, across all dimensions.",
         )?;
         let evicted_entries_total = IntCounter::new(
-            "wetechinetmon_collector_evicted_entries_total",
+            "tidegard_collector_evicted_entries_total",
             "Total aggregation entries removed to stay within a dimension's configured capacity, across all dimensions.",
         )?;
 
         let clickhouse_rows_written_total = IntCounter::new(
-            "wetechinetmon_collector_clickhouse_rows_written_total",
+            "tidegard_collector_clickhouse_rows_written_total",
             "Total rows successfully written to ClickHouse across all tables. Always zero if ClickHouse export is not configured.",
         )?;
         let clickhouse_write_failures_total = IntCounter::new(
-            "wetechinetmon_collector_clickhouse_write_failures_total",
+            "tidegard_collector_clickhouse_write_failures_total",
             "Total ClickHouse batch write attempts that failed and were queued for retry.",
         )?;
         let clickhouse_retry_queue_dropped_total = IntCounter::new(
-            "wetechinetmon_collector_clickhouse_retry_queue_dropped_total",
+            "tidegard_collector_clickhouse_retry_queue_dropped_total",
             "Total ClickHouse batches permanently lost because the bounded retry queue was full (see ADR 0005).",
         )?;
 

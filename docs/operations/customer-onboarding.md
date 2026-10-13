@@ -2,7 +2,7 @@
 
 Status: **Phase 10B**, 2026-10-13.
 
-How to bring a customer's network under an installed WetechiNetMon: their
+How to bring a customer's network under an installed Tidegard: their
 address space, their routers' flows, their detection policies, their
 people and, when they want it, their mitigation. Each step ends with a
 check, so you know it worked before you go on.
@@ -26,9 +26,9 @@ switch and the BGP peer list, are deployment-wide (FU-65).
 
 | From the customer | Used for |
 |---|---|
-| The prefixes they want watched, and which are in which hostgroup | `WETECHINETMON_COLLECTOR_LOCAL_PREFIXES`, the detection policy's tenants |
-| The routers that will export, with their source addresses | `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`, firewall rules |
-| Each router's sampling rate | The router's own IPFIX options, or `WETECHINETMON_COLLECTOR_SAMPLING_GLOBAL_DEFAULT` |
+| The prefixes they want watched, and which are in which hostgroup | `TIDEGARD_COLLECTOR_LOCAL_PREFIXES`, the detection policy's tenants |
+| The routers that will export, with their source addresses | `TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`, firewall rules |
+| Each router's sampling rate | The router's own IPFIX options, or `TIDEGARD_COLLECTOR_SAMPLING_GLOBAL_DEFAULT` |
 | Normal and attack-level traffic for their busiest hosts and networks | The detection thresholds |
 | Who receives alerts, and where (email, Slack, Teams, Telegram, webhook) | The notifier's channels and routes |
 | The people who will use the NOC UI or the CLI, and what each may do | Tokens and roles |
@@ -40,8 +40,8 @@ Add the prefixes to the collector, with the tenant and an optional
 hostgroup ([prefixes](../configuration/prefixes.md)):
 
 ```bash
-# /etc/wetechinetmon/collector.env
-WETECHINETMON_COLLECTOR_LOCAL_PREFIXES=192.0.2.0/24@acme@web,198.51.100.0/24@acme
+# /etc/tidegard/collector.env
+TIDEGARD_COLLECTOR_LOCAL_PREFIXES=192.0.2.0/24@acme@web,198.51.100.0/24@acme
 ```
 
 and to the detection policy's `tenants`
@@ -56,11 +56,11 @@ and to the detection policy's `tenants`
 ## 2. Their routers
 
 Add each router's source address to
-`WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`, open UDP 2055 to it in the
+`TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`, open UDP 2055 to it in the
 host's firewall, restart the collector, and have the customer point IPFIX
 at the collector ([IPFIX collector](../integrations/ipfix-collector.md)).
 
-**Check:** `wetechinetmon_collector_active_exporters` counts the routers,
+**Check:** `tidegard_collector_active_exporters` counts the routers,
 `parsed_flow_records_total` rises, and
 `datagrams_refused_total{reason="not_allowed"}` does not.
 
@@ -68,7 +68,7 @@ at the collector ([IPFIX collector](../integrations/ipfix-collector.md)).
 
 Start every policy `dryRun`, with thresholds from the customer's normal
 traffic: a host or network well above its busiest normal hour, not at
-it. Keep `window` equal to `WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS`,
+it. Keep `window` equal to `TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS`,
 or the collector logs that the policy is never evaluated.
 
 **Check:** the traffic pages of the NOC UI show the customer's top hosts
@@ -78,12 +78,12 @@ and networks; after a day, no incident has opened on normal traffic.
 
 Add a channel per destination and a route for the customer's tenant and
 severities to the notifier's configuration
-([reference](https://github.com/LogiXhare/wetechi-netmon/blob/main/crates/notification/README.md)).
+([reference](https://github.com/LogiXhare/tidegard/blob/main/crates/notification/README.md)).
 Webhook, Slack, Teams and Telegram hosts must be on `allowed_hosts`;
 secrets go in files, never in the JSON.
 
 **Check:** a test incident's notification arrives, and
-`wetechinetmon_notifier_notifications_total{result="delivered"}` rises.
+`tidegard_notifier_notifications_total{result="delivered"}` rises.
 
 ## 5. Their people
 
@@ -92,7 +92,7 @@ Issue one token per person, with the least role they need
 customer's tenant:
 
 ```bash
-wetechinetmon-api token create --tenant acme --actor-id alice --role operator \
+tidegard-api token create --tenant acme --actor-id alice --role operator \
   --days 90 --description "alice, acme NOC"
 ```
 
@@ -118,12 +118,12 @@ dry-run, before anything is announced.
 Give the customer:
 
 - what was configured, from the table above;
-- how to reach your NOC, and what an alert from WetechiNetMon looks like;
+- how to reach your NOC, and what an alert from Tidegard looks like;
 - the [known issues](../release/known-issues.md) that matter to them.
 
 ## Offboarding
 
-Revoke the customer's tokens (`wetechinetmon-api token revoke --token-id`), remove their routers from the allowlist and
+Revoke the customer's tokens (`tidegard-api token revoke --token-id`), remove their routers from the allowlist and
 the firewall, their prefixes from the collector, the policy and the
 guard, and their routes from the notifier. Their incidents and audit
 trail stay, as your retention policy decides.

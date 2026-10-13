@@ -24,9 +24,9 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: wetechinetmon_test
-      POSTGRES_PASSWORD: wetechinetmon_test_only
-      POSTGRES_DB: wetechinetmon_incident_test
+      POSTGRES_USER: tidegard_test
+      POSTGRES_PASSWORD: tidegard_test_only
+      POSTGRES_DB: tidegard_incident_test
       # Ephemeral by construction: PGDATA lives on the tmpfs mount below,
       # so a container restart starts from empty, never from stale state.
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -46,7 +46,7 @@ services:
       - "-c"
       - "synchronous_commit=off"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"]
+      test: ["CMD-SHELL", "pg_isready -U tidegard_test -d tidegard_incident_test"]
       interval: 2s
       timeout: 3s
       retries: 30

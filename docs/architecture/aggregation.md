@@ -6,11 +6,11 @@ Status: Phase 3
 
 ```text
 IPFIX UDP datagram
-  -> wetechinetmon-protocol-ipfix (decode)
-  -> wetechinetmon-collector::normalize (IPFIX Data Record -> NormalizedFlow, sampling correction)
-  -> wetechinetmon-classifier::classify (direction, tenant, hostgroup)
-  -> wetechinetmon-aggregator::Aggregator::ingest (bounded, multi-dimensional aggregation)
-  -> (optional) wetechinetmon-storage (ClickHouse batch export)
+  -> tidegard-protocol-ipfix (decode)
+  -> tidegard-collector::normalize (IPFIX Data Record -> NormalizedFlow, sampling correction)
+  -> tidegard-classifier::classify (direction, tenant, hostgroup)
+  -> tidegard-aggregator::Aggregator::ingest (bounded, multi-dimensional aggregation)
+  -> (optional) tidegard-storage (ClickHouse batch export)
 ```
 
 Collector (UDP receive) and the classify/aggregate stage run as two
@@ -21,7 +21,7 @@ an independently scaled process; not needed for Phase 3's scope.
 
 ## Normalized Flow Model
 
-`wetechinetmon_common::NormalizedFlow` is protocol-independent — nothing
+`tidegard_common::NormalizedFlow` is protocol-independent — nothing
 downstream of `normalize_ipfix_record` (in `crates/collector/src/normalize.rs`)
 knows IPFIX exists. A future NetFlow v9/v5 or sFlow v5 collector only
 needs its own `normalize_*` function producing the same `NormalizedFlow`
@@ -30,13 +30,13 @@ type to reuse the classifier/aggregator/storage pipeline unchanged.
 ## Sampling Correction
 
 Priority order (highest first), implemented in
-`wetechinetmon_common::sampling::resolve`:
+`tidegard_common::sampling::resolve`:
 
 1. Record-level sampling information (rare for IPFIX; some exporters
    attach a `samplingInterval` field directly on the data record)
 2. Options-template sampling information (the common case — an exporter's
    Options Template Set declares sampling rate per interface, consumed by
-   `wetechinetmon-protocol-ipfix`'s `TemplateCache`)
+   `tidegard-protocol-ipfix`'s `TemplateCache`)
 3. Exporter-specific configured sampling rate (operator config)
 4. Global default sampling rate (operator config)
 5. Rate `1` (unsampled) if nothing above declares a usable rate
@@ -109,7 +109,7 @@ time-bucketed queries instead.
 | Maximum tracked hosts/networks/hostgroups/ASNs | Per-dimension `BoundedMapConfig.max_entries`, configurable (see [../configuration/aggregation.md](../configuration/aggregation.md)) |
 | Inactivity expiration | `BoundedMapConfig.inactivity_ttl`, swept every 30s (`EXPIRATION_INTERVAL` in `crates/collector/src/lib.rs`) |
 | Deterministic eviction | Least-recently-updated entry evicted when a dimension is at capacity — see [ADR 0003](decisions/0003-in-memory-aggregation-structure.md) |
-| Queue limits | The bounded mpsc channel between receive and process stages — `WETECHINETMON_COLLECTOR_QUEUE_CAPACITY` |
+| Queue limits | The bounded mpsc channel between receive and process stages — `TIDEGARD_COLLECTOR_QUEUE_CAPACITY` |
 | High-cardinality protection | The combination of the above — no dimension can grow past its configured cap regardless of input cardinality |
 
 ## Malformed Input Handling

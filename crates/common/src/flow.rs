@@ -1,4 +1,4 @@
-//! `NormalizedFlow` — WetechiNetMon's protocol-independent flow record.
+//! `NormalizedFlow` — Tidegard's protocol-independent flow record.
 //!
 //! Every collector (IPFIX today; NetFlow v9/v5 and sFlow v5 in later
 //! phases per docs/roadmap.md) converts its wire format into this one

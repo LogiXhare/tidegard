@@ -12,7 +12,7 @@
 //! - **The kill switch and BGP peers are deployment-wide** (FU-65).
 //!
 //! The guard here is the one the API was started with
-//! (`WETECHINETMON_API_MITIGATION_GUARD_FILE`). Without one, nothing is
+//! (`TIDEGARD_API_MITIGATION_GUARD_FILE`). Without one, nothing is
 //! allowlisted and every request is refused: the safe default.
 
 use std::time::Duration;
@@ -24,12 +24,12 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-use wetechinetmon_incident_postgres::mitigation::{
+use tidegard_incident_postgres::mitigation::{
     HistoryEntry, KillSwitch, ListFilter, MitigationDetail, PeerStatus,
 };
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_mitigation::{Action, ActionKind, FlowMatch, MitigationId, MitigationRequest};
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_mitigation::{Action, ActionKind, FlowMatch, MitigationId, MitigationRequest};
+use utoipa::ToSchema;
 
 use crate::auth::Principal;
 use crate::incidents::{actor_text, limit};
@@ -257,16 +257,16 @@ pub struct BgpPeerList {
     pub items: Vec<BgpPeer>,
 }
 
-/// The context of `wetechinetmon-api kill-switch ...` on the API host:
+/// The context of `tidegard-api kill-switch ...` on the API host:
 /// break-glass, with database access. It may turn the kill switch either
 /// way, and nothing else. API tokens never carry the release permission
 /// (ADR 0050).
 pub fn host_admin_context(
     actor_id: &str,
-) -> wetechinetmon_incident::authorization::AuthorizationContext {
-    use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
+) -> tidegard_incident::authorization::AuthorizationContext {
+    use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
     AuthorizationContext::new(
-        wetechinetmon_incident::correlation::TenantId::new("platform"),
+        tidegard_incident::correlation::TenantId::new("platform"),
         Actor::Operator {
             id: actor_id.to_string(),
         },
@@ -715,7 +715,7 @@ pub async fn get_kill_switch(
     let result = async {
         limit(&state.limits.reads, &principal)?;
         let auth = principal.authorization(state.resolver.as_ref());
-        if !auth.has(wetechinetmon_incident::authorization::Permission::MitigationRead) {
+        if !auth.has(tidegard_incident::authorization::Permission::MitigationRead) {
             return Err(Problem::new(ErrorCode::MitigationForbidden));
         }
         let client = acquire(&state.pool).await.map_err(|e| Problem::from(&e))?;

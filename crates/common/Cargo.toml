@@ -1,6 +1,6 @@
 [package]
-name = "wetechinetmon-common"
-description = "Shared types and utilities used across WetechiNetMon crates."
+name = "tidegard-common"
+description = "Shared types and utilities used across Tidegard crates."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

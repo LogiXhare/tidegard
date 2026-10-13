@@ -238,8 +238,8 @@ and its [acceptance criteria](development/phase6-acceptance-criteria.md).
   outbox, retries, and tests on PostgreSQL 15 to 18.
 - **5C:** the incident manager process, ingesting detection events
   through an inbox.
-- **5D:** the [REST API](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/api).
-- **5E:** the [`wetechinetmonctl` CLI](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/cli).
+- **5D:** the [REST API](https://github.com/LogiXhare/tidegard/tree/main/apps/api).
+- **5E:** the [`tidegardctl` CLI](https://github.com/LogiXhare/tidegard/tree/main/apps/cli).
 - **5F:** operations and hardening: a tested backup and restore drill,
   measured benchmarks, a security review against every threat, the
   [runbook](operations/incident-runbook.md) and the

@@ -1,6 +1,6 @@
 # Incident API
 
-**Status:** Milestone 5D, foundation in place. `wetechinetmon-api` serves
+**Status:** Milestone 5D, foundation in place. `tidegard-api` serves
 liveness and readiness on axum
 ([ADR 0037](../../docs/architecture/decisions/0037-phase5d-http-framework-and-openapi.md)),
 with the boundary rules of
@@ -22,23 +22,23 @@ The incident endpoints come next.
 ## Running it
 
 ```sh
-WETECHINETMON_API_DATABASE_URL="host=127.0.0.1 user=wetechinetmon dbname=incidents" \
-wetechinetmon-api
+TIDEGARD_API_DATABASE_URL="host=127.0.0.1 user=tidegard dbname=incidents" \
+tidegard-api
 ```
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `WETECHINETMON_API_BIND` | `127.0.0.1:8080` | Listen address. Not loopback: TLS files are required. |
-| `WETECHINETMON_API_TLS_CERT_FILE` / `..._TLS_KEY_FILE` | unset | PEM certificate chain and key. Set both. Never commit them. |
-| `WETECHINETMON_API_DATABASE_URL` | required | libpq connection string. Never logged. |
-| `WETECHINETMON_API_DATABASE_CA_FILE` and `..._CLIENT_CERT_FILE` / `..._CLIENT_KEY_FILE` | unset | Database TLS, the same rule as the incident manager. |
-| `WETECHINETMON_API_POOL_MAX_SIZE` | 16 | Most database connections. |
-| `WETECHINETMON_API_WEB_ROOT` | unset | The built NOC UI (`apps/web/dist`), served from the same origin ([ADR 0044](../../docs/architecture/decisions/0044-phase6d-noc-ui.md)). |
-| `WETECHINETMON_API_TRAFFIC_TENANT` | unset | The one tenant whose callers may read deployment-wide traffic ([ADR 0042](../../docs/architecture/decisions/0042-phase6b-traffic-read-api.md)). Set it with the ClickHouse URL, or neither. |
-| `WETECHINETMON_API_CLICKHOUSE_URL` | unset | `https://host:port`, or `http://` to a loopback host only. |
-| `WETECHINETMON_API_CLICKHOUSE_USER` | `default` | Give the API a ClickHouse user that can only `SELECT`. |
-| `WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE` | unset | A file holding the password. Never logged. |
-| `WETECHINETMON_API_CLICKHOUSE_CA_FILE` | unset | The CA bundle for `https://`. Required for it. |
+| `TIDEGARD_API_BIND` | `127.0.0.1:8080` | Listen address. Not loopback: TLS files are required. |
+| `TIDEGARD_API_TLS_CERT_FILE` / `..._TLS_KEY_FILE` | unset | PEM certificate chain and key. Set both. Never commit them. |
+| `TIDEGARD_API_DATABASE_URL` | required | libpq connection string. Never logged. |
+| `TIDEGARD_API_DATABASE_CA_FILE` and `..._CLIENT_CERT_FILE` / `..._CLIENT_KEY_FILE` | unset | Database TLS, the same rule as the incident manager. |
+| `TIDEGARD_API_POOL_MAX_SIZE` | 16 | Most database connections. |
+| `TIDEGARD_API_WEB_ROOT` | unset | The built NOC UI (`apps/web/dist`), served from the same origin ([ADR 0044](../../docs/architecture/decisions/0044-phase6d-noc-ui.md)). |
+| `TIDEGARD_API_TRAFFIC_TENANT` | unset | The one tenant whose callers may read deployment-wide traffic ([ADR 0042](../../docs/architecture/decisions/0042-phase6b-traffic-read-api.md)). Set it with the ClickHouse URL, or neither. |
+| `TIDEGARD_API_CLICKHOUSE_URL` | unset | `https://host:port`, or `http://` to a loopback host only. |
+| `TIDEGARD_API_CLICKHOUSE_USER` | `default` | Give the API a ClickHouse user that can only `SELECT`. |
+| `TIDEGARD_API_CLICKHOUSE_PASSWORD_FILE` | unset | A file holding the password. Never logged. |
+| `TIDEGARD_API_CLICKHOUSE_CA_FILE` | unset | The CA bundle for `https://`. Required for it. |
 | `RUST_LOG` | `info` | Log filter; logs are JSON. |
 
 `GET /healthz` is liveness: it answers while the process runs.
@@ -84,7 +84,7 @@ answers. Neither needs a token.
 | `GET` | `/api/v1/traffic/top` | `traffic.read`, traffic tenant only | 120/min per actor |
 | `GET` | `/api/v1/exporters` | `traffic.read`, traffic tenant only | 120/min per actor |
 
-Every transition `POST` needs an `Idempotency-Key` header (16 to 255 characters) and `expected_version` in its JSON body. A retry with the same key and body replays the first outcome; a stale version is `409 incident.version_conflict`. Each answers with the incident as it now is. Adding a note needs neither: notes are append-only, and a key, when given, still makes a retry replay. It answers `201` with the incident. Editing your own note (`201`) or redacting one (`200`) needs neither as well: a note is replaced once and redacted once, so a repeat is `422`. The original of an edited note stays; `GET .../notes` hides it unless `include_superseded=true`. Opening an incident by hand needs an `Idempotency-Key` and answers `201` with a `Location` ([ADR 0039](../../docs/architecture/decisions/0039-phase5d-manual-incidents.md)). An export is one JSON document (`format: wetechinetmon.incident-export`) holding the incident, timeline, notes, detections and, for a caller with `incident.audit.read`, the audit trail. Each history is capped at 5000 entries, and `truncated` reports any cut. Every export writes an audit entry before anything is read. Tags are set with `PUT` and removed with `DELETE`, which are idempotent by definition: no version, and the key is optional.
+Every transition `POST` needs an `Idempotency-Key` header (16 to 255 characters) and `expected_version` in its JSON body. A retry with the same key and body replays the first outcome; a stale version is `409 incident.version_conflict`. Each answers with the incident as it now is. Adding a note needs neither: notes are append-only, and a key, when given, still makes a retry replay. It answers `201` with the incident. Editing your own note (`201`) or redacting one (`200`) needs neither as well: a note is replaced once and redacted once, so a repeat is `422`. The original of an edited note stays; `GET .../notes` hides it unless `include_superseded=true`. Opening an incident by hand needs an `Idempotency-Key` and answers `201` with a `Location` ([ADR 0039](../../docs/architecture/decisions/0039-phase5d-manual-incidents.md)). An export is one JSON document (`format: tidegard.incident-export`) holding the incident, timeline, notes, detections and, for a caller with `incident.audit.read`, the audit trail. Each history is capped at 5000 entries, and `truncated` reports any cut. Every export writes an audit entry before anything is read. Tags are set with `PUT` and removed with `DELETE`, which are idempotent by definition: no version, and the key is optional.
 
 The full contract is the generated [OpenAPI document](../../docs/api/openapi.json). Another tenant's incident is `404 incident.not_found`, indistinguishable from a missing one.
 
@@ -100,9 +100,9 @@ database. The incident manager must have run once to create the schema
 (migration V15).
 
 ```sh
-wetechinetmon-api token create --tenant acme --actor-id alice --role operator --days 90 --description "alice laptop"
-wetechinetmon-api token list --tenant acme
-wetechinetmon-api token revoke --token-id <uuid>
+tidegard-api token create --tenant acme --actor-id alice --role operator --days 90 --description "alice laptop"
+tidegard-api token list --tenant acme
+tidegard-api token revoke --token-id <uuid>
 ```
 
 - The token (`wnm_` and 64 hex characters) is printed **once**. Only its
@@ -119,7 +119,7 @@ Annotate every handler with `#[utoipa::path]` and list it in
 `openapi::ApiDoc`, then regenerate the committed document:
 
 ```sh
-WETECHINETMON_UPDATE_OPENAPI=1 cargo test -p wetechinetmon-api openapi
+TIDEGARD_UPDATE_OPENAPI=1 cargo test -p tidegard-api openapi
 ```
 
 A new error code goes in `problem::ErrorCode` and in

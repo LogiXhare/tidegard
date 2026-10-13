@@ -2,7 +2,7 @@
 
 Status: **v1.0.0 candidate**, 2026-10-13 (Phase 10B).
 
-What an operator needs to take a WetechiNetMon release into production,
+What an operator needs to take a Tidegard release into production,
 and what the owner signs before v1.0.0 is tagged.
 
 - [Quick Start](../quick-start.md): one host with Docker, from a release.

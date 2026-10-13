@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::time::Instant;
 
-use wetechinetmon_aggregator::{Aggregator, AggregatorConfig};
-use wetechinetmon_classifier::PrefixRegistry;
+use tidegard_aggregator::{Aggregator, AggregatorConfig};
+use tidegard_classifier::PrefixRegistry;
 
 use crate::normalize::ExternalSamplingConfig;
 

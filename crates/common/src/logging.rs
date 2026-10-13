@@ -1,4 +1,4 @@
-//! Structured JSON logging setup, shared by every WetechiNetMon service.
+//! Structured JSON logging setup, shared by every Tidegard service.
 //!
 //! Per docs/non-functional-requirements.md (NFR-8) and
 //! docs/security-principles.md, every service ships structured JSON logs

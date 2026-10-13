@@ -2,27 +2,27 @@
 //! and when announcing begins, under the configuration in force at each
 //! moment, and every refusal is audited and changes nothing.
 //!
-//! Needs `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
+//! Needs `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
 //! this test wipes. Without it the test says why and passes; CI sets it and
 //! fails on the skip message.
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio_postgres::{Client, NoTls};
-use wetechinetmon_incident::authorization::{
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::mitigation::{MitigationStore, MitigationStoreError};
-use wetechinetmon_mitigation::guard::AllowlistEntry;
-use wetechinetmon_mitigation::{
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::mitigation::{MitigationStore, MitigationStoreError};
+use tidegard_mitigation::guard::AllowlistEntry;
+use tidegard_mitigation::{
     Action, ActionKind, Guard, GuardConfig, GuardRefusal, MitigationError, MitigationRequest,
     MitigationState,
 };
+use tokio_postgres::{Client, NoTls};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 fn person(id: &str, role: &str) -> AuthorizationContext {
     AuthorizationContext::new(
@@ -82,7 +82,7 @@ async fn denied(client: &Client, code: &str) -> i64 {
 async fn state(
     store: &MitigationStore,
     client: &Client,
-    id: &wetechinetmon_mitigation::MitigationId,
+    id: &tidegard_mitigation::MitigationId,
 ) -> MitigationState {
     store
         .get(client, &person("alice", "senior_operator"), id)
@@ -108,7 +108,7 @@ async fn the_guard_decides_at_request_approval_and_announcing() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .unwrap();
@@ -217,7 +217,7 @@ async fn the_guard_decides_at_request_approval_and_announcing() {
             &mut client,
             &mitigator,
             &first.id,
-            wetechinetmon_mitigation::WithdrawalCause::KillSwitch,
+            tidegard_mitigation::WithdrawalCause::KillSwitch,
         )
         .await
         .unwrap();

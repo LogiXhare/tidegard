@@ -9,22 +9,22 @@
 //!
 //! CI turns TLS on in the ephemeral service container with a throwaway CA
 //! it generates per run, and passes the CA files as
-//! `WETECHINETMON_INCIDENT_POSTGRES_TEST_TLS_CA` and
-//! `WETECHINETMON_INCIDENT_POSTGRES_TEST_TLS_OTHER_CA`. The server
+//! `TIDEGARD_INCIDENT_POSTGRES_TEST_TLS_CA` and
+//! `TIDEGARD_INCIDENT_POSTGRES_TEST_TLS_OTHER_CA`. The server
 //! certificate names only `localhost`. Like the other PostgreSQL tests, this
 //! skips with a message when a variable is unset, and CI fails on the skip.
 
 use std::time::Duration;
 
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::pool::{acquire, PoolPolicy};
+use tidegard_incident_postgres::tls::{build_tls_pool, TlsSettings};
 use tokio_postgres::config::SslMode;
 use tokio_postgres::Config;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::pool::{acquire, PoolPolicy};
-use wetechinetmon_incident_postgres::tls::{build_tls_pool, TlsSettings};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
-const TRUSTED_CA_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_TLS_CA";
-const OTHER_CA_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_TLS_OTHER_CA";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
+const TRUSTED_CA_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_TLS_CA";
+const OTHER_CA_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_TLS_OTHER_CA";
 
 fn over_tls(base: &Config, host: &str) -> Config {
     let mut config = Config::new();

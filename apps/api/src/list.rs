@@ -18,11 +18,9 @@ use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::queries::{self, IncidentSummary, ListFilter, ListSort, SortOrder};
 use utoipa::{IntoParams, ToSchema};
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::queries::{
-    self, IncidentSummary, ListFilter, ListSort, SortOrder,
-};
 
 use crate::auth::Principal;
 use crate::incidents::limit;

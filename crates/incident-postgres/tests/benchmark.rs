@@ -7,12 +7,12 @@
 //! numbers with the machine they came from. Run it by hand with:
 //!
 //! ```sh
-//! WETECHINETMON_INCIDENT_POSTGRES_TEST_URL=... cargo test --release \
-//!   -p wetechinetmon-incident-postgres --test benchmark -- --ignored --nocapture
+//! TIDEGARD_INCIDENT_POSTGRES_TEST_URL=... cargo test --release \
+//!   -p tidegard-incident-postgres --test benchmark -- --ignored --nocapture
 //! ```
 //!
 //! It only connects to the opt-in, ephemeral database named by
-//! `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, and resets its schema.
+//! `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, and resets its schema.
 //!
 //! No benchmarking crate: `std::time::Instant` around each call, and
 //! percentiles over the sorted samples. Each figure is one call's latency
@@ -26,27 +26,27 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use support::{event, in_episode, operator, Scope};
-use tokio_postgres::Client;
-use wetechinetmon_detector::{DetectionEvent, EventKind, MetricKind, ScopeId, ScopeType};
-use wetechinetmon_incident::authorization::{
+use tidegard_detector::{DetectionEvent, EventKind, MetricKind, ScopeId, ScopeType};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::idempotency::IdempotencyKey;
-use wetechinetmon_incident::incident::NoteVisibility;
-use wetechinetmon_incident::unit_of_work::IngestOutcomeKind;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::queries::{
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::idempotency::IdempotencyKey;
+use tidegard_incident::incident::NoteVisibility;
+use tidegard_incident::unit_of_work::IngestOutcomeKind;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::queries::{
     list_incidents, timeline, ListFilter, ListSort, SortOrder,
 };
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tokio_postgres::Client;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 /// Tenants the history is spread over; the measured calls use the first.
 const TENANTS: [&str; 4] = ["bench-a", "bench-b", "bench-c", "bench-d"];
@@ -370,7 +370,7 @@ async fn benchmark_incident_persistence() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");

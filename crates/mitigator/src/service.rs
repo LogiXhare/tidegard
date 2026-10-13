@@ -22,14 +22,14 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use deadpool_postgres::Pool;
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::mitigation::{
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::mitigation::{
     MitigationStore, MitigationStoreError, ProposalCandidate, WorkItem,
 };
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_mitigation::{
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_mitigation::{
     Action, Guard, MitigationError, MitigationRecord, MitigationRequest, MitigationState,
     WithdrawalCause,
 };

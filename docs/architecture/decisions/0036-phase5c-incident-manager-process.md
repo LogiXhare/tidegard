@@ -37,8 +37,8 @@ The constraints:
 
 | Process | Runs |
 |---|---|
-| `wetechinetmon-collector` | the producer: the inbox sink on the detection tick, and its drain task |
-| `wetechinetmon-incident-manager` (new) | the correlation worker, the incident timers, retention, and the depth gauges |
+| `tidegard-collector` | the producer: the inbox sink on the detection tick, and its drain task |
+| `tidegard-incident-manager` (new) | the correlation worker, the incident timers, retention, and the depth gauges |
 
 The incident manager is `crates/incident-manager`:
 
@@ -68,11 +68,11 @@ The incident manager is `crates/incident-manager`:
   `PlatformIncidentAdmin`. The worker and the timers still act on each
   incident as that tenant's `system:correlator`.
 - **Metrics** follow [incident-observability.md](../incident-observability.md).
-  The names are `wetechinetmon_incident_*`. Every label value is a
+  The names are `tidegard_incident_*`. Every label value is a
   constant in `src/metrics.rs`, listed in `LABEL_ALLOWLIST`, and a test
   fails on any label outside the list. No label carries a tenant, an
   incident, a scope or error text. The endpoint is the collector's
-  hand-rolled `/metrics` server, moved to `wetechinetmon-common` behind a
+  hand-rolled `/metrics` server, moved to `tidegard-common` behind a
   `metrics-server` feature so both binaries share it.
 - **Nothing is published.** The outbox is only filled. Notification
   (Phase 6) and mitigation (Phase 7) consume it later.
@@ -89,7 +89,7 @@ The incident manager is `crates/incident-manager`:
   library calls take their pool and authority as arguments.
 - **Migrations only from a separate tool.** Safer where the application
   role must not hold DDL rights. That remains possible: set
-  `WETECHINETMON_INCIDENT_MIGRATE=false` and run them separately. It is
+  `TIDEGARD_INCIDENT_MIGRATE=false` and run them separately. It is
   not the default, because the reference deployment is one host.
 
 ## Consequences
@@ -108,6 +108,6 @@ their tenants.
 - [x] Attach the inbox producer to the collector's detection stage.
 - [x] The end-to-end test from synthetic IPFIX bytes to an incident
       (`crates/collector/tests/incident_end_to_end.rs`).
-- [ ] `wetechinetmon_incident_events_ingested_total{result}` by ingest
+- [ ] `tidegard_incident_events_ingested_total{result}` by ingest
       outcome (FU-52).
 - [ ] Per-policy staleness timeout for the timers (FU-51).

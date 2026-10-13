@@ -20,7 +20,7 @@ Last updated: 2026-10-12
 | BQ-10 | How the web UI signs in before OIDC | **Resolved 2026-10-11** — API token exchanged for a session | — |
 | BQ-11 | Web UI stack | **Resolved 2026-10-11** — React, TypeScript, Vite | — |
 | BQ-12 | Phase 6 scope and order | **Resolved 2026-10-11** — dashboards, UI, notifications; no InfluxDB | — |
-| BQ-13 | How WetechiNetMon talks to GoBGP | **Resolved 2026-10-12** — gRPC to an external `gobgpd` | — |
+| BQ-13 | How Tidegard talks to GoBGP | **Resolved 2026-10-12** — gRPC to an external `gobgpd` | — |
 | BQ-14 | How a mitigation starts | **Resolved 2026-10-12** — request or proposal, then approval | — |
 | BQ-15 | Which mitigation actions Phase 7 builds | **Resolved 2026-10-12** — RTBH, parent prefix, FlowSpec discard and rate-limit | — |
 | BQ-16 | How v1.0.0 is published and signed | **Resolved 2026-10-12** — public release, cosign keyless | — |
@@ -32,7 +32,7 @@ architecture and legal posture. Per master prompt §31, minor questions are
 intentionally excluded — engineering-level choices proceed via ADRs in the
 relevant phase instead of stalling here.
 
-## BQ-1: What license should WetechiNetMon itself use?
+## BQ-1: What license should Tidegard itself use?
 
 This determines the Phase 1 `LICENSE` file, the `NOTICE` file, and the
 CONTRIBUTING model, and it interacts directly with the Enterprise/Managed
@@ -63,13 +63,13 @@ The permissive-license fork risk described above was accepted knowingly.
 ## BQ-2: Is Grafana bundled/modified, or treated strictly as an external, operator-supplied service?
 
 Directly affects whether Grafana's AGPLv3 terms create obligations for
-WetechiNetMon's own source availability. Phase 0's working assumption
+Tidegard's own source availability. Phase 0's working assumption
 (stated in the dependency matrix) is "external service only, ship
 dashboard JSON/provisioning, never a modified Grafana binary." This needs
 explicit confirmation before Phase 6 packaging work begins, since it
 constrains how the web app and Grafana integration are packaged together.
 
-**Resolved 2026-10-11: external only.** WetechiNetMon ships original
+**Resolved 2026-10-11: external only.** Tidegard ships original
 dashboard JSON and provisioning files, and never bundles or modifies a
 Grafana binary. The operator runs their own Grafana. See the
 [Phase 6 plan](architecture/phase6-dashboards-ui-notifications-plan.md).
@@ -365,7 +365,7 @@ authoritative transaction, or none of them. A reopen may never produce two
 simultaneously active incidents for one correlation key; the partial
 unique index enforces that at the database.
 
-**Observability.** `wetechinetmon_incidents_reopened_total` by severity,
+**Observability.** `tidegard_incidents_reopened_total` by severity,
 plus the close-to-recurrence gap distribution (**FU-28**) so the value can
 eventually be chosen from evidence.
 
@@ -412,10 +412,10 @@ committed lockfile, `npm ci`, `npm audit` and a licence check (R22).
 **Resolved 2026-10-11.** Grafana dashboards first, then the read APIs,
 sessions and the UI (v0.7.0), then notifications by email, Teams,
 Slack, Telegram and webhook (v0.8.0). InfluxDB dashboards are dropped:
-nothing in WetechiNetMon writes to InfluxDB, and FR-11.2 makes it
+nothing in Tidegard writes to InfluxDB, and FR-11.2 makes it
 optional.
 
-## BQ-13: How does WetechiNetMon talk to GoBGP?
+## BQ-13: How does Tidegard talk to GoBGP?
 
 FR-6.1 asks for a supported, isolated API. The options were GoBGP's gRPC
 API from Rust, running the `gobgp` command and parsing its output, or a

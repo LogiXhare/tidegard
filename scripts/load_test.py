@@ -25,13 +25,13 @@ import urllib.request
 
 METRICS = "http://127.0.0.1:9090"
 FLOWS = "127.0.0.1:2055"
-PARSED = "wetechinetmon_collector_parsed_flow_records_total"
-QUEUE_DEPTH = "wetechinetmon_collector_queue_depth"
-LATENCY = "wetechinetmon_collector_aggregation_latency_seconds"
+PARSED = "tidegard_collector_parsed_flow_records_total"
+QUEUE_DEPTH = "tidegard_collector_queue_depth"
+LATENCY = "tidegard_collector_aggregation_latency_seconds"
 # Evidence that records went through the whole pipeline, not only the parser.
-INCOMING = 'wetechinetmon_collector_classified_flows_by_direction_total{direction="incoming"}'
-ACTIVE_HOSTS = "wetechinetmon_collector_active_hosts"
-CLICKHOUSE_ROWS = "wetechinetmon_collector_clickhouse_rows_written_total"
+INCOMING = 'tidegard_collector_classified_flows_by_direction_total{direction="incoming"}'
+ACTIVE_HOSTS = "tidegard_collector_active_hosts"
+CLICKHOUSE_ROWS = "tidegard_collector_clickhouse_rows_written_total"
 
 # ADR 0054, written before the first run.
 PASS_RATE = 100_000
@@ -129,8 +129,8 @@ def machine():
 
 def start_collector(binary, log_path):
     env = dict(os.environ)
-    env.setdefault("WETECHINETMON_COLLECTOR_BIND", FLOWS)
-    env.setdefault("WETECHINETMON_COLLECTOR_METRICS_BIND", "127.0.0.1:9090")
+    env.setdefault("TIDEGARD_COLLECTOR_BIND", FLOWS)
+    env.setdefault("TIDEGARD_COLLECTOR_METRICS_BIND", "127.0.0.1:9090")
     log = open(log_path, "w")
     process = subprocess.Popen([binary], env=env, stdout=log, stderr=subprocess.STDOUT)
     for _ in range(120):
@@ -234,7 +234,7 @@ def judge_load(steps, errors):
 
 def soak(args):
     collector = start_collector(args.collector, os.path.join(args.out, "collector.log"))
-    capacity = int(os.environ.get("WETECHINETMON_COLLECTOR_QUEUE_CAPACITY", "10000"))
+    capacity = int(os.environ.get("TIDEGARD_COLLECTOR_QUEUE_CAPACITY", "10000"))
     seconds = int(args.hours * 3600)
     start = scrape()
     replay = subprocess.Popen(
@@ -320,7 +320,7 @@ def mib(value):
 def markdown(result):
     m = result["machine"]
     lines = [
-        f"## WetechiNetMon {result['kind']} test (ADR 0054)",
+        f"## Tidegard {result['kind']} test (ADR 0054)",
         "",
         f"**{'PASS' if result['verdict']['pass'] else 'FAIL'}**"
         + ("" if result["verdict"]["pass"] else ": " + "; ".join(result["verdict"]["reasons"])),

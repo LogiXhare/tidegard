@@ -1,9 +1,9 @@
 //! Periodically snapshots the Aggregator's dimensions into ClickHouse
-//! rows and pushes them through `wetechinetmon-storage`'s batch/retry
+//! rows and pushes them through `tidegard-storage`'s batch/retry
 //! writers (Phase 3 objective 10).
 //!
 //! **Optional and off by default:** only active when
-//! `WETECHINETMON_COLLECTOR_CLICKHOUSE_URL` is set — see
+//! `TIDEGARD_COLLECTOR_CLICKHOUSE_URL` is set — see
 //! docs/integrations/clickhouse.md. `crates/storage`'s writer/batch/
 //! retry/schema logic is unit-tested (see that crate), but this specific
 //! wiring has not been exercised against a live ClickHouse server in
@@ -18,16 +18,16 @@
 //! are ready; wiring is deferred until the aggregator's interface
 //! dimension is made exporter-scoped.
 
-use time::OffsetDateTime;
-use wetechinetmon_aggregator::Aggregator;
-use wetechinetmon_storage::writer::ClickHouseWriter;
-use wetechinetmon_storage::{
+use tidegard_aggregator::Aggregator;
+use tidegard_storage::writer::ClickHouseWriter;
+use tidegard_storage::{
     schema::{
         AsnTrafficRow, DetectionEventRow, ExporterTrafficRow, HostTrafficRow, HostgroupTrafficRow,
         NetworkTrafficRow, Slash24TrafficRow, TotalTrafficRow,
     },
     BatchConfig, Client, RetryConfig,
 };
+use time::OffsetDateTime;
 
 pub struct ClickHouseExporters {
     total_ipv4: ClickHouseWriter<TotalTrafficRow>,
@@ -54,7 +54,7 @@ pub struct ExportReport {
 }
 
 impl ExportReport {
-    fn merge(&mut self, other: wetechinetmon_storage::FlushReport) {
+    fn merge(&mut self, other: tidegard_storage::FlushReport) {
         self.rows_written += other.rows_written;
         self.write_failures += other.write_failures;
         self.retry_queue_dropped += other.retry_queue_dropped;

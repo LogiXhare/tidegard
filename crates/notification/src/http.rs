@@ -90,7 +90,7 @@ async fn exchange(
         .header(CONTENT_TYPE, "application/json; charset=utf-8")
         .header(
             USER_AGENT,
-            concat!("wetechinetmon-notifier/", env!("CARGO_PKG_VERSION")),
+            concat!("tidegard-notifier/", env!("CARGO_PKG_VERSION")),
         );
     for (name, value) in headers {
         let mut value =

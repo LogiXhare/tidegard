@@ -10,7 +10,7 @@
 //! over HTTP.
 
 use serde::Serialize;
-use wetechinetmon_detector::{AddressFamily, ScopeId, ScopeType, Severity, TrafficDirection};
+use tidegard_detector::{AddressFamily, ScopeId, ScopeType, Severity, TrafficDirection};
 
 use crate::correlation::{CorrelationKey, TenantId};
 use crate::error::IncidentError;

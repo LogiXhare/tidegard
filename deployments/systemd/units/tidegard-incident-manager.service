@@ -1,17 +1,17 @@
-# WetechiNetMon API and NOC UI (ADR 0052), installed by install.sh. Settings live in
-# /etc/wetechinetmon/api.env, which only root reads.
+# Tidegard incident manager (ADR 0052), installed by install.sh. Settings live in
+# /etc/tidegard/incident-manager.env, which only root reads.
 [Unit]
-Description=WetechiNetMon API and NOC UI
-Documentation=https://github.com/LogiXhare/wetechi-netmon
-After=network-online.target wetechinetmon-incident-manager.service
+Description=Tidegard incident manager
+Documentation=https://github.com/LogiXhare/tidegard
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=exec
-User=wetechinetmon-api
-Group=wetechinetmon-api
-EnvironmentFile=/etc/wetechinetmon/api.env
-ExecStart=/opt/wetechinetmon/bin/wetechinetmon-api
+User=tidegard-incident-manager
+Group=tidegard-incident-manager
+EnvironmentFile=/etc/tidegard/incident-manager.env
+ExecStart=/opt/tidegard/bin/tidegard-incident-manager
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s

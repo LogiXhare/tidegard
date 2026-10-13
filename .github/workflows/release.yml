@@ -132,14 +132,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/unpacked"
-          tar -xzf out/wetechinetmon-*.tar.gz -C "$RUNNER_TEMP/unpacked"
-          unpacked=$(echo "$RUNNER_TEMP"/unpacked/wetechinetmon-*/)
+          tar -xzf out/tidegard-*.tar.gz -C "$RUNNER_TEMP/unpacked"
+          unpacked=$(echo "$RUNNER_TEMP"/unpacked/tidegard-*/)
           for target in $TARGETS; do
             docker build -q -f deployments/docker/Dockerfile --target "$target" \
               --build-arg VERSION="$VERSION" \
-              -t "wetechinetmon-$target:$VERSION-${{ matrix.platform }}" "$unpacked"
-            docker save "wetechinetmon-$target:$VERSION-${{ matrix.platform }}" \
-              | gzip > "out/wetechinetmon-$target-$VERSION-${{ matrix.platform }}.tar.gz"
+              -t "tidegard-$target:$VERSION-${{ matrix.platform }}" "$unpacked"
+            docker save "tidegard-$target:$VERSION-${{ matrix.platform }}" \
+              | gzip > "out/tidegard-$target-$VERSION-${{ matrix.platform }}.tar.gz"
           done
           ls -l out
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -178,12 +178,12 @@ jobs:
           set -euo pipefail
           mkdir sbom
           "$RUNNER_TEMP/syft" scan file:Cargo.lock --quiet \
-            -o "cyclonedx-json=sbom/wetechinetmon-$VERSION-rust.cdx.json"
+            -o "cyclonedx-json=sbom/tidegard-$VERSION-rust.cdx.json"
           "$RUNNER_TEMP/syft" scan file:apps/web/package-lock.json --quiet \
-            -o "cyclonedx-json=sbom/wetechinetmon-$VERSION-web.cdx.json"
+            -o "cyclonedx-json=sbom/tidegard-$VERSION-web.cdx.json"
           for target in $TARGETS; do
             for platform in amd64 arm64; do
-              name="wetechinetmon-$target-$VERSION-$platform"
+              name="tidegard-$target-$VERSION-$platform"
               gunzip -c "built/$name.tar.gz" > "$RUNNER_TEMP/image.tar"
               "$RUNNER_TEMP/syft" scan "docker-archive:$RUNNER_TEMP/image.tar" --quiet \
                 -o "cyclonedx-json=sbom/$name.cdx.json"
@@ -236,7 +236,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir release
-          cp artifacts/wetechinetmon-"$VERSION"-linux-*.tar.gz artifacts/*.cdx.json release/
+          cp artifacts/tidegard-"$VERSION"-linux-*.tar.gz artifacts/*.cdx.json release/
           cd release
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
@@ -258,10 +258,10 @@ jobs:
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           digests=""
           for target in $TARGETS; do
-            image="$REGISTRY/wetechinetmon-$target"
+            image="$REGISTRY/tidegard-$target"
             for platform in amd64 arm64; do
-              docker load -q < "artifacts/wetechinetmon-$target-$VERSION-$platform.tar.gz"
-              docker tag "wetechinetmon-$target:$VERSION-$platform" "$image:$VERSION-$platform"
+              docker load -q < "artifacts/tidegard-$target-$VERSION-$platform.tar.gz"
+              docker tag "tidegard-$target:$VERSION-$platform" "$image:$VERSION-$platform"
               docker push -q "$image:$VERSION-$platform"
             done
             docker buildx imagetools create -t "$image:$VERSION" \
@@ -274,27 +274,27 @@ jobs:
           echo "digests=${digests# }" >> "$GITHUB_OUTPUT"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ${{ env.REGISTRY }}/wetechinetmon-collector
+          subject-name: ${{ env.REGISTRY }}/tidegard-collector
           subject-digest: ${{ steps.images.outputs.collector }}
           push-to-registry: true
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ${{ env.REGISTRY }}/wetechinetmon-incident-manager
+          subject-name: ${{ env.REGISTRY }}/tidegard-incident-manager
           subject-digest: ${{ steps.images.outputs.incident-manager }}
           push-to-registry: true
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ${{ env.REGISTRY }}/wetechinetmon-api
+          subject-name: ${{ env.REGISTRY }}/tidegard-api
           subject-digest: ${{ steps.images.outputs.api }}
           push-to-registry: true
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ${{ env.REGISTRY }}/wetechinetmon-notifier
+          subject-name: ${{ env.REGISTRY }}/tidegard-notifier
           subject-digest: ${{ steps.images.outputs.notifier }}
           push-to-registry: true
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-name: ${{ env.REGISTRY }}/wetechinetmon-mitigator
+          subject-name: ${{ env.REGISTRY }}/tidegard-mitigator
           subject-digest: ${{ steps.images.outputs.mitigator }}
           push-to-registry: true
       # The notes are the changelog's section for this version.
@@ -316,7 +316,7 @@ jobs:
             echo "### Images"
             echo
             for pair in ${{ steps.images.outputs.digests }}; do
-              echo "- \`$REGISTRY/wetechinetmon-${pair%%=*}:$VERSION\` (\`${pair#*=}\`)"
+              echo "- \`$REGISTRY/tidegard-${pair%%=*}:$VERSION\` (\`${pair#*=}\`)"
             done
             echo
             echo "Verify before installing: [docs/operations/verifying-a-release.md](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/operations/verifying-a-release.md)."
@@ -324,7 +324,7 @@ jobs:
           flags=()
           [ "$PRERELEASE" = true ] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" --verify-tag \
-            --title "WetechiNetMon $VERSION" --notes-file notes.md "${flags[@]}" release/*
+            --title "Tidegard $VERSION" --notes-file notes.md "${flags[@]}" release/*
 
   verify:
     name: Verify and install on a clean runner
@@ -344,14 +344,14 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon
+          POSTGRES_USER: tidegard
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard
         ports:
           - 55432:5432
         options: >-
           --tmpfs /var/lib/postgresql/data
-          --health-cmd "pg_isready -U wetechinetmon -d wetechinetmon"
+          --health-cmd "pg_isready -U tidegard -d tidegard"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
@@ -385,7 +385,7 @@ jobs:
           set -euo pipefail
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           for target in $TARGETS; do
-            image="$REGISTRY/wetechinetmon-$target:$VERSION"
+            image="$REGISTRY/tidegard-$target:$VERSION"
             "$RUNNER_TEMP/cosign" verify "$image" \
               --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" > /dev/null
             gh attestation verify "oci://$image" -R "$GITHUB_REPOSITORY" \
@@ -394,11 +394,11 @@ jobs:
       - name: Install and start the release
         run: |
           set -euo pipefail
-          tar -xzf "release/wetechinetmon-$VERSION-linux-x86_64.tar.gz" -C "$RUNNER_TEMP"
-          sudo "$RUNNER_TEMP/wetechinetmon-$VERSION-linux-x86_64/install.sh"
+          tar -xzf "release/tidegard-$VERSION-linux-x86_64.tar.gz" -C "$RUNNER_TEMP"
+          sudo "$RUNNER_TEMP/tidegard-$VERSION-linux-x86_64/install.sh"
           sudo sed -i \
-            's/host=127.0.0.1 user=wetechinetmon password=CHANGE_ME/host=127.0.0.1 port=55432 user=wetechinetmon password=wetechinetmon_test_only/' \
-            /etc/wetechinetmon/*.env
+            's/host=127.0.0.1 user=tidegard password=CHANGE_ME/host=127.0.0.1 port=55432 user=tidegard password=tidegard_test_only/' \
+            /etc/tidegard/*.env
           ready() {
             for _ in $(seq 60); do
               curl -sf "http://127.0.0.1:$1/readyz" >/dev/null && return 0
@@ -406,10 +406,10 @@ jobs:
             done
             curl -sS --fail-with-body "http://127.0.0.1:$1/readyz"
           }
-          sudo systemctl start wetechinetmon-incident-manager
+          sudo systemctl start tidegard-incident-manager
           ready 9091
-          sudo systemctl start wetechinetmon-api wetechinetmon-collector \
-            wetechinetmon-notifier wetechinetmon-mitigator
+          sudo systemctl start tidegard-api tidegard-collector \
+            tidegard-notifier tidegard-mitigator
           for port in 8080 9090 9093 9094; do ready "$port"; done
-          /opt/wetechinetmon/bin/wetechinetmonctl --version | grep -qx "wetechinetmonctl $VERSION"
-          echo "WetechiNetMon $VERSION verified and running."
+          /opt/tidegard/bin/tidegardctl --version | grep -qx "tidegardctl $VERSION"
+          echo "Tidegard $VERSION verified and running."

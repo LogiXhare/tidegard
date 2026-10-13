@@ -5,12 +5,12 @@ Status: Phase 9A.
 - **From the release tarball:** `install.sh` puts the binaries, the web
   UI, one system user per service, the example settings and hardened
   systemd units in place
-  ([systemd deployment](https://github.com/LogiXhare/wetechi-netmon/tree/main/deployments/systemd)).
+  ([systemd deployment](https://github.com/LogiXhare/tidegard/tree/main/deployments/systemd)).
   Then follow the guides below from the database onward.
 - **With Docker Compose:** one image per service and a reference stack
   with PostgreSQL and ClickHouse, TLS between every container, started
   by `setup.sh` and `docker compose up`
-  ([Compose stack](https://github.com/LogiXhare/wetechi-netmon/tree/main/deployments/docker-compose)).
+  ([Compose stack](https://github.com/LogiXhare/tidegard/tree/main/deployments/docker-compose)).
 - [Incident Management](incident-management.md): a single-node
   installation with the collector, the incident manager, the API and the
   CLI against PostgreSQL. It builds from source; with the tarball, skip

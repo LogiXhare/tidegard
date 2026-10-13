@@ -9,11 +9,11 @@ summary of what to watch and why.
 
 | Symptom | Check | Likely cause |
 |---|---|---|
-| `queue_depth` consistently near `WETECHINETMON_COLLECTOR_QUEUE_CAPACITY` | `aggregation_latency_seconds` histogram | Classify/aggregate stage can't keep up with datagram rate — consider raising queue capacity as a stopgap, but rising latency is the real signal to investigate |
+| `queue_depth` consistently near `TIDEGARD_COLLECTOR_QUEUE_CAPACITY` | `aggregation_latency_seconds` histogram | Classify/aggregate stage can't keep up with datagram rate — consider raising queue capacity as a stopgap, but rising latency is the real signal to investigate |
 | `incomplete_records_total` climbing | Exporter's template configuration | Exporter isn't sending address fields, or its Options Templates are malformed |
-| `prefix_lookup_failures_total` == all traffic | `WETECHINETMON_COLLECTOR_LOCAL_PREFIXES` | No local prefixes configured — see docs/configuration/prefixes.md |
+| `prefix_lookup_failures_total` == all traffic | `TIDEGARD_COLLECTOR_LOCAL_PREFIXES` | No local prefixes configured — see docs/configuration/prefixes.md |
 | `sampling_errors_total` climbing | Exporter's sampling configuration | An exporter is declaring a `0` sampling rate somewhere in its Options Template or record-level fields |
-| `evicted_entries_total` climbing steadily (not just at startup) | `active_hosts`/`active_networks`/etc. vs. configured max | A dimension is at capacity and churning — raise the relevant `WETECHINETMON_COLLECTOR_MAX_*` limit if the traffic pattern is legitimate, or investigate a possible high-cardinality attack (docs/security-principles.md) |
+| `evicted_entries_total` climbing steadily (not just at startup) | `active_hosts`/`active_networks`/etc. vs. configured max | A dimension is at capacity and churning — raise the relevant `TIDEGARD_COLLECTOR_MAX_*` limit if the traffic pattern is legitimate, or investigate a possible high-cardinality attack (docs/security-principles.md) |
 | `clickhouse_write_failures_total` / `clickhouse_retry_queue_dropped_total` climbing | ClickHouse server reachability | See docs/integrations/clickhouse.md |
 
 ## Key Metrics by Category
@@ -55,13 +55,13 @@ detail (which host, which network) belongs in ClickHouse
 ```yaml
 # Not wired into any deployment yet — Phase 6 (Grafana/notifications) is
 # where alerting integration lands. Shown here as a starting point.
-- alert: WetechiNetMonQueueSaturated
-  expr: wetechinetmon_collector_queue_depth > 0.9 * <configured_queue_capacity>
+- alert: TidegardQueueSaturated
+  expr: tidegard_collector_queue_depth > 0.9 * <configured_queue_capacity>
   for: 5m
-- alert: WetechiNetMonNoLocalPrefixes
-  expr: rate(wetechinetmon_collector_prefix_lookup_failures_total[5m]) > 0
+- alert: TidegardNoLocalPrefixes
+  expr: rate(tidegard_collector_prefix_lookup_failures_total[5m]) > 0
   for: 15m
-- alert: WetechiNetMonClickHouseWritesFailing
-  expr: rate(wetechinetmon_collector_clickhouse_write_failures_total[5m]) > 0
+- alert: TidegardClickHouseWritesFailing
+  expr: rate(tidegard_collector_clickhouse_write_failures_total[5m]) > 0
   for: 10m
 ```

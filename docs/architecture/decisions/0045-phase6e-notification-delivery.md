@@ -11,7 +11,7 @@ Every incident change writes an outbox row, and until now nothing read
 them (FU-62). Phase 6E delivers notifications by webhook, Slack,
 Microsoft Teams, Telegram and email
 ([Phase 6 plan](../phase6-dashboards-ui-notifications-plan.md)). This is
-the first code in WetechiNetMon that sends anything to another system, so
+the first code in Tidegard that sends anything to another system, so
 the plan names its risks: server-side request forgery through a webhook
 URL (R23), a storm of messages during a large attack (R24), and leaked
 channel secrets.
@@ -20,7 +20,7 @@ channel secrets.
 
 ### A separate process
 
-`wetechinetmon-notifier` (`crates/notification`) is the outbox's first
+`tidegard-notifier` (`crates/notification`) is the outbox's first
 consumer. It claims messages with the existing lease-based consumer
 (ADR 0033), delivers them, and marks each one published or failed. The
 detector and the incident domain gain no network code. The dependency
@@ -32,7 +32,7 @@ That is Phase 7's change, recorded here so it is not a surprise.
 
 ### What is delivered, and to whom
 
-A JSON configuration file (`WETECHINETMON_NOTIFY_CONFIG`) names the
+A JSON configuration file (`TIDEGARD_NOTIFY_CONFIG`) names the
 channels and the routes. A route names a tenant, event types, a minimum
 severity and channels. A message no route matches is marked published
 and sent nowhere.

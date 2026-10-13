@@ -655,7 +655,7 @@ hostile dimension is `400`).
 
 ## Phase 7 additions (2026-10-12)
 
-Phase 7 lets WetechiNetMon act on traffic. Through the mitigator it
+Phase 7 lets Tidegard act on traffic. Through the mitigator it
 announces RTBH, parent-prefix and FlowSpec routes to GoBGP, which carries
 them to the edge routers
 ([plan](../architecture/phase7-bgp-mitigation-lab-plan.md)). A wrong route
@@ -676,7 +676,7 @@ traffic, or the route's attributes reveal the attack.
 the deployment turns it off. Routes go only to the `gobgpd` the mitigator
 names, and that `gobgpd` peers only with what its operator configures
 ([RTBH guide](../operations/rtbh-guide.md)). The ownership large community
-marks every route WetechiNetMon sent.
+marks every route Tidegard sent.
 **Detect** `bgp routes` and the `/bgp/routes` endpoint list what is
 announced.
 **Test** `crates/mitigator/src/route.rs`
@@ -782,7 +782,7 @@ a lead's token during an incident
 stolen or careless token turns it off again.
 
 **Prevent** No token role holds `mitigation.kill_switch.release`.
-Releasing takes `wetechinetmon-api kill-switch release` on the API host,
+Releasing takes `tidegard-api kill-switch release` on the API host,
 with database access, audited under the actor id given. Engaging is
 open to any `noc_lead`, because stopping must be easy.
 **Test** `apps/api/tests/mitigations.rs`
@@ -809,7 +809,7 @@ Another tenant's mitigation is `404`.
 
 ## Phase 9D additions (2026-10-13)
 
-Phase 9 makes WetechiNetMon something an operator installs and runs: a
+Phase 9 makes Tidegard something an operator installs and runs: a
 collector on a UDP port, ClickHouse, packages, images and a release. The
 9D review extended this model to those parts. Two of its threats
 (T-49, T-50) were found open by the review and fixed during it; the
@@ -848,7 +848,7 @@ implemented, so they add no parser.
 created an exporter state that was never forgotten, and one exporter
 could cache every template ID with thousands of fields.
 
-**Prevent** `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS` drops datagrams
+**Prevent** `TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS` drops datagrams
 from outside the routers' networks before parsing. At most
 `MAX_EXPORTERS` (1,000) exporters are tracked, silent ones are forgotten
 after an hour, and each template cache holds at most 512 templates and

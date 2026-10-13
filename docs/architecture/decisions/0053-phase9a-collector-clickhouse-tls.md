@@ -19,7 +19,7 @@ ClickHouse connection
 - **No credentials.** The collector always used ClickHouse's `default`
   user without a password.
 - **No loopback rule.** Nothing refused plain HTTP to another host. Every
-  other connection in WetechiNetMon refuses it: the incident database,
+  other connection in Tidegard refuses it: the incident database,
   the API's listener and the API's ClickHouse connection.
 
 ## Decision
@@ -32,20 +32,20 @@ flows in plaintext off the machine:
 | URL | Accepted when |
 |---|---|
 | `http://host:port` | `host` is `localhost` or a loopback address |
-| `https://host:port` | `WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE` is set |
+| `https://host:port` | `TIDEGARD_COLLECTOR_CLICKHOUSE_CA_FILE` is set |
 
 A URL holding credentials, a path or a query is refused, so a password
 can never reach a log by way of the URL. Logs show only the scheme, host
 and port.
 
 The URL parser and the loopback test move from the API into
-`wetechinetmon-common` (`http_endpoint`), and the API re-exports them
+`tidegard-common` (`http_endpoint`), and the API re-exports them
 unchanged, so both connections apply exactly one rule.
 
 ### Credentials
 
-`WETECHINETMON_COLLECTOR_CLICKHOUSE_USER` and
-`WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE`, as the API has. The
+`TIDEGARD_COLLECTOR_CLICKHOUSE_USER` and
+`TIDEGARD_COLLECTOR_CLICKHOUSE_PASSWORD_FILE`, as the API has. The
 password is read from its file at startup, never from the environment.
 
 ### TLS
@@ -96,7 +96,7 @@ every row type, detection events included.
 
 - **The `clickhouse` crate's `rustls-tls` feature.** It trusts the
   system's or Mozilla's roots, and has no setting for a deployment's own
-  CA, which is how every other WetechiNetMon connection verifies its
+  CA, which is how every other Tidegard connection verifies its
   server.
 - **A hand-written TLS connector** over `tokio-rustls`, already in the
   tree. It would avoid one crate, but means maintaining an implementation

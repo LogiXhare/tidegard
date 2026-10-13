@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The analytics database's backup and restore drill (Phase 9C, NFR-2).
 #
-# Fills every WetechiNetMon table in an ephemeral ClickHouse with
+# Fills every Tidegard table in an ephemeral ClickHouse with
 # synthetic rows, takes a real `BACKUP TABLE ... TO File(...)`, drops
 # the tables, restores them with `RESTORE`, compares every table's row
 # count and content hash with the original, and then proves the restored
@@ -15,7 +15,7 @@
 # Environment:
 #   CLICKHOUSE_URL       http://127.0.0.1:8123 (loopback, plain HTTP)
 #   CLICKHOUSE_USER, CLICKHOUSE_PASSWORD
-#   DRILL_BACKUP_NAME    Default wetechinetmon-drill-<epoch>.zip
+#   DRILL_BACKUP_NAME    Default tidegard-drill-<epoch>.zip
 #   DRILL_WORK_DIR       Where the fingerprints go (default a mktemp directory)
 #
 # Run it from the repository root: it runs a cargo test at the end.
@@ -23,7 +23,7 @@ set -euo pipefail
 
 : "${CLICKHOUSE_URL:?names the throwaway ClickHouse}"
 : "${CLICKHOUSE_USER:?}" "${CLICKHOUSE_PASSWORD:?}"
-backup=${DRILL_BACKUP_NAME:-wetechinetmon-drill-$(date +%s).zip}
+backup=${DRILL_BACKUP_NAME:-tidegard-drill-$(date +%s).zip}
 work=${DRILL_WORK_DIR:-$(mktemp -d)}
 mkdir -p "$work"
 
@@ -33,7 +33,7 @@ ch() {
 }
 
 tables=$(ch "SELECT name FROM system.tables WHERE database = 'default' AND name LIKE 'wetechinetmon_%' ORDER BY name")
-[ -n "$tables" ] || { echo "drill: no WetechiNetMon tables; create the schema first"; exit 1; }
+[ -n "$tables" ] || { echo "drill: no Tidegard tables; create the schema first"; exit 1; }
 
 echo "drill: filling $(echo "$tables" | wc -l) tables"
 for table in $tables; do
@@ -52,7 +52,7 @@ fingerprint > "$work/before.txt"
 cat "$work/before.txt"
 
 # Table by table, so the restore recreates exactly these into the existing
-# database, as an operator restoring WetechiNetMon's tables would.
+# database, as an operator restoring Tidegard's tables would.
 list=$(echo "$tables" | sed 's/^/TABLE default./' | paste -sd, -)
 
 echo "drill: backing up to File('$backup')"
@@ -76,10 +76,10 @@ fi
 echo "drill: $(wc -l < "$work/after.txt") tables identical"
 
 echo "drill: the collector's writer works against the restored copy"
-WETECHINETMON_CLICKHOUSE_TEST_URL="$CLICKHOUSE_URL" \
-  WETECHINETMON_CLICKHOUSE_TEST_USER="$CLICKHOUSE_USER" \
-  WETECHINETMON_CLICKHOUSE_TEST_PASSWORD="$CLICKHOUSE_PASSWORD" \
-  cargo test -p wetechinetmon-storage --test clickhouse_integration -- --nocapture 2>&1 | tee "$work/verify.log"
+TIDEGARD_CLICKHOUSE_TEST_URL="$CLICKHOUSE_URL" \
+  TIDEGARD_CLICKHOUSE_TEST_USER="$CLICKHOUSE_USER" \
+  TIDEGARD_CLICKHOUSE_TEST_PASSWORD="$CLICKHOUSE_PASSWORD" \
+  cargo test -p tidegard-storage --test clickhouse_integration -- --nocapture 2>&1 | tee "$work/verify.log"
 grep -q "test every_row_type_round_trips_against_a_real_server ... ok" "$work/verify.log"
 if grep -q "skipping every_row_type_round_trips_against_a_real_server" "$work/verify.log"; then
   echo "drill: the verification skipped"

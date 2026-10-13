@@ -19,7 +19,7 @@
 //!
 //! This crate is transport-agnostic: it has no knowledge of UDP sockets,
 //! exporters, or multi-exporter template management. That's
-//! `wetechinetmon-collector`'s job — this crate exposes one
+//! `tidegard-collector`'s job — this crate exposes one
 //! [`TemplateCache`] scoped to a single exporter's observation domain and
 //! lets the caller own as many of those as it needs.
 

@@ -194,7 +194,7 @@ Abridged to the shapes that carry the contract.
 ```yaml
 openapi: 3.1.0
 info:
-  title: WetechiNetMon Incident API
+  title: Tidegard Incident API
   version: 0.0.0-draft
   description: >-
     PLANNING DRAFT. Not implemented. No endpoint sends a notification or

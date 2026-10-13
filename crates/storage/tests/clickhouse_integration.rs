@@ -6,19 +6,19 @@
 //! reads the PostgreSQL job's ClickHouse settings and prints the standard
 //! skip line, which that job refuses:
 //!
-//! - `WETECHINETMON_CLICKHOUSE_TEST_URL` (plain HTTP, loopback);
-//! - `WETECHINETMON_CLICKHOUSE_TEST_USER` and `_PASSWORD`.
+//! - `TIDEGARD_CLICKHOUSE_TEST_URL` (plain HTTP, loopback);
+//! - `TIDEGARD_CLICKHOUSE_TEST_USER` and `_PASSWORD`.
 
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use time::OffsetDateTime;
-use wetechinetmon_storage::schema::{
+use tidegard_storage::schema::{
     AsnTrafficRow, CounterFields, DetectionEventRow, ExporterTrafficRow, HostTrafficRow,
     HostgroupTrafficRow, InterfaceDirection, InterfaceTrafficRow, NetworkTrafficRow,
     Slash24TrafficRow, TotalTrafficRow,
 };
-use wetechinetmon_storage::{run_migrations, BatchConfig, ClickHouseWriter, Client, RetryConfig};
+use tidegard_storage::{run_migrations, BatchConfig, ClickHouseWriter, Client, RetryConfig};
+use time::OffsetDateTime;
 
 /// Writes one row through the collector's own writer and counts it back.
 async fn write_one<T>(client: &Client, table: &'static str, row: T, marker: &str)
@@ -52,18 +52,18 @@ where
 
 #[tokio::test]
 async fn every_row_type_round_trips_against_a_real_server() {
-    let Ok(url) = std::env::var("WETECHINETMON_CLICKHOUSE_TEST_URL") else {
+    let Ok(url) = std::env::var("TIDEGARD_CLICKHOUSE_TEST_URL") else {
         eprintln!(
             "skipping every_row_type_round_trips_against_a_real_server: \
-             WETECHINETMON_CLICKHOUSE_TEST_URL is not set"
+             TIDEGARD_CLICKHOUSE_TEST_URL is not set"
         );
         return;
     };
     let mut client = Client::default().with_url(&url);
-    if let Ok(user) = std::env::var("WETECHINETMON_CLICKHOUSE_TEST_USER") {
+    if let Ok(user) = std::env::var("TIDEGARD_CLICKHOUSE_TEST_USER") {
         client = client.with_user(user);
     }
-    if let Ok(password) = std::env::var("WETECHINETMON_CLICKHOUSE_TEST_PASSWORD") {
+    if let Ok(password) = std::env::var("TIDEGARD_CLICKHOUSE_TEST_PASSWORD") {
         client = client.with_password(password);
     }
     run_migrations(&client)

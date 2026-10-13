@@ -7,7 +7,7 @@ delegation of 2026-10-05 to industry practice
 
 ## Context
 
-So far every test has asked WetechiNetMon's own `gobgpd` what it holds
+So far every test has asked Tidegard's own `gobgpd` what it holds
 (ADRs 0048 and 0049). An operator cares about something else: what the
 edge router receives. That covers the route, its next hop and
 communities, the FlowSpec action, and that it is gone after withdrawal
@@ -53,7 +53,7 @@ established. It then announces each action through the speaker:
 
 It reads the edge's table with the same `owned_routes` the mitigator
 uses for reconciliation. The ownership large community is transitive,
-so the edge sees exactly WetechiNetMon's routes. The test checks:
+so the edge sees exactly Tidegard's routes. The test checks:
 
 - **exactly** as many routes as were announced, each reading back to its
   own prefix and action;
@@ -61,8 +61,8 @@ so the edge sees exactly WetechiNetMon's routes. The test checks:
 - `traffic-rate` 0 for a discard, and the bytes per second for a limit;
 - **nothing** at the edge once each route is withdrawn.
 
-The test needs `WETECHINETMON_GOBGP_LAB_SPEAKER` and
-`WETECHINETMON_GOBGP_LAB_EDGE`. Without them it says why and passes. The
+The test needs `TIDEGARD_GOBGP_LAB_SPEAKER` and
+`TIDEGARD_GOBGP_LAB_EDGE`. Without them it says why and passes. The
 CI rust job and each PostgreSQL job start the lab and fail if the test
 skipped, as they do for the single-speaker test.
 

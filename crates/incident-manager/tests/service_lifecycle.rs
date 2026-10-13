@@ -8,7 +8,7 @@
 //! - Shutdown is prompt and reports what the worker did.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -21,17 +21,17 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use support::{event, host_scope};
-use tokio_postgres::Client;
-use wetechinetmon_detector::{EventKind, MetricKind};
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_manager::config::{
+use tidegard_detector::{EventKind, MetricKind};
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_manager::config::{
     Config, DATABASE_URL_ENV_VAR, MAINTENANCE_INTERVAL_SECS_ENV_VAR, METRICS_BIND_ENV_VAR,
     MIGRATE_ENV_VAR, STATS_INTERVAL_SECS_ENV_VAR, WORKER_IDLE_MS_ENV_VAR, WORKER_ID_ENV_VAR,
 };
-use wetechinetmon_incident_manager::database;
-use wetechinetmon_incident_postgres::inbox::enqueue;
+use tidegard_incident_manager::database;
+use tidegard_incident_postgres::inbox::enqueue;
+use tokio_postgres::Client;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 const AGE: &str = "\
 UPDATE incidents SET
@@ -99,7 +99,7 @@ async fn the_manager_ingests_runs_timers_and_stops_cleanly() {
     // --- Two instances migrating together apply each migration once ---
     let (pool, _) = database::connect(&config(&url, true)).expect("a loopback test database");
     let (first, second) = tokio::join!(database::migrate(&pool), database::migrate(&pool));
-    let expected = wetechinetmon_incident_postgres::migrations::migrations::runner()
+    let expected = tidegard_incident_postgres::migrations::migrations::runner()
         .get_migrations()
         .len();
     assert_eq!(first.unwrap() + second.unwrap(), expected);
@@ -128,10 +128,7 @@ async fn the_manager_ingests_runs_timers_and_stops_cleanly() {
             }
         }
     };
-    let service = tokio::spawn(wetechinetmon_incident_manager::run(
-        config(&url, true),
-        shutdown,
-    ));
+    let service = tokio::spawn(tidegard_incident_manager::run(config(&url, true), shutdown));
     let tenant = TenantId::new(host_scope().tenant);
     let events = [
         event(

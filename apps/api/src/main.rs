@@ -1,18 +1,18 @@
 //! Thin binary entry point; the logic is in the library so tests can run
 //! it in-process.
 
-use wetechinetmon_api::server::{bind, Bound};
-use wetechinetmon_api::{config::Config, router, AppState};
+use tidegard_api::server::{bind, Bound};
+use tidegard_api::{config::Config, router, AppState};
 
 #[tokio::main]
 async fn main() {
-    wetechinetmon_common::logging::init();
+    tidegard_common::logging::init();
 
     let config = Config::from_env().unwrap_or_else(|error| {
         tracing::error!(error = %error, "invalid configuration");
         std::process::exit(1);
     });
-    let (pool, transport) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, transport) = tidegard_incident_postgres::connect::connect(
         &config.database_url,
         config.database_tls.as_ref(),
         config.pool,
@@ -40,12 +40,12 @@ async fn main() {
         bind = %config.bind,
         tls = config.tls.is_some(),
         database_transport = ?transport,
-        "starting wetechinetmon-api"
+        "starting tidegard-api"
     );
 
     let mut state = AppState::new(pool);
     if let Some(root) = &config.web_root {
-        let web = wetechinetmon_api::web::WebRoot::new(root).unwrap_or_else(|error| {
+        let web = tidegard_api::web::WebRoot::new(root).unwrap_or_else(|error| {
             tracing::error!(error = %error, "the NOC UI cannot be served");
             std::process::exit(1);
         });
@@ -56,7 +56,7 @@ async fn main() {
     // would not always be kept.
     state.secure_cookies = config.tls.is_some();
     if let Some(traffic) = &config.traffic {
-        let clickhouse = wetechinetmon_api::clickhouse::ClickHouse::new(traffic.clickhouse.clone())
+        let clickhouse = tidegard_api::clickhouse::ClickHouse::new(traffic.clickhouse.clone())
             .unwrap_or_else(|error| {
                 tracing::error!(error = %error, "traffic cannot be served");
                 std::process::exit(1);
@@ -66,8 +66,8 @@ async fn main() {
             clickhouse_host = %traffic.clickhouse.host,
             "serving traffic to one tenant"
         );
-        state = state.with_traffic(wetechinetmon_api::traffic::TrafficSource {
-            tenant: wetechinetmon_incident::correlation::TenantId::new(&traffic.tenant),
+        state = state.with_traffic(tidegard_api::traffic::TrafficSource {
+            tenant: tidegard_incident::correlation::TenantId::new(&traffic.tenant),
             clickhouse,
         });
     }
@@ -75,11 +75,11 @@ async fn main() {
         let guard = std::fs::read_to_string(path)
             .map_err(|error| error.to_string())
             .and_then(|text| {
-                serde_json::from_str::<wetechinetmon_mitigation::GuardConfig>(&text)
+                serde_json::from_str::<tidegard_mitigation::GuardConfig>(&text)
                     .map_err(|error| error.to_string())
             })
             .and_then(|config| {
-                wetechinetmon_mitigation::Guard::new(config).map_err(|error| error.to_string())
+                tidegard_mitigation::Guard::new(config).map_err(|error| error.to_string())
             })
             .unwrap_or_else(|error| {
                 tracing::error!(error = %error, "the mitigation guard file is invalid");
@@ -91,8 +91,7 @@ async fn main() {
         );
         state = state.with_guard(guard);
     }
-    let app =
-        router(state).into_make_service_with_connect_info::<wetechinetmon_api::server::PeerAddr>();
+    let app = router(state).into_make_service_with_connect_info::<tidegard_api::server::PeerAddr>();
     let served = match listener {
         Bound::Plain(tcp) => {
             axum::serve(tcp, app)
@@ -109,7 +108,7 @@ async fn main() {
         tracing::error!(error = %error, "the API stopped with an error");
         std::process::exit(1);
     }
-    tracing::info!("wetechinetmon-api stopped");
+    tracing::info!("tidegard-api stopped");
 }
 
 /// Ctrl+C, or SIGTERM on Unix (what systemd and containers send).
@@ -130,12 +129,12 @@ async fn shutdown_signal() {
 
 const KILL_SWITCH_USAGE: &str = "\
 usage:
-  wetechinetmon-api kill-switch status
-  wetechinetmon-api kill-switch engage --actor-id ID --reason TEXT
-  wetechinetmon-api kill-switch release --actor-id ID --reason TEXT
+  tidegard-api kill-switch status
+  tidegard-api kill-switch engage --actor-id ID --reason TEXT
+  tidegard-api kill-switch release --actor-id ID --reason TEXT
 Releasing is host-only: no API token can turn the kill switch off.";
 
-/// `wetechinetmon-api kill-switch ...`: the break-glass path on the API
+/// `tidegard-api kill-switch ...`: the break-glass path on the API
 /// host (ADR 0050). Audited under the given actor id.
 async fn kill_switch_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
     let flag = |name: &str| {
@@ -143,7 +142,7 @@ async fn kill_switch_command(pool: &deadpool_postgres::Pool, args: &[String]) ->
             .find(|pair| pair[0] == name)
             .map(|pair| pair[1].clone())
     };
-    let mut client = match wetechinetmon_incident_postgres::pool::acquire(pool).await {
+    let mut client = match tidegard_incident_postgres::pool::acquire(pool).await {
         Ok(client) => client,
         Err(error) => {
             eprintln!("the incident database cannot be reached: {error}");
@@ -167,7 +166,7 @@ async fn kill_switch_command(pool: &deadpool_postgres::Pool, args: &[String]) ->
                 eprintln!("{KILL_SWITCH_USAGE}");
                 return 2;
             };
-            let ctx = wetechinetmon_api::mitigations::host_admin_context(&actor_id);
+            let ctx = tidegard_api::mitigations::host_admin_context(&actor_id);
             store
                 .set_kill_switch(&mut client, &ctx, engaged, &reason)
                 .await
@@ -183,7 +182,7 @@ async fn kill_switch_command(pool: &deadpool_postgres::Pool, args: &[String]) ->
                 state
                     .changed_by
                     .as_ref()
-                    .map(wetechinetmon_api::incidents::actor_label)
+                    .map(tidegard_api::incidents::actor_label)
                     .unwrap_or_else(|| "nobody".to_string()),
                 state.reason.as_deref().unwrap_or("-"),
             );
@@ -198,25 +197,25 @@ async fn kill_switch_command(pool: &deadpool_postgres::Pool, args: &[String]) ->
 
 const TOKEN_USAGE: &str = "\
 usage:
-  wetechinetmon-api token create --tenant T --actor-id ID --role ROLE
+  tidegard-api token create --tenant T --actor-id ID --role ROLE
                                  [--actor-type operator|service_account]
                                  [--days 1-366 (default 90)] [--description TEXT]
-  wetechinetmon-api token revoke --token-id UUID
-  wetechinetmon-api token list --tenant T
+  tidegard-api token revoke --token-id UUID
+  tidegard-api token list --tenant T
 roles: viewer, operator, senior_operator, noc_lead";
 
-/// `wetechinetmon-api token ...`: the bootstrap path for API tokens. Output
+/// `tidegard-api token ...`: the bootstrap path for API tokens. Output
 /// goes to stdout for the operator; the secret is printed once.
 async fn token_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
-    use wetechinetmon_api::auth::Role;
-    use wetechinetmon_api::token_admin::{self, ActorType, NewToken};
+    use tidegard_api::auth::Role;
+    use tidegard_api::token_admin::{self, ActorType, NewToken};
 
     let flag = |name: &str| {
         args.windows(2)
             .find(|pair| pair[0] == name)
             .map(|pair| pair[1].clone())
     };
-    let client = match wetechinetmon_incident_postgres::pool::acquire(pool).await {
+    let client = match tidegard_incident_postgres::pool::acquire(pool).await {
         Ok(client) => client,
         Err(error) => {
             eprintln!("the incident database cannot be reached: {error}");

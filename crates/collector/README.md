@@ -5,23 +5,23 @@ normalize → classify → aggregate → optional ClickHouse export pipeline).
 NetFlow/sFlow are later phases.
 
 Binds a UDP socket, decodes IPFIX messages via
-`wetechinetmon-protocol-ipfix`, normalizes Data Records into
+`tidegard-protocol-ipfix`, normalizes Data Records into
 `NormalizedFlow`s with sampling correction, classifies direction
-(`wetechinetmon-classifier`), aggregates them
-(`wetechinetmon-aggregator`), optionally exports to ClickHouse
-(`wetechinetmon-storage`), and exposes Prometheus metrics on a separate
+(`tidegard-classifier`), aggregates them
+(`tidegard-aggregator`), optionally exports to ClickHouse
+(`tidegard-storage`), and exposes Prometheus metrics on a separate
 HTTP port. See [../../docs/architecture/aggregation.md](../../docs/architecture/aggregation.md).
 
 ## Running
 
 ```bash
 # Optional — defaults shown:
-export WETECHINETMON_COLLECTOR_BIND=0.0.0.0:2055
-export WETECHINETMON_COLLECTOR_METRICS_BIND=0.0.0.0:9090
-export WETECHINETMON_COLLECTOR_LOCAL_PREFIXES="10.0.0.0/8@wetechi@core"
+export TIDEGARD_COLLECTOR_BIND=0.0.0.0:2055
+export TIDEGARD_COLLECTOR_METRICS_BIND=0.0.0.0:9090
+export TIDEGARD_COLLECTOR_LOCAL_PREFIXES="10.0.0.0/8@wetechi@core"
 export RUST_LOG=info
 
-cargo run --bin wetechinetmon-collector
+cargo run --bin tidegard-collector
 # metrics: curl http://localhost:9090/metrics
 ```
 
@@ -38,7 +38,7 @@ anything but a lab collector you control** — see
 ## Metrics
 
 See `src/metrics.rs` for the full list (all prefixed
-`wetechinetmon_collector_`), or
+`tidegard_collector_`), or
 [../../docs/operations/aggregator-monitoring.md](../../docs/operations/aggregator-monitoring.md)
 for the operator-facing summary.
 
@@ -63,7 +63,7 @@ for the operator-facing summary.
 ## Testing
 
 ```bash
-cargo test -p wetechinetmon-collector
+cargo test -p tidegard-collector
 ```
 
 28 unit tests, including a full IPFIX-to-aggregation end-to-end test, a

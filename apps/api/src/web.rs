@@ -2,7 +2,7 @@
 //! (ADR 0044).
 //!
 //! - **Same origin.** The API serves the built UI from
-//!   `WETECHINETMON_API_WEB_ROOT`, so the page needs no CORS and the
+//!   `TIDEGARD_API_WEB_ROOT`, so the page needs no CORS and the
 //!   session cookie needs no relaxing.
 //! - **Only two kinds of file are served:** `index.html`, for every page
 //!   of the single-page app, and files directly under `assets/` with an

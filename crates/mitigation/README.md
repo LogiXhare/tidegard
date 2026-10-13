@@ -1,4 +1,4 @@
-# wetechinetmon-mitigation
+# tidegard-mitigation
 
 The mitigation domain: a mitigation's record, its states and the commands
 that move it ([ADR 0046](../../docs/architecture/decisions/0046-phase7a-mitigation-record.md)).
@@ -20,5 +20,5 @@ migration V19). Talking to GoBGP is the mitigator's alone
   BGP off and nothing allowlisted.
 
 ```sh
-cargo test -p wetechinetmon-mitigation
+cargo test -p tidegard-mitigation
 ```

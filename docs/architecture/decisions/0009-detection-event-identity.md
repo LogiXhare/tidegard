@@ -19,7 +19,7 @@ These are three different jobs and one identifier cannot do all three.
 A single UUID per event answers only the second, and only if the
 transport never rewrites it.
 
-There is also a practical constraint. `wetechinetmon-detector` has no
+There is also a practical constraint. `tidegard-detector` has no
 random-number dependency, and [ADR 0007](0007-detection-engine-cannot-mitigate.md)
 establishes that this crate's dependency list is itself a safety
 property worth defending. Adding `uuid` (and transitively `rand`, and

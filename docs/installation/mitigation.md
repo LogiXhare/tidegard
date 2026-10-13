@@ -15,20 +15,20 @@ stages.
 
 | Part | Role | Listens on |
 |---|---|---|
-| `wetechinetmon-mitigator` | Announces approved mitigations to GoBGP, withdraws ended ones, reconciles, records peers | metrics `127.0.0.1:9094` |
-| `gobgpd` (GoBGP v4.9.0) | WetechiNetMon's BGP speaker, peered over iBGP with your edge routers | BGP on the address you choose; **gRPC on `127.0.0.1:50051` only** |
+| `tidegard-mitigator` | Announces approved mitigations to GoBGP, withdraws ended ones, reconciles, records peers | metrics `127.0.0.1:9094` |
+| `gobgpd` (GoBGP v4.9.0) | Tidegard's BGP speaker, peered over iBGP with your edge routers | BGP on the address you choose; **gRPC on `127.0.0.1:50051` only** |
 | The guard file | The allowlist and safety switches, shared by the API and the mitigator | — |
 
 ## 1. Build the mitigator
 
 ```sh
-cargo build --release --locked -p wetechinetmon-mitigator
-sudo install -m 0755 target/release/wetechinetmon-mitigator /usr/local/bin/
+cargo build --release --locked -p tidegard-mitigator
+sudo install -m 0755 target/release/tidegard-mitigator /usr/local/bin/
 ```
 
 ## 2. Install `gobgpd`
 
-Use the release WetechiNetMon is tested with, and check its checksum. Both
+Use the release Tidegard is tested with, and check its checksum. Both
 are in `scripts/gobgp-version.sh`:
 
 ```sh
@@ -43,7 +43,7 @@ Configure it to peer with your edge routers over iBGP, in the families
 you will use. For example, with documentation addresses:
 
 ```toml
-# /etc/wetechinetmon/gobgpd.toml
+# /etc/tidegard/gobgpd.toml
 [global.config]
   as = 65001                      # your AS
   router-id = "192.0.2.10"
@@ -74,14 +74,14 @@ inject routes (T-46).
 ```ini
 # /etc/systemd/system/gobgpd.service
 [Unit]
-Description=GoBGP for WetechiNetMon
+Description=GoBGP for Tidegard
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 User=gobgpd
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-ExecStart=/usr/local/bin/gobgpd -f /etc/wetechinetmon/gobgpd.toml --api-hosts 127.0.0.1:50051 --pprof-disable
+ExecStart=/usr/local/bin/gobgpd -f /etc/tidegard/gobgpd.toml --api-hosts 127.0.0.1:50051 --pprof-disable
 Restart=on-failure
 NoNewPrivileges=true
 ProtectSystem=strict
@@ -134,7 +134,7 @@ neither.
 
 ```json
 {
-  "guard_file": "/etc/wetechinetmon/guard.json",
+  "guard_file": "/etc/tidegard/guard.json",
   "routes": {
     "local_asn": 65001,
     "rtbh_next_hop_ipv4": "192.0.2.66",
@@ -156,16 +156,16 @@ neither.
   lead's approval.
 
 ```sh
-# /etc/wetechinetmon/mitigator.env
-WETECHINETMON_MITIGATOR_DATABASE_URL=host=127.0.0.1 user=wetechinetmon dbname=incidents
-WETECHINETMON_MITIGATOR_CONFIG=/etc/wetechinetmon/mitigator.json
-# WETECHINETMON_MITIGATOR_DATABASE_CA_FILE=/etc/wetechinetmon/pg-ca.pem   (database on another host)
-# WETECHINETMON_MITIGATOR_METRICS_BIND=127.0.0.1:9094
+# /etc/tidegard/mitigator.env
+TIDEGARD_MITIGATOR_DATABASE_URL=host=127.0.0.1 user=tidegard dbname=incidents
+TIDEGARD_MITIGATOR_CONFIG=/etc/tidegard/mitigator.json
+# TIDEGARD_MITIGATOR_DATABASE_CA_FILE=/etc/tidegard/pg-ca.pem   (database on another host)
+# TIDEGARD_MITIGATOR_METRICS_BIND=127.0.0.1:9094
 ```
 
 Use the incident manager's unit shape, with
-`ExecStart=/usr/local/bin/wetechinetmon-mitigator`,
-`EnvironmentFile=/etc/wetechinetmon/mitigator.env` and
+`ExecStart=/usr/local/bin/tidegard-mitigator`,
+`EnvironmentFile=/etc/tidegard/mitigator.env` and
 `After=gobgpd.service`. Run one per installation. A second one waits as a
 standby and takes over if the first stops.
 
@@ -174,7 +174,7 @@ standby and takes over if the first stops.
 Point the API at the same guard file, and restart it:
 
 ```sh
-WETECHINETMON_API_MITIGATION_GUARD_FILE=/etc/wetechinetmon/guard.json
+TIDEGARD_API_MITIGATION_GUARD_FILE=/etc/tidegard/guard.json
 ```
 
 Without it, the API refuses every mitigation request: nothing is
@@ -193,7 +193,7 @@ the guard file.
    nothing connects to GoBGP. This proves the people, the permissions
    and the notifications.
 2. **BGP on, dry-run on** (`"bgp_enabled": true`). The mitigator connects
-   to `gobgpd` and records its peers: `wetechinetmonctl bgp peers` shows
+   to `gobgpd` and records its peers: `tidegardctl bgp peers` shows
    each edge router `established`. Still nothing is announced.
 3. **Dry-run off** (`"dry_run": false`), in a maintenance window. Request
    an RTBH for a test address that carries no traffic, approve it, and
@@ -205,10 +205,10 @@ the guard file.
 
 - `curl -fsS http://127.0.0.1:9094/readyz` answers `200` on the active
   mitigator once a pass succeeds. A standby answers `503`.
-- `curl -fsS http://127.0.0.1:9094/metrics | grep wetechinetmon_mitigator`
+- `curl -fsS http://127.0.0.1:9094/metrics | grep tidegard_mitigator`
   shows the mitigator's gauges.
-- `wetechinetmonctl kill-switch status` says `released`.
-- `wetechinetmonctl bgp peers` lists every edge router, `established`,
+- `tidegardctl kill-switch status` says `released`.
+- `tidegardctl bgp peers` lists every edge router, `established`,
   seen within the last minute.
 - `ss -ltn | grep 50051` shows `127.0.0.1:50051` and nothing else.
 - Add the [alerts](../operations/mitigation-runbook.md#alerts).
@@ -217,5 +217,5 @@ the guard file.
 
 Upgrade the API and the mitigator together. A migration may add to the
 mitigation tables, and the incident manager applies it first, as usual.
-Upgrade `gobgpd` only to a release WetechiNetMon has been tested with
+Upgrade `gobgpd` only to a release Tidegard has been tested with
 (`scripts/gobgp-version.sh`).

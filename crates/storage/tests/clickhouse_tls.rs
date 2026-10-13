@@ -2,16 +2,16 @@
 //! (ADR 0053). CI's grafana job starts ClickHouse with an HTTPS port and
 //! a certificate from a throwaway CA, and sets:
 //!
-//! - `WETECHINETMON_CLICKHOUSE_TLS_TEST_URL`: `https://localhost:<port>`;
-//! - `WETECHINETMON_CLICKHOUSE_TLS_TEST_CA` and `_OTHER_CA`: the CA that
+//! - `TIDEGARD_CLICKHOUSE_TLS_TEST_URL`: `https://localhost:<port>`;
+//! - `TIDEGARD_CLICKHOUSE_TLS_TEST_CA` and `_OTHER_CA`: the CA that
 //!   signed the server's certificate, and one that did not;
-//! - `WETECHINETMON_CLICKHOUSE_TLS_TEST_USER` and `_PASSWORD_FILE`.
+//! - `TIDEGARD_CLICKHOUSE_TLS_TEST_USER` and `_PASSWORD_FILE`.
 //!
 //! Without them the test skips, and says so; the job fails if it does.
 
 use std::path::PathBuf;
 
-use wetechinetmon_storage::{run_migrations, ClickHouseSettings};
+use tidegard_storage::{run_migrations, ClickHouseSettings};
 
 fn env(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|value| !value.is_empty())
@@ -19,18 +19,18 @@ fn env(name: &str) -> Option<String> {
 
 #[tokio::test]
 async fn exports_over_verified_tls_with_credentials() {
-    let Some(url) = env("WETECHINETMON_CLICKHOUSE_TLS_TEST_URL") else {
+    let Some(url) = env("TIDEGARD_CLICKHOUSE_TLS_TEST_URL") else {
         eprintln!(
             "skipping exports_over_verified_tls_with_credentials: \
-             WETECHINETMON_CLICKHOUSE_TLS_TEST_URL is not set"
+             TIDEGARD_CLICKHOUSE_TLS_TEST_URL is not set"
         );
         return;
     };
-    let ca = env("WETECHINETMON_CLICKHOUSE_TLS_TEST_CA").expect("the CA is set");
-    let other_ca = env("WETECHINETMON_CLICKHOUSE_TLS_TEST_OTHER_CA").expect("the other CA is set");
-    let user = env("WETECHINETMON_CLICKHOUSE_TLS_TEST_USER").expect("the user is set");
+    let ca = env("TIDEGARD_CLICKHOUSE_TLS_TEST_CA").expect("the CA is set");
+    let other_ca = env("TIDEGARD_CLICKHOUSE_TLS_TEST_OTHER_CA").expect("the other CA is set");
+    let user = env("TIDEGARD_CLICKHOUSE_TLS_TEST_USER").expect("the user is set");
     let password_file =
-        env("WETECHINETMON_CLICKHOUSE_TLS_TEST_PASSWORD_FILE").expect("the password file is set");
+        env("TIDEGARD_CLICKHOUSE_TLS_TEST_PASSWORD_FILE").expect("the password file is set");
     let settings = |ca: &str, password_file: &str| ClickHouseSettings {
         url: url.clone(),
         user: Some(user.clone()),

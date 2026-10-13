@@ -8,7 +8,7 @@ Proposed, because it holds selection criteria only.
 
 An ADR captures one significant, hard-to-reverse architecture or
 technology decision: the context, the options considered, the decision,
-and its consequences. WetechiNetMon requires an ADR before implementation
+and its consequences. Tidegard requires an ADR before implementation
 begins for any decision flagged as an open "leaning" in
 [docs/architecture-options.md](../../architecture-options.md) or
 [docs/technology-options.md](../../technology-options.md).
@@ -99,3 +99,4 @@ yet:
 | [0055](0055-phase9c-backup-upgrade-rollback.md) | Phase 9C Backup, Restore, Upgrade and Rollback | Accepted |
 | [0056](0056-phase9d-collector-input-bounds.md) | Phase 9D Bounds on What the Collector Remembers | Accepted |
 | [0057](0057-phase10a-release-pipeline.md) | Phase 10A The Release Pipeline | Accepted |
+| [0058](0058-rename-to-tidegard.md) | The Product Is Renamed Tidegard | Accepted |

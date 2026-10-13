@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 
 const TITLE_MAX_CHARS: usize = 300;
 const REASON_MAX_CHARS: usize = 500;
-pub const WEBHOOK_SCHEMA: &str = "wetechinetmon.notification.v1";
+pub const WEBHOOK_SCHEMA: &str = "tidegard.notification.v1";
 
 /// What every channel needs from a notification.
 pub trait Render: Sync {
@@ -118,7 +118,7 @@ impl Render for Notice {
     fn webhook(&self) -> Value {
         json!({
             "schema": WEBHOOK_SCHEMA,
-            "product": "WetechiNetMon",
+            "product": "Tidegard",
             "event_type": self.event_type,
             "tenant": self.tenant,
             "incident": {
@@ -268,7 +268,7 @@ impl Render for MitigationNotice {
         };
         json!({
             "schema": WEBHOOK_SCHEMA,
-            "product": "WetechiNetMon",
+            "product": "Tidegard",
             "event_type": self.event_type,
             "tenant": self.tenant,
             key: payload,

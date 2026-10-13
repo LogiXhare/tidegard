@@ -1,5 +1,5 @@
 <!--
-  ClickHouse in the WetechiNetMon reference stack (ADR 0052, ADR 0053):
+  ClickHouse in the Tidegard reference stack (ADR 0052, ADR 0053):
   HTTPS on 8443 only. Every plaintext listener is removed, so nothing on
   the container network can reach ClickHouse without TLS.
 -->
@@ -12,8 +12,8 @@
   <https_port>8443</https_port>
   <openSSL>
     <server>
-      <certificateFile>/etc/wetechinetmon/tls/clickhouse.crt</certificateFile>
-      <privateKeyFile>/etc/wetechinetmon/tls/clickhouse.key</privateKeyFile>
+      <certificateFile>/etc/tidegard/tls/clickhouse.crt</certificateFile>
+      <privateKeyFile>/etc/tidegard/tls/clickhouse.key</privateKeyFile>
       <verificationMode>none</verificationMode>
       <loadDefaultCAFile>false</loadDefaultCAFile>
       <disableProtocols>sslv2,sslv3,tlsv1,tlsv1_1</disableProtocols>

@@ -44,6 +44,6 @@ Critical or High security issue: the
 | `GET /api/v1/incidents/{id}` serves part of the planned representation | Some planned fields are absent | FU-54 |
 | Acknowledging takes no note | Add a note separately | FU-55 |
 | An incident's title and description cannot be edited | They stay as detection set them | FU-56 |
-| The CLI trusts only an explicit CA bundle, not the system store | Set `WETECHINETMON_API_CA_FILE` | FU-57 |
+| The CLI trusts only an explicit CA bundle, not the system store | Set `TIDEGARD_API_CA_FILE` | FU-57 |
 | Every incident uses one staleness timeout | Not tunable per policy | FU-51 |
 | The backup drill restores a logical dump within one cluster | Point-in-time recovery is documented, not drilled | FU-61 |

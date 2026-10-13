@@ -1,4 +1,4 @@
-//! WetechiNetMon's detection engine.
+//! Tidegard's detection engine.
 //!
 //! Consumes protocol-independent traffic snapshots produced from the
 //! Phase 3 pipeline, evaluates them against operator-written policies,

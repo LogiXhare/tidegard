@@ -2,7 +2,7 @@
 
 Status: Phase 7F.
 
-Remotely triggered blackhole (RTBH) routing, as WetechiNetMon does it. Read
+Remotely triggered blackhole (RTBH) routing, as Tidegard does it. Read
 this before the
 [installation guide](../installation/mitigation.md), and agree the edge
 router side with whoever runs your routers.
@@ -16,7 +16,7 @@ tool. Use it when the attack threatens the network and FlowSpec cannot
 separate the attack from good traffic (see the
 [FlowSpec guide](flowspec-guide.md)).
 
-WetechiNetMon never decides to blackhole by itself. Someone requests it,
+Tidegard never decides to blackhole by itself. Someone requests it,
 or the mitigator proposes it for a critical incident. Then a NOC lead
 approves it, and only then is anything announced
 ([ADR 0046](../architecture/decisions/0046-phase7a-mitigation-record.md)).
@@ -55,7 +55,7 @@ should drop the traffic needs four things:
    `rtbh_next_hop_ipv6` at a null interface on every edge router. The
    blackholed traffic then follows the BGP route there and is dropped.
    Use an address from your own space that is used for nothing else.
-2. **An iBGP session with WetechiNetMon's `gobgpd`**, with an import
+2. **An iBGP session with Tidegard's `gobgpd`**, with an import
    policy that accepts **only**:
    - routes carrying `BLACKHOLE`;
    - routes whose prefix length is /32 or /128, plus the parent prefixes
@@ -68,9 +68,9 @@ should drop the traffic needs four things:
    Make sure no export policy strips it, and never send these routes to
    a transit provider or a peer unless you mean to ask them to blackhole
    it too. That is a separate, upstream-specific arrangement (RFC 7999),
-   and WetechiNetMon does not do it.
+   and Tidegard does not do it.
 4. **Unicast RPF on customer edges, if you use source-based RTBH.**
-   WetechiNetMon only does destination-based RTBH.
+   Tidegard only does destination-based RTBH.
 
 Check the policy before going live, with BGP on and dry-run off, in a
 maintenance window. Request an RTBH for a test address in your own space
@@ -94,11 +94,11 @@ through this.
 
 ## Watching it
 
-- `wetechinetmonctl mitigations list --live` or the UI's Mitigations page
+- `tidegardctl mitigations list --live` or the UI's Mitigations page
   shows what is requested and what is active.
-- `wetechinetmonctl bgp routes` shows what was announced, with the route
+- `tidegardctl bgp routes` shows what was announced, with the route
   recorded at announcement.
-- `wetechinetmonctl bgp peers` shows the iBGP sessions as the mitigator
+- `tidegardctl bgp peers` shows the iBGP sessions as the mitigator
   last saw them. A peer that goes down is notified as `bgp.peer_down`.
 - The [mitigation runbook](mitigation-runbook.md) covers what to do when
   something goes wrong.

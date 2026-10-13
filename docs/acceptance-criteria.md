@@ -52,7 +52,7 @@ These are stated now so later phases can be scoped against them; they are
       and end-to-end via a real running collector process.
 - [x] Prometheus metrics for parser failures/unknown templates are
       observable end to end — verified against a real running
-      `wetechinetmon-collector` process scraped via `curl`, not just unit
+      `tidegard-collector` process scraped via `curl`, not just unit
       tests. **Partial**: `udp_receive_buffer_errors_total` from the
       master-prompt metric list is not implemented (documented limitation
       in `crates/collector/README.md`, platform-specific socket-drop
@@ -68,7 +68,7 @@ summary). Status against the acceptance checklist:
 
 #### Functional
 
-- [x] Normalized flow record (`wetechinetmon_common::NormalizedFlow`) —
+- [x] Normalized flow record (`tidegard_common::NormalizedFlow`) —
       protocol-independent, IPFIX today, reusable by future NetFlow/sFlow
       collectors.
 - [x] Sampling correction with the documented priority order
@@ -96,7 +96,7 @@ summary). Status against the acceptance checklist:
 #### Safety
 
 - [x] Memory bounded (per-dimension `BoundedMap` with configurable caps).
-- [x] Maximum tracked hosts configurable (`WETECHINETMON_COLLECTOR_MAX_HOSTS`).
+- [x] Maximum tracked hosts configurable (`TIDEGARD_COLLECTOR_MAX_HOSTS`).
 - [x] Maximum tracked networks configurable (`..._MAX_NETWORKS`).
 - [x] Expiration implemented (inactivity TTL, swept every 30s).
 - [x] High-cardinality labels avoided in Prometheus (only bounded label

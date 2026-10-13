@@ -40,7 +40,7 @@ pub struct TlsFiles {
 pub enum BindError {
     #[error(
         "{0} is not a loopback address, so TLS is required: set \
-         WETECHINETMON_API_TLS_CERT_FILE and WETECHINETMON_API_TLS_KEY_FILE"
+         TIDEGARD_API_TLS_CERT_FILE and TIDEGARD_API_TLS_KEY_FILE"
     )]
     TlsRequired(SocketAddr),
     #[error("could not read {what} from {path}: {source}")]
@@ -216,16 +216,16 @@ mod tests {
     async fn missing_or_bad_tls_files_are_reported_without_key_material() {
         let dir = std::env::temp_dir();
         let missing = TlsFiles {
-            certificate_chain: dir.join("wetechinetmon-api-missing.crt"),
-            private_key: dir.join("wetechinetmon-api-missing.key"),
+            certificate_chain: dir.join("tidegard-api-missing.crt"),
+            private_key: dir.join("tidegard-api-missing.key"),
         };
         let Err(error) = bind("0.0.0.0:0".parse().unwrap(), Some(&missing)).await else {
             panic!("a missing certificate must be refused");
         };
         assert!(matches!(error, BindError::ReadFile { .. }), "{error}");
 
-        let key_path = dir.join(format!("wetechinetmon-api-bad-{}.key", std::process::id()));
-        let cert_path = dir.join(format!("wetechinetmon-api-bad-{}.crt", std::process::id()));
+        let key_path = dir.join(format!("tidegard-api-bad-{}.key", std::process::id()));
+        let cert_path = dir.join(format!("tidegard-api-bad-{}.crt", std::process::id()));
         std::fs::write(
             &key_path,
             "-----BEGIN PRIVATE KEY-----\nc2VjcmV0\n-----END PRIVATE KEY-----\n",

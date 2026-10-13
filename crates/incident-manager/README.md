@@ -3,7 +3,7 @@
 **Status:** Milestone 5C. The background service for the incident
 lifecycle ([ADR 0036](../../docs/architecture/decisions/0036-phase5c-incident-manager-process.md)).
 
-`wetechinetmon-incident-manager` runs, against the PostgreSQL incident
+`tidegard-incident-manager` runs, against the PostgreSQL incident
 database:
 
 - **the correlation worker**, which claims detection events from the
@@ -23,9 +23,9 @@ its consumers come in later phases.
 ## Running it
 
 ```sh
-WETECHINETMON_INCIDENT_DATABASE_URL="host=db.example.net user=wetechinetmon dbname=incidents sslmode=require" \
-WETECHINETMON_INCIDENT_DATABASE_CA_FILE=/etc/wetechinetmon/db-ca.pem \
-wetechinetmon-incident-manager
+TIDEGARD_INCIDENT_DATABASE_URL="host=db.example.net user=tidegard dbname=incidents sslmode=require" \
+TIDEGARD_INCIDENT_DATABASE_CA_FILE=/etc/tidegard/db-ca.pem \
+tidegard-incident-manager
 ```
 
 Put the password in a libpq password file or the connection string. Keep
@@ -41,17 +41,17 @@ being processed finishes, and nothing more is claimed.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `WETECHINETMON_INCIDENT_DATABASE_URL` | required | libpq-style connection string |
-| `WETECHINETMON_INCIDENT_DATABASE_CA_FILE` | unset | PEM CA bundle for verifying the server. Without it, the connection string must reach only this host (plaintext loopback); anything else is refused |
-| `WETECHINETMON_INCIDENT_DATABASE_CLIENT_CERT_FILE` / `..._CLIENT_KEY_FILE` | unset | mutual TLS; set both, and the CA file |
-| `WETECHINETMON_INCIDENT_POOL_MAX_SIZE` | 16 | most database connections |
-| `WETECHINETMON_INCIDENT_MIGRATE` | `true` | `false` if migrations are run separately |
-| `WETECHINETMON_INCIDENT_METRICS_BIND` | `0.0.0.0:9091` | Prometheus `/metrics` |
-| `WETECHINETMON_INCIDENT_WORKER_ID` | host, PID and start time | recorded on claimed inbox rows; must differ between running instances |
-| `WETECHINETMON_INCIDENT_WORKER_IDLE_MS` | 1000 | wait after finding the inbox empty |
-| `WETECHINETMON_INCIDENT_STATS_INTERVAL_SECS` | 15 | depth gauge refresh |
-| `WETECHINETMON_INCIDENT_MAINTENANCE_INTERVAL_SECS` | 60 | incident timers |
-| `WETECHINETMON_INCIDENT_RETENTION_INTERVAL_SECS` | 3600 | retention jobs |
+| `TIDEGARD_INCIDENT_DATABASE_URL` | required | libpq-style connection string |
+| `TIDEGARD_INCIDENT_DATABASE_CA_FILE` | unset | PEM CA bundle for verifying the server. Without it, the connection string must reach only this host (plaintext loopback); anything else is refused |
+| `TIDEGARD_INCIDENT_DATABASE_CLIENT_CERT_FILE` / `..._CLIENT_KEY_FILE` | unset | mutual TLS; set both, and the CA file |
+| `TIDEGARD_INCIDENT_POOL_MAX_SIZE` | 16 | most database connections |
+| `TIDEGARD_INCIDENT_MIGRATE` | `true` | `false` if migrations are run separately |
+| `TIDEGARD_INCIDENT_METRICS_BIND` | `0.0.0.0:9091` | Prometheus `/metrics` |
+| `TIDEGARD_INCIDENT_WORKER_ID` | host, PID and start time | recorded on claimed inbox rows; must differ between running instances |
+| `TIDEGARD_INCIDENT_WORKER_IDLE_MS` | 1000 | wait after finding the inbox empty |
+| `TIDEGARD_INCIDENT_STATS_INTERVAL_SECS` | 15 | depth gauge refresh |
+| `TIDEGARD_INCIDENT_MAINTENANCE_INTERVAL_SECS` | 60 | incident timers |
+| `TIDEGARD_INCIDENT_RETENTION_INTERVAL_SECS` | 3600 | retention jobs |
 | `RUST_LOG` | `info` | log filter; logs are JSON |
 
 An unparseable value, or a zero interval, stops startup with the variable
@@ -60,16 +60,16 @@ Git ([ADR 0023](../../docs/architecture/decisions/0023-phase5b-postgresql-tls.md
 
 ## Metrics
 
-All `wetechinetmon_incident_*`; see
+All `tidegard_incident_*`; see
 [incident-observability.md](../../docs/architecture/incident-observability.md).
 No label carries a tenant, an incident, a scope or error text. The
 allowlist in `src/metrics.rs` is enforced by a test.
 
 ## Tests
 
-`cargo test -p wetechinetmon-incident-manager` runs the unit tests.
+`cargo test -p tidegard-incident-manager` runs the unit tests.
 `tests/service_lifecycle.rs` runs the whole service against the opt-in,
 ephemeral PostgreSQL database named by
-`WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, as the
+`TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, as the
 `crates/incident-postgres` tests do. It skips when that variable is unset
 and fails CI if it skips there.

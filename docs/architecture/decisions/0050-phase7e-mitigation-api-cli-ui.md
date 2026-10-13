@@ -38,7 +38,7 @@ constant `mitigation_status` and `notification_status` with the truth
   reconciliation (V21); its `updated_at` shows how old it is, so a
   stopped mitigator never looks like a healthy session.
 - **The guard is checked in the API too,** from
-  `WETECHINETMON_API_MITIGATION_GUARD_FILE`, the same file the mitigator
+  `TIDEGARD_API_MITIGATION_GUARD_FILE`, the same file the mitigator
   can name as `guard_file`: one allowlist for both. Without the file
   nothing is allowlisted and every request is refused.
 - **A request cannot carry route attributes.** Unknown fields are
@@ -53,7 +53,7 @@ constant `mitigation_status` and `notification_status` with the truth
 
 ### The CLI (7E-2)
 
-`wetechinetmonctl` gains three nouns, each one or two API requests and
+`tidegardctl` gains three nouns, each one or two API requests and
 nothing more:
 
 | Command | API |
@@ -145,7 +145,7 @@ The stack is the API, the incident manager, the mitigator, PostgreSQL and
 API tokens carry the four token roles, up to `noc_lead`, so no token
 holds `mitigation.kill_switch.release`. Any `noc_lead` can engage the
 switch through the API or the UI. Releasing it takes
-`wetechinetmon-api kill-switch release --actor-id ID --reason TEXT` on
+`tidegard-api kill-switch release --actor-id ID --reason TEXT` on
 the API host, with database access: break-glass, audited under the
 given id. `status` and `engage` are there too.
 

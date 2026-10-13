@@ -1,6 +1,6 @@
 # NOC UI
 
-The WetechiNetMon NOC UI: React, TypeScript and Vite
+The Tidegard NOC UI: React, TypeScript and Vite
 ([ADR 0044](../../docs/architecture/decisions/0044-phase6d-noc-ui.md)).
 It talks only to the [REST API](../api/README.md), from the same origin,
 with a session cookie
@@ -47,10 +47,10 @@ npm run build
 Then point the API at the build:
 
 ```sh
-WETECHINETMON_API_WEB_ROOT=/path/to/apps/web/dist wetechinetmon-api
+TIDEGARD_API_WEB_ROOT=/path/to/apps/web/dist tidegard-api
 ```
 
-Sign in with an API token (`wetechinetmon-api token create ...`). The page
+Sign in with an API token (`tidegard-api token create ...`). The page
 exchanges it for a session once and keeps no copy.
 
 For development, `npm run dev` serves the UI on Vite's port and proxies

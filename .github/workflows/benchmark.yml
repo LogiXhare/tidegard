@@ -50,13 +50,13 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon_test
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon_incident_test
+          POSTGRES_USER: tidegard_test
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard_incident_test
         ports:
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-cmd "pg_isready -U tidegard_test -d tidegard_incident_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
@@ -75,13 +75,13 @@ jobs:
             echo
           } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Build (release)
-        run: cargo test --release -p wetechinetmon-incident-postgres --test benchmark --no-run
+        run: cargo test --release -p tidegard-incident-postgres --test benchmark --no-run
       - name: Benchmark
         env:
-          WETECHINETMON_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+          TIDEGARD_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test"
         run: |
           set -euo pipefail
-          cargo test --release -p wetechinetmon-incident-postgres --test benchmark \
+          cargo test --release -p tidegard-incident-postgres --test benchmark \
             -- --ignored --exact benchmark_incident_persistence --nocapture 2>&1 | tee bench.log
           grep -q "test benchmark_incident_persistence ... ok" bench.log
 
@@ -97,34 +97,34 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon_test
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon_incident_test
+          POSTGRES_USER: tidegard_test
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard_incident_test
         ports:
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-cmd "pg_isready -U tidegard_test -d tidegard_incident_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
       clickhouse:
         image: clickhouse/clickhouse-server:26.8.24.9
         env:
-          CLICKHOUSE_USER: wetechinetmon_test
-          CLICKHOUSE_PASSWORD: wetechinetmon_test_only
+          CLICKHOUSE_USER: tidegard_test
+          CLICKHOUSE_PASSWORD: tidegard_test_only
           CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
         ports:
           - 58123:8123
     env: &load-env
-      DATABASE: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
-      WETECHINETMON_COLLECTOR_LOCAL_PREFIXES: 10.0.0.0/8@default
-      WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS: "5"
-      WETECHINETMON_COLLECTOR_CLICKHOUSE_URL: http://127.0.0.1:58123
-      WETECHINETMON_COLLECTOR_CLICKHOUSE_USER: wetechinetmon_test
+      DATABASE: "host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test"
+      TIDEGARD_COLLECTOR_LOCAL_PREFIXES: 10.0.0.0/8@default
+      TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS: "5"
+      TIDEGARD_COLLECTOR_CLICKHOUSE_URL: http://127.0.0.1:58123
+      TIDEGARD_COLLECTOR_CLICKHOUSE_USER: tidegard_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build (release)
-        run: cargo build --release -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-flow-replay
+        run: cargo build --release -p tidegard-collector -p tidegard-incident-manager -p tidegard-flow-replay
       - name: Start the incident manager (it applies the migrations)
         run: &start-manager |
           set -euo pipefail
@@ -138,15 +138,15 @@ jobs:
              "thresholds": {"bps": "100G"}, "triggerFor": "15s", "clearFor": "15s",
              "cooldown": "60s", "severity": "major", "executionMode": "dryRun"}]}
           JSON
-          printf '%s\n' wetechinetmon_test_only > "$RUNNER_TEMP/clickhouse-password"
+          printf '%s\n' tidegard_test_only > "$RUNNER_TEMP/clickhouse-password"
           {
-            echo "WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE=$RUNNER_TEMP/policy.json"
-            echo "WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=$RUNNER_TEMP/clickhouse-password"
-            echo "WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL=$DATABASE"
+            echo "TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE=$RUNNER_TEMP/policy.json"
+            echo "TIDEGARD_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=$RUNNER_TEMP/clickhouse-password"
+            echo "TIDEGARD_COLLECTOR_INCIDENT_DATABASE_URL=$DATABASE"
           } >> "$GITHUB_ENV"
-          WETECHINETMON_INCIDENT_DATABASE_URL="$DATABASE" \
-            WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
-            nohup target/release/wetechinetmon-incident-manager > manager.log 2>&1 &
+          TIDEGARD_INCIDENT_DATABASE_URL="$DATABASE" \
+            TIDEGARD_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
+            nohup target/release/tidegard-incident-manager > manager.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf http://127.0.0.1:9091/readyz >/dev/null && break
             sleep 1
@@ -155,7 +155,7 @@ jobs:
       - name: Load test
         run: |
           python3 scripts/load_test.py load \
-            --collector target/release/wetechinetmon-collector \
+            --collector target/release/tidegard-collector \
             --replay target/release/flow-replay --out load-results
       - name: Keep the results
         if: always()
@@ -179,22 +179,22 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon_test
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon_incident_test
+          POSTGRES_USER: tidegard_test
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard_incident_test
         ports:
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-cmd "pg_isready -U tidegard_test -d tidegard_incident_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
     env:
-      DATABASE: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+      DATABASE: "host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build (release)
-        run: cargo build --release -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-api -p wetechinetmon-flow-replay
+        run: cargo build --release -p tidegard-collector -p tidegard-incident-manager -p tidegard-api -p tidegard-flow-replay
       - name: Make 10,000 incidents through the pipeline
         run: |
           set -euo pipefail
@@ -208,28 +208,28 @@ jobs:
              "thresholds": {"bps": "1M"}, "triggerFor": "2s", "clearFor": "5s",
              "cooldown": "60s", "severity": "major", "executionMode": "dryRun"}]}
           JSON
-          WETECHINETMON_INCIDENT_DATABASE_URL="$DATABASE" \
-            WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
-            nohup target/release/wetechinetmon-incident-manager > manager.log 2>&1 &
+          TIDEGARD_INCIDENT_DATABASE_URL="$DATABASE" \
+            TIDEGARD_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
+            nohup target/release/tidegard-incident-manager > manager.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf http://127.0.0.1:9091/readyz >/dev/null && break
             sleep 1
           done
           curl -sS --fail-with-body http://127.0.0.1:9091/readyz
-          WETECHINETMON_COLLECTOR_BIND=127.0.0.1:2055 \
-            WETECHINETMON_COLLECTOR_METRICS_BIND=127.0.0.1:9090 \
-            WETECHINETMON_COLLECTOR_LOCAL_PREFIXES=10.0.0.0/8@default \
-            WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE="$RUNNER_TEMP/policy.json" \
-            WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS=1 \
-            WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL="$DATABASE" \
-            nohup target/release/wetechinetmon-collector > collector.log 2>&1 &
+          TIDEGARD_COLLECTOR_BIND=127.0.0.1:2055 \
+            TIDEGARD_COLLECTOR_METRICS_BIND=127.0.0.1:9090 \
+            TIDEGARD_COLLECTOR_LOCAL_PREFIXES=10.0.0.0/8@default \
+            TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE="$RUNNER_TEMP/policy.json" \
+            TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS=1 \
+            TIDEGARD_COLLECTOR_INCIDENT_DATABASE_URL="$DATABASE" \
+            nohup target/release/tidegard-collector > collector.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf http://127.0.0.1:9090/readyz >/dev/null && break
             sleep 1
           done
           count() {
-            docker exec "${{ job.services.postgres.id }}" psql -U wetechinetmon_test \
-              -d wetechinetmon_incident_test -tAc "SELECT count(*) FROM incidents"
+            docker exec "${{ job.services.postgres.id }}" psql -U tidegard_test \
+              -d tidegard_incident_test -tAc "SELECT count(*) FROM incidents"
           }
           # The inbox holds 10,000 events per tenant; a burst of that size can
           # overflow it, so flood again until every host has its incident.
@@ -246,14 +246,14 @@ jobs:
       - name: Start the API and issue a token per client
         run: |
           set -euo pipefail
-          WETECHINETMON_API_DATABASE_URL="$DATABASE" \
-            nohup target/release/wetechinetmon-api > api.log 2>&1 &
+          TIDEGARD_API_DATABASE_URL="$DATABASE" \
+            nohup target/release/tidegard-api > api.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf http://127.0.0.1:8080/readyz >/dev/null && break
             sleep 1
           done
           for client in $(seq 16); do
-            WETECHINETMON_API_DATABASE_URL="$DATABASE" target/release/wetechinetmon-api \
+            TIDEGARD_API_DATABASE_URL="$DATABASE" target/release/tidegard-api \
               token create --tenant default --actor-id "api-load-$client" --role viewer --days 1 \
               | awk '/^token:/ {print $2}'
           done > "$RUNNER_TEMP/tokens.txt"
@@ -286,7 +286,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build (release)
-        run: cargo build --release -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-flow-replay
+        run: cargo build --release -p tidegard-collector -p tidegard-incident-manager -p tidegard-flow-replay
       - name: Start the incident manager (it applies the migrations)
         run: *start-manager
       - name: Soak test
@@ -294,7 +294,7 @@ jobs:
           SOAK_HOURS: ${{ inputs.soak_hours }}
         run: |
           python3 scripts/load_test.py soak --hours "$SOAK_HOURS" --rate 50000 \
-            --collector target/release/wetechinetmon-collector \
+            --collector target/release/tidegard-collector \
             --replay target/release/flow-replay --out soak-results
       - name: Keep the results
         if: always()

@@ -1,4 +1,4 @@
-# WetechiNetMon — Product Charter
+# Tidegard — Product Charter
 
 Status: Phase 0 draft
 Owner: WeTechi Solutions
@@ -6,7 +6,7 @@ Last updated: 2026-08-20
 
 ## 1. Purpose
 
-WetechiNetMon is an independently engineered open network telemetry, DDoS
+Tidegard is an independently engineered open network telemetry, DDoS
 detection, traffic analytics, and policy-controlled mitigation platform for
 ISPs, enterprises, data centers, hosting providers, and managed network
 service providers.
@@ -21,22 +21,22 @@ reuse of proprietary code, schemas, terminology, or UI.
 | Item | Value |
 |---|---|
 | Company | WeTechi Solutions |
-| Product | WetechiNetMon |
+| Product | Tidegard |
 | Core engine | SentinelFlow Engine |
-| CLI | `wetechinetmonctl` |
+| CLI | `tidegardctl` |
 | Tagline | "See Every Flow. Defend Every Network." |
-| Repository | `wetechi-netmon` |
+| Repository | `tidegard` |
 | GitHub organization | `wetechi` |
-| Service namespace | `wetechinetmon` |
+| Service namespace | `tidegard` |
 
 Container images (proposed):
 
-- `ghcr.io/wetechi/wetechi-netmon-collector`
-- `ghcr.io/wetechi/wetechi-netmon-aggregator`
-- `ghcr.io/wetechi/wetechi-netmon-detector`
-- `ghcr.io/wetechi/wetechi-netmon-api`
-- `ghcr.io/wetechi/wetechi-netmon-web`
-- `ghcr.io/wetechi/wetechi-netmon-mitigator`
+- `ghcr.io/wetechi/tidegard-collector`
+- `ghcr.io/wetechi/tidegard-aggregator`
+- `ghcr.io/wetechi/tidegard-detector`
+- `ghcr.io/wetechi/tidegard-api`
+- `ghcr.io/wetechi/tidegard-web`
+- `ghcr.io/wetechi/tidegard-mitigator`
 
 Full naming rationale lives in [naming-and-branding.md](naming-and-branding.md).
 
@@ -51,7 +51,7 @@ source availability, or roadmap.
 
 Use only this description in all product-facing materials:
 
-> "WetechiNetMon is an independently engineered open network telemetry,
+> "Tidegard is an independently engineered open network telemetry,
 > DDoS detection, traffic analytics, and policy-controlled mitigation
 > platform."
 

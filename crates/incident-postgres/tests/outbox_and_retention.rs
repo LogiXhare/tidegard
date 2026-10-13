@@ -3,7 +3,7 @@
 //! 5B-5: both are reachable only with a `PlatformAuthority` (ADR 0032).
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -13,23 +13,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use support::{event, host_scope, network_scope_with_host_bits};
-use tokio_postgres::types::ToSql;
-use tokio_postgres::Client;
-use wetechinetmon_detector::{EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::{
+use tidegard_detector::{EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::TestIncidentGenerator;
-use wetechinetmon_incident_postgres::outbox::{
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::TestIncidentGenerator;
+use tidegard_incident_postgres::outbox::{
     outbox_stats, ClaimedMessage, FailureOutcome, OutboxConsumer, OutboxPolicy, OutboxStats,
 };
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::retention::{run_retention, RetentionPolicy, RetentionReport};
-use wetechinetmon_incident_postgres::retry::RetryPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::retention::{run_retention, RetentionPolicy, RetentionReport};
+use tidegard_incident_postgres::retry::RetryPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tokio_postgres::types::ToSql;
+use tokio_postgres::Client;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 async fn connect(url: &str) -> Client {
     let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls)
@@ -97,7 +97,7 @@ async fn the_outbox_leases_retries_and_dead_letters_and_retention_purges_only_wh
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");

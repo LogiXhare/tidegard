@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use wetechinetmon_detector::MetricKind;
+use tidegard_detector::MetricKind;
 
 pub const EVIDENCE_RETAINED_LIMIT: usize = 10_000;
 

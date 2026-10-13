@@ -23,16 +23,16 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
-use wetechinetmon_incident::audit::AuditEntry;
-use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::idempotency::{
+use tidegard_incident::audit::AuditEntry;
+use tidegard_incident::correlation::{CorrelationKey, TenantId};
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::idempotency::{
     IdempotencyKey, IdempotencyStore, RequestFingerprint, StoredOutcome,
 };
-use wetechinetmon_incident::incident::Incident;
-use wetechinetmon_incident::outbox::OutboxMessage;
-use wetechinetmon_incident::store::IncidentStore;
-use wetechinetmon_incident::timeline::TimelineEntry;
+use tidegard_incident::incident::Incident;
+use tidegard_incident::outbox::OutboxMessage;
+use tidegard_incident::store::IncidentStore;
+use tidegard_incident::timeline::TimelineEntry;
 
 /// A lookup the domain made against a key the load step never fetched.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -352,17 +352,17 @@ mod tests {
     use std::collections::BTreeMap;
     use std::net::{IpAddr, Ipv4Addr};
 
-    use wetechinetmon_detector::{
+    use tidegard_detector::{
         ActionTaken, AddressFamily, DataCompleteness, DetectionEvent, DetectionState, EventKind,
         EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates, SamplingStatus,
         ScopeId, ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
     };
-    use wetechinetmon_incident::authorization::AuthorizationContext;
-    use wetechinetmon_incident::id::TestIncidentGenerator;
-    use wetechinetmon_incident::number::InMemoryNumberAllocator;
-    use wetechinetmon_incident::store::InMemoryIncidentStore;
-    use wetechinetmon_incident::transition::DetectionEndReason;
-    use wetechinetmon_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
+    use tidegard_incident::authorization::AuthorizationContext;
+    use tidegard_incident::id::TestIncidentGenerator;
+    use tidegard_incident::number::InMemoryNumberAllocator;
+    use tidegard_incident::store::InMemoryIncidentStore;
+    use tidegard_incident::transition::DetectionEndReason;
+    use tidegard_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
 
     use super::*;
 
@@ -384,7 +384,7 @@ mod tests {
         let addr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 90));
         let (detection_id, sequence, kind) = ("det-staging", 1, EventKind::Started);
         DetectionEvent {
-            schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+            schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
             event_id: format!("{detection_id}-{sequence}"),
             detection_id: detection_id.to_string(),
             sequence,

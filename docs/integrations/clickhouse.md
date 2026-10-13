@@ -1,7 +1,7 @@
 # ClickHouse Integration Guide
 
 Status: Phase 3. Implemented in `crates/storage`, wired into
-`wetechinetmon-collector` in `crates/collector/src/clickhouse_export.rs`.
+`tidegard-collector` in `crates/collector/src/clickhouse_export.rs`.
 
 **Verified against a live server since Phase 9A-3.** Before then it
 was not, and the traffic rows' `#[serde(flatten)]` counters panicked
@@ -16,12 +16,12 @@ runs the collector against ClickHouse in the Compose stack.
 
 ```bash
 # On the same host: plain HTTP is allowed to loopback only.
-export WETECHINETMON_COLLECTOR_CLICKHOUSE_URL=http://127.0.0.1:8123
+export TIDEGARD_COLLECTOR_CLICKHOUSE_URL=http://127.0.0.1:8123
 # Anywhere else: TLS, verified against your CA bundle (ADR 0053).
-export WETECHINETMON_COLLECTOR_CLICKHOUSE_URL=https://clickhouse.example.net:8443
-export WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE=/etc/wetechinetmon/tls/ca.pem
-export WETECHINETMON_COLLECTOR_CLICKHOUSE_USER=wetechinetmon_collector
-export WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=/etc/wetechinetmon/clickhouse-password
+export TIDEGARD_COLLECTOR_CLICKHOUSE_URL=https://clickhouse.example.net:8443
+export TIDEGARD_COLLECTOR_CLICKHOUSE_CA_FILE=/etc/tidegard/tls/ca.pem
+export TIDEGARD_COLLECTOR_CLICKHOUSE_USER=tidegard_collector
+export TIDEGARD_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=/etc/tidegard/clickhouse-password
 ```
 
 The collector refuses to start with `http://` to another host, or with
@@ -96,15 +96,15 @@ See [ADR 0005](../architecture/decisions/0005-clickhouse-batching-and-retry.md).
 
 | Metric | Meaning |
 |---|---|
-| `wetechinetmon_collector_clickhouse_rows_written_total` | Successfully written rows |
-| `wetechinetmon_collector_clickhouse_write_failures_total` | Batch write attempts that failed and were queued for retry |
-| `wetechinetmon_collector_clickhouse_retry_queue_dropped_total` | Batches lost because the retry queue was full |
+| `tidegard_collector_clickhouse_rows_written_total` | Successfully written rows |
+| `tidegard_collector_clickhouse_write_failures_total` | Batch write attempts that failed and were queued for retry |
+| `tidegard_collector_clickhouse_retry_queue_dropped_total` | Batches lost because the retry queue was full |
 
 ## Testing Without a Live Server
 
 `crates/storage`'s unit tests (batch queue behavior, retry backoff,
 schema/DDL shape, counter-field conversion) run with `cargo test -p
-wetechinetmon-storage` and need no ClickHouse server. An integration test
+tidegard-storage` and need no ClickHouse server. An integration test
 (`crates/storage/tests/clickhouse_integration.rs`) exists for the actual
 write path and skips cleanly — printing why, not silently passing — when
 no server is reachable. See that file for how to point it at a real

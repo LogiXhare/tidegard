@@ -3,8 +3,8 @@
 //! switch, restart reconciliation, dry-run, BGP off, approval expiry, a
 //! guard refusal at the last moment, and proposals.
 //!
-//! Needs `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL` (an ephemeral database
-//! this test wipes) and `WETECHINETMON_GOBGP_TEST_ENDPOINT` (a throwaway
+//! Needs `TIDEGARD_INCIDENT_POSTGRES_TEST_URL` (an ephemeral database
+//! this test wipes) and `TIDEGARD_GOBGP_TEST_ENDPOINT` (a throwaway
 //! `gobgpd` on loopback). Without them the test says why and passes; CI
 //! sets both and fails on the skip message. Only documentation prefixes
 //! and private ASNs are used.
@@ -15,33 +15,33 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use deadpool_postgres::Pool;
-use tokio_postgres::NoTls;
-use wetechinetmon_detector::{
+use tidegard_detector::{
     ActionTaken, AddressFamily, DataCompleteness, DetectionEvent, DetectionState, EventKind,
     EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates, SamplingStatus, ScopeId,
     ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
 };
-use wetechinetmon_incident::authorization::{
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::mitigation::MitigationStore;
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_mitigation::guard::AllowlistEntry;
-use wetechinetmon_mitigation::{
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::mitigation::MitigationStore;
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_mitigation::guard::AllowlistEntry;
+use tidegard_mitigation::{
     Action, ActionKind, Guard, GuardConfig, MitigationId, MitigationRecord, MitigationRequest,
     MitigationState, WithdrawalCause,
 };
-use wetechinetmon_mitigator::config::ProposalPolicy;
-use wetechinetmon_mitigator::gobgp::{GoBgp, GoBgpEndpoint};
-use wetechinetmon_mitigator::metrics::MitigatorMetrics;
-use wetechinetmon_mitigator::route::{announcement, withdrawal, RouteConfig};
-use wetechinetmon_mitigator::service::{Mitigator, MitigatorError};
+use tidegard_mitigator::config::ProposalPolicy;
+use tidegard_mitigator::gobgp::{GoBgp, GoBgpEndpoint};
+use tidegard_mitigator::metrics::MitigatorMetrics;
+use tidegard_mitigator::route::{announcement, withdrawal, RouteConfig};
+use tidegard_mitigator::service::{Mitigator, MitigatorError};
+use tokio_postgres::NoTls;
 
-const DATABASE_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
-const GOBGP_VAR: &str = "WETECHINETMON_GOBGP_TEST_ENDPOINT";
+const DATABASE_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
+const GOBGP_VAR: &str = "TIDEGARD_GOBGP_TEST_ENDPOINT";
 
 fn person(id: &str, role: &str) -> AuthorizationContext {
     AuthorizationContext::new(
@@ -98,7 +98,7 @@ async fn mitigator(guard: Guard, gobgp: Option<GoBgp>, proposals: ProposalPolicy
         store(guard),
         routes(),
         proposals,
-        wetechinetmon_mitigator::platform_authority(),
+        tidegard_mitigator::platform_authority(),
         gobgp,
         MitigatorMetrics::new().unwrap().0,
     )
@@ -143,7 +143,7 @@ async fn owned_keys(gobgp: &mut GoBgp) -> Vec<String> {
 
 fn incoming_attack(host: Ipv4Addr) -> DetectionEvent {
     DetectionEvent {
-        schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+        schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
         event_id: "det-svc-1".into(),
         detection_id: "det-svc".into(),
         sequence: 1,
@@ -213,11 +213,11 @@ async fn the_mitigator_announces_withdraws_reconciles_and_obeys_the_kill_switch(
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .unwrap();
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {

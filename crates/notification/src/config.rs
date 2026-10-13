@@ -9,11 +9,11 @@ use std::time::Duration;
 
 use serde::Deserialize;
 
-pub const CONFIG_FILE_ENV_VAR: &str = "WETECHINETMON_NOTIFY_CONFIG";
-pub const DATABASE_URL_ENV_VAR: &str = "WETECHINETMON_NOTIFY_DATABASE_URL";
-pub const DATABASE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_NOTIFY_DATABASE_CA_FILE";
-pub const CONSUMER_ID_ENV_VAR: &str = "WETECHINETMON_NOTIFY_CONSUMER_ID";
-pub const METRICS_BIND_ENV_VAR: &str = "WETECHINETMON_NOTIFY_METRICS_BIND";
+pub const CONFIG_FILE_ENV_VAR: &str = "TIDEGARD_NOTIFY_CONFIG";
+pub const DATABASE_URL_ENV_VAR: &str = "TIDEGARD_NOTIFY_DATABASE_URL";
+pub const DATABASE_CA_FILE_ENV_VAR: &str = "TIDEGARD_NOTIFY_DATABASE_CA_FILE";
+pub const CONSUMER_ID_ENV_VAR: &str = "TIDEGARD_NOTIFY_CONSUMER_ID";
+pub const METRICS_BIND_ENV_VAR: &str = "TIDEGARD_NOTIFY_METRICS_BIND";
 const DEFAULT_METRICS_BIND: &str = "127.0.0.1:9093";
 const DEFAULT_CONSUMER_ID: &str = "notifier-1";
 
@@ -166,7 +166,7 @@ impl std::fmt::Debug for Config {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_lookup(|var| std::env::var(var).ok())
+        Self::from_lookup(|var| tidegard_common::env::var(var).ok().flatten())
     }
 
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {

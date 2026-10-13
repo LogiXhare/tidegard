@@ -1,10 +1,10 @@
-//! WetechiNetMon's mitigation domain — Phases 7A and 7B
+//! Tidegard's mitigation domain — Phases 7A and 7B
 //! ([ADR 0046](../../../docs/architecture/decisions/0046-phase7a-mitigation-record.md)).
 //!
 //! The record of a mitigation and the commands that move it, separate from
 //! the incident lifecycle (BQ-6). Dependency-free beyond the workspace:
 //! no database, no BGP, no network. Persistence is in
-//! `wetechinetmon-incident-postgres`; talking to GoBGP is the mitigator's
+//! `tidegard-incident-postgres`; talking to GoBGP is the mitigator's
 //! alone (`crates/mitigator`, 7C).
 
 pub mod action;

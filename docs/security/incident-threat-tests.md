@@ -29,7 +29,7 @@ jobs must show the test as `ok`, and it must not have skipped.
   - a delayed event of an episode the incident already held.
 
   Both now link as late evidence and never reopen
-  ([#73](https://github.com/LogiXhare/wetechi-netmon/pull/73)).
+  ([#73](https://github.com/LogiXhare/tidegard/pull/73)).
 - **T-07.** A NUL character in any operator text reached PostgreSQL. Text
   columns cannot store NUL, so the request failed as a `500`. The API now
   refuses a NUL in any JSON string or tag key with `400`.

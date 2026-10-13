@@ -33,7 +33,7 @@ rest of the backups, as for PostgreSQL.
 `scripts/clickhouse-backup-restore-drill.sh` proves it in the Grafana
 job, against a throwaway server:
 
-1. Fill every WetechiNetMon table with synthetic rows.
+1. Fill every Tidegard table with synthetic rows.
 2. Fingerprint each table: its row count and an order-independent hash
    of every row (`groupBitXor(cityHash64(*))`).
 3. Back up every table, then drop them all.

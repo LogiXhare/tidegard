@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepares the WetechiNetMon reference stack (ADR 0052). Run once, as
+# Prepares the Tidegard reference stack (ADR 0052). Run once, as
 # root, from this directory, before the first `docker compose up`:
 #
 #   sudo ./setup.sh [version]
@@ -24,11 +24,11 @@ command -v openssl >/dev/null || { echo "setup.sh needs openssl" >&2; exit 1; }
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 version=${1:-}
-api_hostname=${WETECHINETMON_API_HOSTNAME:-}
+api_hostname=${TIDEGARD_API_HOSTNAME:-}
 owner=${SUDO_UID:-0}:${SUDO_GID:-0}
 
 # The users inside the images: postgres in the Alpine image, clickhouse,
-# and distroless's nonroot for every WetechiNetMon service.
+# and distroless's nonroot for every Tidegard service.
 POSTGRES_UID=70
 CLICKHOUSE_UID=101
 NONROOT_UID=65532
@@ -39,7 +39,7 @@ chmod 0755 tls secrets
 
 if [ ! -e tls/ca.pem ]; then
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
-    -subj "/CN=WetechiNetMon stack CA" \
+    -subj "/CN=Tidegard stack CA" \
     -addext "basicConstraints=critical,CA:TRUE" \
     -addext "keyUsage=critical,keyCertSign,cRLSign" \
     -keyout tls/ca.key -out tls/ca.pem 2>/dev/null
@@ -99,8 +99,8 @@ else
   fi
   postgres_password=$(cat secrets/postgres-password)
   {
-    echo "WETECHINETMON_VERSION=$version"
-    echo "WETECHINETMON_DATABASE_URL=host=postgres user=wetechinetmon password=$postgres_password dbname=wetechinetmon sslmode=require"
+    echo "TIDEGARD_VERSION=$version"
+    echo "TIDEGARD_DATABASE_URL=host=postgres user=tidegard password=$postgres_password dbname=tidegard sslmode=require"
   } > .env
   chown "$owner" .env
   chmod 0600 .env

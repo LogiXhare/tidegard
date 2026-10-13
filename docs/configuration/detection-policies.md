@@ -1,71 +1,71 @@
 # Detection Policies
 
-Detection is **off** unless `WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE`
+Detection is **off** unless `TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE`
 points at a policy document. A collector with no policies behaves exactly
 as it did before Phase 4.
 
 ## Environment variables
 
-All are environment variables on `wetechinetmon-collector` — restart
+All are environment variables on `tidegard-collector` — restart
 required to change any of them. Source of truth:
 `crates/collector/src/config.rs`.
 
-### `WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE`
+### `TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE`
 
 | Field | Value |
 |---|---|
 | Type | Filesystem path, or unset |
 | Default | Unset — **detection is entirely off** |
 | Security implications | The file is parsed at startup and every bound in [detection-safety.md](../security/detection-safety.md) applies to it. It should be readable only by the collector's service account: it declares which tenants own which prefixes, and whoever can write it controls what the collector alerts on. |
-| Related metrics | None directly — if no `wetechinetmon_detector_*` metric exists, detection did not start |
+| Related metrics | None directly — if no `tidegard_detector_*` metric exists, detection did not start |
 | Verification | `curl -s http://<metrics_bind>/metrics \| grep detector_` returns nothing when detection is off |
 | Troubleshooting | A file that cannot be read or compiled disables detection for the run rather than stopping the collector; the reason is logged at `error` level naming the path and the failure |
 
-### `WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS`
+### `TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS`
 
 | Field | Value |
 |---|---|
 | Type | Positive integer (seconds) |
 | Default | `5` |
 | Security implications | A longer window smooths short bursts, so a threshold tuned for a 1s window under-detects at 30s. Changing it without re-tuning thresholds silently changes detection sensitivity. |
-| Related metrics | `wetechinetmon_detector_snapshots_evaluated_total`, `wetechinetmon_detector_snapshots_ignored_total` |
-| Verification | `wetechinetmon_detector_snapshots_evaluated_total` should climb once traffic arrives |
+| Related metrics | `tidegard_detector_snapshots_evaluated_total`, `tidegard_detector_snapshots_ignored_total` |
+| Verification | `tidegard_detector_snapshots_evaluated_total` should climb once traffic arrives |
 | Troubleshooting | **Must equal every policy's `window`.** A mismatch means nothing is evaluated, visible as `snapshots_ignored_total{reason="windowMismatch"}` climbing. That counter should be zero always. |
 
-### `WETECHINETMON_COLLECTOR_DETECTION_MAX_SCOPES`
+### `TIDEGARD_COLLECTOR_DETECTION_MAX_SCOPES`
 
 | Field | Value |
 |---|---|
 | Type | Non-negative integer |
 | Default | `100000` |
 | Security implications | Bounds worst-case detector memory against a high-cardinality flood. It is also an availability limit: once the state table is full, a real attack on a newly seen address cannot open a detection — see [detection-safety.md](../security/detection-safety.md). |
-| Related metrics | `wetechinetmon_detector_tracked_scopes`, `wetechinetmon_detector_scopes_in_state`, `wetechinetmon_detector_state_table_full_total` |
+| Related metrics | `tidegard_detector_tracked_scopes`, `tidegard_detector_scopes_in_state`, `tidegard_detector_state_table_full_total` |
 | Verification | `curl -s http://<metrics_bind>/metrics \| grep detector_tracked_scopes` |
 | Troubleshooting | `state_table_full_total` increasing means detections are being dropped — raise this, or find out why the distinct-address count grew. Setting it to `0` rejects everything. |
 
-### `WETECHINETMON_COLLECTOR_DETECTION_EVENT_BUFFER`
+### `TIDEGARD_COLLECTOR_DETECTION_EVENT_BUFFER`
 
 | Field | Value |
 |---|---|
 | Type | Non-negative integer |
 | Default | `10000` |
 | Security implications | Bounds memory held between a detection and the ClickHouse export tick. The buffer drops the **oldest** when full: blocking detection until ClickHouse catches up would stop detection during exactly the incident that makes ClickHouse slow. |
-| Related metrics | `wetechinetmon_detector_events_failed_total{sink="clickhouse"}` |
-| Verification | `wetechinetmon_detector_events_published_total` should track `events_total` for non-observe policies |
+| Related metrics | `tidegard_detector_events_failed_total{sink="clickhouse"}` |
+| Verification | `tidegard_detector_events_published_total` should track `events_total` for non-observe policies |
 | Troubleshooting | Only relevant when ClickHouse export is configured. Persistent drops mean ClickHouse cannot keep up — fix the database, do not just raise this. |
 
-### `WETECHINETMON_COLLECTOR_DETECTION_STALE_SECS`
+### `TIDEGARD_COLLECTOR_DETECTION_STALE_SECS`
 
 | Field | Value |
 |---|---|
 | Type | Non-negative integer (seconds) |
 | Default | `180` |
 | Security implications | This is what stops an exporter failing mid-attack from leaving a detection open forever. Set too low, a brief telemetry gap closes a live detection; set too high, a dead exporter's detections linger. |
-| Related metrics | `wetechinetmon_detector_detections_stale_total` |
+| Related metrics | `tidegard_detector_detections_stale_total` |
 | Verification | Stop sending traffic for an open detection and watch the counter after this many seconds |
-| Troubleshooting | A rising count while traffic looks normal usually means an exporter stopped, not that attacks ended — cross-check `wetechinetmon_collector_flow_datagrams_received_total`. Closes carry reason `stale` and a zeroed rate. |
+| Troubleshooting | A rising count while traffic looks normal usually means an exporter stopped, not that attacks ended — cross-check `tidegard_collector_flow_datagrams_received_total`. Closes carry reason `stale` and a zeroed rate. |
 
-### `WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL`
+### `TIDEGARD_COLLECTOR_INCIDENT_DATABASE_URL`
 
 Also: `..._INCIDENT_DATABASE_CA_FILE`, `..._INCIDENT_DATABASE_CLIENT_CERT_FILE`, `..._INCIDENT_DATABASE_CLIENT_KEY_FILE`.
 
@@ -74,8 +74,8 @@ Also: `..._INCIDENT_DATABASE_CA_FILE`, `..._INCIDENT_DATABASE_CLIENT_CERT_FILE`,
 | Type | libpq-style connection string; PEM file paths |
 | Default | Unset: detection events do not become incidents |
 | Security implications | The connection string can carry a password and is never logged. Without a CA file, it must reach only this host; a remote database without TLS is refused, never contacted in plaintext ([ADR 0023](../architecture/decisions/0023-phase5b-postgresql-tls.md)). A client certificate needs its key and a CA file. CA bundles and keys never belong in Git. |
-| Related metrics | `wetechinetmon_collector_incident_inbox_queued`, `..._incident_inbox_written_total`, `..._incident_inbox_write_failures_total`, `wetechinetmon_detector_events_failed_total{sink="postgres_inbox"}` |
-| Verification | `incident_inbox_written_total` climbs when detections fire, and the incident manager's `wetechinetmon_incident_inbox_events_total{result="processed"}` follows it |
+| Related metrics | `tidegard_collector_incident_inbox_queued`, `..._incident_inbox_written_total`, `..._incident_inbox_write_failures_total`, `tidegard_detector_events_failed_total{sink="postgres_inbox"}` |
+| Verification | `incident_inbox_written_total` climbs when detections fire, and the incident manager's `tidegard_incident_inbox_events_total{result="processed"}` follows it |
 | Troubleshooting | Each policy's tenant gets its own in-memory queue, written to `detection_event_inbox` by its own task ([ADR 0036](../architecture/decisions/0036-phase5c-incident-manager-process.md)). The collector never migrates this database: until the incident manager has run once, writes fail and `write_failures_total` climbs, with the reason logged. A full queue refuses the newest event, counted under `sink="postgres_inbox"`. If the inbox cannot start at all (a bad URL, missing TLS, an unreadable CA file), detection still runs and the error is logged. On shutdown, the queues are flushed for up to 10 seconds; anything left is logged as lost. |
 
 A policy document that cannot be read or compiled **disables detection
@@ -216,7 +216,7 @@ ownership is not configured, and a real loss of safety when it is not.
 ## Writing a first policy
 
 Start in `observe` mode with a threshold you are confident is too high,
-watch `wetechinetmon_detector_events_total{kind="started"}`, and lower it
+watch `tidegard_detector_events_total{kind="started"}`, and lower it
 until it fires when you expect. Then switch to `alertOnly`.
 
 Set `triggerFor` to at least three windows. Two consecutive over-threshold

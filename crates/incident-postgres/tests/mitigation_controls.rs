@@ -1,7 +1,7 @@
 //! Phase 7D (ADR 0049): the runtime kill switch, the mitigator's work list
 //! and the incidents it may propose for, against a real PostgreSQL.
 //!
-//! Needs `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
+//! Needs `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
 //! this test wipes. Without it the test says why and passes; CI sets it and
 //! fails on the skip message.
 
@@ -11,23 +11,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use support::{event, host_scope};
-use tokio_postgres::{Client, NoTls};
-use wetechinetmon_detector::{EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::{
+use tidegard_detector::{EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, Permission, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::mitigation::{MitigationStore, MitigationStoreError};
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_mitigation::guard::AllowlistEntry;
-use wetechinetmon_mitigation::{
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::mitigation::{MitigationStore, MitigationStoreError};
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_mitigation::guard::AllowlistEntry;
+use tidegard_mitigation::{
     Action, ActionKind, Guard, GuardConfig, GuardRefusal, MitigationError, MitigationRequest,
     MitigationState,
 };
+use tokio_postgres::{Client, NoTls};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 fn person(id: &str, role: &str) -> AuthorizationContext {
     AuthorizationContext::new(
@@ -79,7 +79,7 @@ async fn the_kill_switch_work_list_and_candidates_behave() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .unwrap();

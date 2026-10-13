@@ -1,26 +1,26 @@
 [package]
-name = "wetechinetmon-collector"
-description = "WetechiNetMon Telemetry Collector — IPFIX (and later NetFlow/sFlow) UDP listener, template management, and metrics."
+name = "tidegard-collector"
+description = "Tidegard Telemetry Collector — IPFIX (and later NetFlow/sFlow) UDP listener, template management, and metrics."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "wetechinetmon-collector"
+name = "tidegard-collector"
 path = "src/main.rs"
 
 [dependencies]
-wetechinetmon-common = { path = "../common", features = ["metrics-server"] }
-wetechinetmon-protocol-ipfix = { path = "../protocol-ipfix" }
-wetechinetmon-classifier = { path = "../classifier" }
-wetechinetmon-aggregator = { path = "../aggregator" }
-wetechinetmon-detector = { path = "../detector" }
-wetechinetmon-storage = { path = "../storage" }
+tidegard-common = { path = "../common", features = ["metrics-server"] }
+tidegard-protocol-ipfix = { path = "../protocol-ipfix" }
+tidegard-classifier = { path = "../classifier" }
+tidegard-aggregator = { path = "../aggregator" }
+tidegard-detector = { path = "../detector" }
+tidegard-storage = { path = "../storage" }
 # The incident inbox producer (ADR 0035, ADR 0036). Workspace crates and
 # workspace dependencies only; nothing new enters Cargo.lock.
-wetechinetmon-incident = { path = "../incident" }
-wetechinetmon-incident-postgres = { path = "../incident-postgres" }
+tidegard-incident = { path = "../incident" }
+tidegard-incident-postgres = { path = "../incident-postgres" }
 deadpool-postgres.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -32,6 +32,6 @@ time = "0.3"
 # tests/incident_end_to_end.rs runs the real collector and the real incident
 # manager against PostgreSQL. Workspace crates and workspace dependencies
 # only.
-wetechinetmon-incident-manager = { path = "../incident-manager" }
+tidegard-incident-manager = { path = "../incident-manager" }
 tokio-postgres.workspace = true
 serde_json = "1"

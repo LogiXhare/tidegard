@@ -5,7 +5,7 @@ built** in v1.0.0. The Enterprise and Managed editions in
 [commercial boundaries](../commercial-boundaries.md) remain proposals:
 nothing here describes them as available.
 
-For WeTechi Solutions, and for anyone else, deploying WetechiNetMon for a
+For WeTechi Solutions, and for anyone else, deploying Tidegard for a
 paying customer: what the product is, the ways to deploy it, what to
 size, and who is responsible for what. It is a technical guide, not a
 contract: it sets no price and no service level.
@@ -26,7 +26,7 @@ What it is not yet is in [known issues](../release/known-issues.md).
 
 ## Licence
 
-WetechiNetMon is Apache-2.0 (BQ-1). You may run, modify and redistribute
+Tidegard is Apache-2.0 (BQ-1). You may run, modify and redistribute
 it, commercially included. When you redistribute it, keep `LICENSE`,
 `NOTICE` and the third-party notices the release carries
 (`THIRD-PARTY-NOTICES.txt` and `THIRD-PARTY-NOTICES-WEB.txt`). Grafana,
@@ -63,7 +63,7 @@ Measure a pilot customer's own traffic before committing to a size.
 
 ## Who is responsible for what
 
-| Area | Operator of the deployment | WetechiNetMon provides |
+| Area | Operator of the deployment | Tidegard provides |
 |---|---|---|
 | Host, operating system, firewall | Yes | Hardened units and images |
 | PostgreSQL and ClickHouse | Yes: install, TLS, backups | Backup and restore procedures, drilled in CI |

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Local pre-push gate for wetechi-netmon.
+# Local pre-push gate for tidegard.
 #
 # Enable once per clone (see docs/development/local-setup.md):
 #

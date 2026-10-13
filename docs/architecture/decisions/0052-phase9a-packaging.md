@@ -7,7 +7,7 @@ delegation of 2026-10-05 to industry practice
 
 ## Context
 
-Until now WetechiNetMon has been built from source and started by hand or
+Until now Tidegard has been built from source and started by hand or
 by CI. v1.0.0 must be installable: tarballs, systemd units, container
 images and a Compose stack
 ([Phases 9 and 10 plan](../phase9-10-production-release-plan.md), 9A).
@@ -55,7 +55,7 @@ and `/readyz` tells an operator which instance is active.
 
 ### Tarballs and systemd units (9A-2)
 
-- One tarball per architecture, `wetechinetmon-<version>-linux-<arch>.tar.gz`
+- One tarball per architecture, `tidegard-<version>-linux-<arch>.tar.gz`
   for `x86_64` and `aarch64`, holding `bin/`, the web UI's `share/web/`,
   example configuration under `etc/`, the systemd units, `LICENSE` and
   `NOTICE`.
@@ -64,7 +64,7 @@ and `/readyz` tells an operator which instance is active.
   24.04 and on Debian 12 and 13. musl is not used: its allocator is slow
   under the collector's allocation pattern, and 9B measures throughput.
 - One unit per service, each with its own system user, an
-  `EnvironmentFile` in `/etc/wetechinetmon/` readable only by that user
+  `EnvironmentFile` in `/etc/tidegard/` readable only by that user
   and root (it holds the database URL), and the hardening options
   `systemd-analyze security` rewards: `NoNewPrivileges`,
   `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`,
@@ -84,7 +84,7 @@ and `/readyz` tells an operator which instance is active.
   least two weeks old, and Dependabot proposes a new digest after the
   same wait. A security fix overrides the wait: the first pin moved to a
   newer digest because Trivy found a fixable High in the older one's
-  `libssl3t64` (CVE-2026-84782), although no WetechiNetMon binary links
+  `libssl3t64` (CVE-2026-84782), although no Tidegard binary links
   OpenSSL.
 - Every image runs as distroless's `nonroot` user, by its number
   (65532) so a runtime can verify it is not root, and works with a
@@ -94,7 +94,7 @@ and `/readyz` tells an operator which instance is active.
   probe can reach it; publishing decides who can. The API image keeps the
   loopback default: off loopback it needs TLS (ADR 0038), which the
   deployment supplies.
-- The API image carries the web UI and sets `WETECHINETMON_API_WEB_ROOT`.
+- The API image carries the web UI and sets `TIDEGARD_API_WEB_ROOT`.
 - CI scans every image with Trivy and fails on a fixable Critical or High
   finding. Trivy is installed from its release, pinned by version and
   SHA-256, not through its GitHub Action, whose tags were replaced with

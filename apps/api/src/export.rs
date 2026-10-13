@@ -20,10 +20,10 @@ use axum::http::{header, HeaderValue};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::Serialize;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::queries;
+use tidegard_incident_postgres::row::IncidentRow;
 use utoipa::ToSchema;
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::queries;
-use wetechinetmon_incident_postgres::row::IncidentRow;
 
 use crate::auth::Principal;
 use crate::history::{note_views, AuditEntryView, DetectionView, NoteView, TimelineEntryView};
@@ -35,7 +35,7 @@ use crate::AppState;
 /// The most entries each history section carries.
 pub const EXPORT_MAX_ROWS: u32 = 5_000;
 /// The value of `format`, so a reader can recognise the document.
-pub const EXPORT_FORMAT: &str = "wetechinetmon.incident-export";
+pub const EXPORT_FORMAT: &str = "tidegard.incident-export";
 /// Raised on any change a reader must notice.
 pub const EXPORT_FORMAT_VERSION: u32 = 1;
 
@@ -50,7 +50,7 @@ pub struct Truncation {
 /// One incident and its history.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct IncidentExport {
-    /// Always `wetechinetmon.incident-export`.
+    /// Always `tidegard.incident-export`.
     pub format: &'static str,
     pub format_version: u32,
     pub exported_at: String,

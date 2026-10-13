@@ -17,7 +17,7 @@
 //! duration. The wall half exists only so a timestamp can be displayed or
 //! serialized; nothing here branches on it.
 
-pub use wetechinetmon_detector::{Clock, SystemClock, TestClock};
+pub use tidegard_detector::{Clock, SystemClock, TestClock};
 
 use std::time::{Duration, Instant, SystemTime};
 

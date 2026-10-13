@@ -1,4 +1,4 @@
-//! `wetechinetmonctl`: the incident CLI (Milestone 5E, ADR 0040), with
+//! `tidegardctl`: the incident CLI (Milestone 5E, ADR 0040), with
 //! mitigations, the kill switch and BGP since Phase 7E (ADR 0050).
 //!
 //! An API client and nothing more. Every command is one or two API
@@ -16,7 +16,7 @@ use std::io::{BufRead, Write};
 
 use hyper::Method;
 use serde_json::{json, Value};
-use wetechinetmon_common::rfc3339::{parse_rfc3339, rfc3339};
+use tidegard_common::rfc3339::{parse_rfc3339, rfc3339};
 
 use crate::args::{is_uuid, Action, Command, IncidentRef, Invocation, OpenArgs, Output, Until};
 use crate::client::{Call, Client, Reply};
@@ -75,7 +75,7 @@ pub async fn run_with(
             return exit::SUCCESS;
         }
         Command::Version => {
-            let _ = writeln!(io.out, "wetechinetmonctl {}", env!("CARGO_PKG_VERSION"));
+            let _ = writeln!(io.out, "tidegardctl {}", env!("CARGO_PKG_VERSION"));
             return exit::SUCCESS;
         }
         _ => {}
@@ -562,7 +562,7 @@ async fn change(
         Err(mut stop) => {
             if stop.code == exit::CONFLICT && output != Output::Json {
                 stop.message.push_str(&format!(
-                    "\nRe-read the incident and decide again:\n  wetechinetmonctl incidents show {}\n",
+                    "\nRe-read the incident and decide again:\n  tidegardctl incidents show {}\n",
                     output::clean(&incident.0)
                 ));
             }

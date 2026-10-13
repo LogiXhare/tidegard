@@ -23,7 +23,7 @@ things remained open:
 ### Serving: same origin
 
 The API serves the built UI (`apps/web/dist`) from
-`WETECHINETMON_API_WEB_ROOT`. Page and API share one origin, so there is
+`TIDEGARD_API_WEB_ROOT`. Page and API share one origin, so there is
 no CORS to configure, and the cookie stays `SameSite=Strict`.
 
 - `GET` or `HEAD` on any path outside `/api/` answers `index.html`. The
@@ -89,7 +89,7 @@ least two weeks old when chosen.
 - Seven packages ship in the bundle: React, React DOM, React Router and
   their own dependencies. About 245 more are build tools.
 - A deployment that wants the UI builds `apps/web` and points
-  `WETECHINETMON_API_WEB_ROOT` at `dist/`.
+  `TIDEGARD_API_WEB_ROOT` at `dist/`.
 - The UI cannot use inline styles or scripts, nor load anything from
   another origin, including fonts and analytics.
 

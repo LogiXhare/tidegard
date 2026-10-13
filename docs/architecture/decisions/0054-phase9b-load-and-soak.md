@@ -32,13 +32,13 @@ PostgreSQL and ClickHouse run beside it as service containers.
   prints how many records it sent. Synthetic only, to a collector the
   job started on loopback.
 - **Loss** is `1 - parsed / sent`, where `parsed` is the collector's
-  `wetechinetmon_collector_parsed_flow_records_total` after the run
+  `tidegard_collector_parsed_flow_records_total` after the run
   settles. It counts every record lost anywhere, the kernel's socket
   buffer included, which the collector cannot see.
 - **Memory** is the collector's peak resident set (`VmHWM`) and its
   current one (`VmRSS`), read from `/proc`.
 - **Latency** is the collector's own
-  `wetechinetmon_collector_aggregation_latency_seconds` histogram, as a
+  `tidegard_collector_aggregation_latency_seconds` histogram, as a
   p99.
 - **The machine** is recorded with every run: the runner image, CPU
   model, core count and memory, from the runner itself. The generator
@@ -95,7 +95,7 @@ published figures in capacity planning link the run they came from.
 
 ## Consequences
 
-- The first published throughput figures for WetechiNetMon come from
+- The first published throughput figures for Tidegard come from
   this, with their machine and run.
 - A missed target is a finding for 9D's review, not a reason to delay
   the report.

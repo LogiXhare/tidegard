@@ -1,13 +1,13 @@
 //! Severity and priority.
 //!
 //! Severity is reused exactly from the detector's four-value scale —
-//! [`wetechinetmon_detector::Severity`] — rather than a parallel incident
+//! [`tidegard_detector::Severity`] — rather than a parallel incident
 //! scale that would need a lossy mapping in both directions. Priority is
 //! a separate, incident-domain-only concept: how urgently a human should
 //! act, independent of the traffic's technical impact.
 
 use serde::{Deserialize, Serialize};
-pub use wetechinetmon_detector::Severity;
+pub use tidegard_detector::Severity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]

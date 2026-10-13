@@ -26,17 +26,17 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::json;
-use tokio_postgres::error::SqlState;
-use tokio_postgres::{Client, GenericClient, Row};
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::IncidentGenerator;
-use wetechinetmon_mitigation::mitigation::MAX_REASON_CHARS;
-use wetechinetmon_mitigation::{
+use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::IncidentGenerator;
+use tidegard_mitigation::mitigation::MAX_REASON_CHARS;
+use tidegard_mitigation::{
     Action, ActionKind, ApprovalPolicy, FlowMatch, Guard, Mitigation, MitigationError,
     MitigationId, MitigationRecord, MitigationRequest, MitigationState, Prefix, Transition,
     WithdrawalCause,
 };
+use tokio_postgres::error::SqlState;
+use tokio_postgres::{Client, GenericClient, Row};
 
 use crate::error::PersistError;
 use crate::platform::PlatformAuthority;

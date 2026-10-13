@@ -3,7 +3,7 @@
 Status: **Phase 10B**, 2026-10-13
 ([ADR 0055](../architecture/decisions/0055-phase9c-backup-upgrade-rollback.md)).
 
-How to move a running WetechiNetMon to a new release, and back if it goes
+How to move a running Tidegard to a new release, and back if it goes
 wrong. CI follows this on every pull request: the `upgrade` job fills a
 v0.9.0 database through v0.9.0's own services, upgrades it to the
 candidate, checks that every incident, note, acknowledgement and
@@ -28,16 +28,16 @@ incidents when the incident manager processes them. Stop the collector
 first, so no new ones arrive, and wait until the inbox is empty:
 
 ```bash
-sudo systemctl stop wetechinetmon-collector
-psql -U postgres -d wetechinetmon -tAc \
+sudo systemctl stop tidegard-collector
+psql -U postgres -d tidegard -tAc \
   "SELECT count(*) FROM detection_event_inbox WHERE status IN ('pending', 'retrying')"
 ```
 
 Repeat the query until it prints `0`. Then stop the rest:
 
 ```bash
-sudo systemctl stop wetechinetmon-mitigator wetechinetmon-notifier \
-  wetechinetmon-api wetechinetmon-incident-manager
+sudo systemctl stop tidegard-mitigator tidegard-notifier \
+  tidegard-api tidegard-incident-manager
 ```
 
 While the mitigator is stopped, the routes it announced stay with GoBGP
@@ -52,21 +52,21 @@ Take all three, and keep them off the host, as
 
 ```bash
 pg_dumpall -U postgres --roles-only > roles.sql
-pg_dump -U postgres -d wetechinetmon --format=custom > pre-upgrade.dump
+pg_dump -U postgres -d tidegard --format=custom > pre-upgrade.dump
 ```
 
-and the ClickHouse `BACKUP` of every WetechiNetMon table. Copy
-`/etc/wetechinetmon` too. This backup is your rollback.
+and the ClickHouse `BACKUP` of every Tidegard table. Copy
+`/etc/tidegard` too. This backup is your rollback.
 
 ## 3. Install the new release
 
 ```bash
-tar -xzf wetechinetmon-<version>-linux-$(uname -m).tar.gz
-sudo ./wetechinetmon-<version>-linux-$(uname -m)/install.sh
+tar -xzf tidegard-<version>-linux-$(uname -m).tar.gz
+sudo ./tidegard-<version>-linux-$(uname -m)/install.sh
 ```
 
 `install.sh` replaces the binaries, units and the UI, and never
-overwrites a setting: an existing file in `/etc/wetechinetmon` is kept,
+overwrites a setting: an existing file in `/etc/tidegard` is kept,
 and the new example is not installed over it. Compare your settings with
 the release's examples in its `etc/` directory for anything new.
 
@@ -76,10 +76,10 @@ The incident manager applies any new migration when it starts, before
 it reports ready:
 
 ```bash
-sudo systemctl start wetechinetmon-incident-manager
+sudo systemctl start tidegard-incident-manager
 curl -fsS http://127.0.0.1:9091/readyz
-sudo systemctl start wetechinetmon-api wetechinetmon-collector
-sudo systemctl start wetechinetmon-notifier wetechinetmon-mitigator   # if you run them
+sudo systemctl start tidegard-api tidegard-collector
+sudo systemctl start tidegard-notifier tidegard-mitigator   # if you run them
 ```
 
 ## 5. Check
@@ -89,7 +89,7 @@ sudo systemctl start wetechinetmon-notifier wetechinetmon-mitigator   # if you r
   before.
 - The collector's `parsed_flow_records_total` rises, and nothing new
   appears in `datagrams_refused_total`.
-- `wetechinetmonctl kill-switch status` and `bgp peers` answer as
+- `tidegardctl kill-switch status` and `bgp peers` answer as
   before, if mitigation runs.
 
 ## Rolling back
@@ -99,16 +99,16 @@ schema change. Rolling back is restoring the pre-upgrade backup and
 installing the version you had:
 
 ```bash
-sudo systemctl stop wetechinetmon-collector wetechinetmon-mitigator \
-  wetechinetmon-notifier wetechinetmon-api wetechinetmon-incident-manager
-psql -U postgres -c "DROP DATABASE wetechinetmon WITH (FORCE)" \
-  -c "CREATE DATABASE wetechinetmon OWNER wetechinetmon"
-pg_restore -U postgres -d wetechinetmon --no-owner --exit-on-error \
+sudo systemctl stop tidegard-collector tidegard-mitigator \
+  tidegard-notifier tidegard-api tidegard-incident-manager
+psql -U postgres -c "DROP DATABASE tidegard WITH (FORCE)" \
+  -c "CREATE DATABASE tidegard OWNER tidegard"
+pg_restore -U postgres -d tidegard --no-owner --exit-on-error \
   --single-transaction pre-upgrade.dump
-sudo ./wetechinetmon-<previous version>-linux-$(uname -m)/install.sh
+sudo ./tidegard-<previous version>-linux-$(uname -m)/install.sh
 ```
 
-Put back the `/etc/wetechinetmon` you copied, then start in the order
+Put back the `/etc/tidegard` you copied, then start in the order
 above. Everything recorded after the backup, incidents, notes and
 audit entries included, is lost: decide before you roll back whether
 that is worse than the problem.
@@ -116,19 +116,31 @@ that is worse than the problem.
 ## From v0.9.0
 
 v0.9.0 was a tag, not a release: it had no tarball or units, so it ran
-however you built it. Moving to v1.0.0 is moving to the packaged layout:
+however you built it. Moving to v1.0.0 is moving to the packaged layout,
+under the product's new name:
 
-- Binaries go to `/opt/wetechinetmon/bin`, settings to
-  `/etc/wetechinetmon/*.env` and `*.json`, and each service runs as its
+- **The product is Tidegard** ([ADR 0058](../architecture/decisions/0058-rename-to-tidegard.md)).
+  The binaries are `tidegard-*` and `tidegardctl`, the metrics
+  `tidegard_*`, the images `ghcr.io/logixhare/tidegard-*`. Rename
+  Prometheus queries and alerts written against `wetechinetmon_*`
+  metrics; the shipped dashboards already are.
+- Binaries go to `/opt/tidegard/bin`, settings to
+  `/etc/tidegard/*.env` and `*.json`, and each service runs as its
   own system user under the units `install.sh` installs. Move your
-  settings into the `.env` files; the variable names are unchanged.
+  settings into the `.env` files.
+- **Settings are `TIDEGARD_*` now.** Your `WETECHINETMON_*` settings
+  still work through the 1.x series: each service reads the old name
+  when the new one is unset, and warns. Rename them when you can.
+- The database role `wetechinetmon_app`, the ClickHouse tables and the
+  API token prefix keep their names, so your data and tokens need
+  nothing.
 - **The collector's ClickHouse export** now refuses plain HTTP to
   anything but this host, and takes credentials only from
-  `WETECHINETMON_COLLECTOR_CLICKHOUSE_USER` and `_PASSWORD_FILE`, never
+  `TIDEGARD_COLLECTOR_CLICKHOUSE_USER` and `_PASSWORD_FILE`, never
   the URL ([ADR 0053](../architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)).
   A remote `http://` URL, or one with a password in it, now stops the
   collector at startup: set `https://`, `_CA_FILE` and the password file.
-- **`WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`** is new. Set it to your
+- **`TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS`** is new. Set it to your
   routers ([ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md)).
 - Every service answers `/healthz` and `/readyz` on its metrics address.
 - No database migration: v1.0.0 has the same 21 PostgreSQL migrations

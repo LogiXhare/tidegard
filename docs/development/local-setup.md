@@ -57,8 +57,8 @@ cargo --version && rustc --version && rustfmt --version && cargo clippy --versio
 ## Clone
 
 ```bash
-git clone https://github.com/badshashorif/wetechi-netmon.git
-cd wetechi-netmon
+git clone https://github.com/badshashorif/tidegard.git
+cd tidegard
 ```
 
 ## Build, Test, and Lint the Rust Workspace
@@ -76,18 +76,18 @@ All four are run in CI (`.github/workflows/validate.yml`, jobs
 ### Run the Collector Locally
 
 ```bash
-export WETECHINETMON_COLLECTOR_BIND=127.0.0.1:2055
-export WETECHINETMON_COLLECTOR_METRICS_BIND=127.0.0.1:9090
+export TIDEGARD_COLLECTOR_BIND=127.0.0.1:2055
+export TIDEGARD_COLLECTOR_METRICS_BIND=127.0.0.1:9090
 export RUST_LOG=info
-cargo run --bin wetechinetmon-collector
+cargo run --bin tidegard-collector
 ```
 
 In another terminal, send it synthetic test traffic (never real captured
 or attack traffic — see [../security-principles.md](../security-principles.md)):
 
 ```bash
-cargo run -p wetechinetmon-flow-replay -- 127.0.0.1:2055 5
-curl -s http://127.0.0.1:9090/metrics | grep wetechinetmon_collector
+cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 5
+curl -s http://127.0.0.1:9090/metrics | grep tidegard_collector
 ```
 
 Full guide: [../integrations/ipfix-collector.md](../integrations/ipfix-collector.md).

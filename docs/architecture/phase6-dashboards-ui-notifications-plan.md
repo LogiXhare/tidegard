@@ -15,7 +15,7 @@ Telegram and webhook. It ships as two releases on the
 
 - **Nothing mitigates.** No Phase 6 code path announces a route, touches
   a device, or calls the mitigator. The
-  [dependency closure test](https://github.com/LogiXhare/wetechi-netmon/blob/main/crates/incident/tests/dependency_closure.rs)
+  [dependency closure test](https://github.com/LogiXhare/tidegard/blob/main/crates/incident/tests/dependency_closure.rs)
   keeps refusing routing and device-access crates everywhere.
 - **The detector and the incident domain stay as they are.** Notification
   crates are allowed only in `crates/notification`. The closure test is

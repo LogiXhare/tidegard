@@ -5,7 +5,7 @@ project. Expected to evolve as the contributor base grows.
 
 ## Current Model
 
-WetechiNetMon is currently steered directly by **WeTechi Solutions**,
+Tidegard is currently steered directly by **WeTechi Solutions**,
 represented by the repository owner. This is a founder-led model, not a
 foundation or multi-vendor consortium model. There is currently one
 maintainer group (see [CODEOWNERS](.github/CODEOWNERS)).

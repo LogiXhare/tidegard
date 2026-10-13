@@ -7,7 +7,7 @@
 //! `platform` tenant; and an incident message now says where its
 //! mitigation stands. Nothing leaves the machine.
 //!
-//! Needs `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
+//! Needs `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
 //! this test wipes. Without it the test says why and passes; CI sets it and
 //! fails on the skip message.
 
@@ -24,23 +24,23 @@ use axum::routing::post;
 use axum::Router;
 use serde_json::Value;
 use support::{event, host_scope};
-use wetechinetmon_detector::{EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::{
+use tidegard_detector::{EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::mitigation::{MitigationStore, PEER_EVENT_TENANT};
-use wetechinetmon_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_mitigation::guard::AllowlistEntry;
-use wetechinetmon_mitigation::{Action, ActionKind, Guard, GuardConfig, MitigationRequest};
-use wetechinetmon_notification::config::parse_file;
-use wetechinetmon_notification::metrics::NotifierMetrics;
-use wetechinetmon_notification::worker::Notifier;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::mitigation::{MitigationStore, PEER_EVENT_TENANT};
+use tidegard_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_mitigation::guard::AllowlistEntry;
+use tidegard_mitigation::{Action, ActionKind, Guard, GuardConfig, MitigationRequest};
+use tidegard_notification::config::parse_file;
+use tidegard_notification::metrics::NotifierMetrics;
+use tidegard_notification::worker::Notifier;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 type Received = Arc<Mutex<Vec<(String, Value)>>>;
 
@@ -93,7 +93,7 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .unwrap();
@@ -222,7 +222,7 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
         .unwrap();
 
     // --- A BGP session goes down between two snapshots ---
-    let platform = wetechinetmon_notification::platform_authority();
+    let platform = tidegard_notification::platform_authority();
     let first = store
         .record_peers(
             &platform,
@@ -278,7 +278,7 @@ async fn mitigations_the_kill_switch_and_peers_are_told() {
             "ui_base_url": "https://noc.example.net"
         }}"#
     );
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {

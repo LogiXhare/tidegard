@@ -20,7 +20,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_detector::{AddressFamily, MetricKind, ScopeId, ScopeType, TrafficDirection};
+use tidegard_detector::{AddressFamily, MetricKind, ScopeId, ScopeType, TrafficDirection};
 
 use crate::assignment::Assignment;
 use crate::authorization::Actor;

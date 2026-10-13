@@ -8,9 +8,9 @@
 
 use std::time::Duration;
 
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::IncidentId;
+use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::IncidentId;
 
 use crate::action::Action;
 use crate::guard::GuardRefusal;
@@ -508,7 +508,7 @@ fn validate_reason(reason: &str) -> Result<String, MitigationError> {
 mod tests {
     use super::*;
     use crate::action::FlowMatch;
-    use wetechinetmon_incident::authorization::{FixedBundleResolver, PermissionResolver};
+    use tidegard_incident::authorization::{FixedBundleResolver, PermissionResolver};
 
     const ID: &str = "01900000-0000-7000-8000-000000000001";
     const INCIDENT: &str = "01900000-0000-7000-8000-0000000000aa";

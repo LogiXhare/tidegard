@@ -107,7 +107,7 @@ matches.
    supported version, quarantine. Do not guess at unknown fields.
 2. **Duplicate gate.** If `dedup_key` already exists for this tenant,
    record a duplicate, increment
-   `wetechinetmon_incident_events_duplicate_total`, stop. This is the
+   `tidegard_incident_events_duplicate_total`, stop. This is the
    at-least-once defence and it runs before anything mutable.
 3. **Mode gate.** `Observe` events never open or change an incident. They
    are ingested and counted so tuning is visible, and that is all.
@@ -148,7 +148,7 @@ The last one deserves emphasis. A late `Started` event arriving after a
 resolution — the classic outcome of a queue backlog draining — must not
 resurrect an incident an operator has already dealt with. It is linked,
 counted in
-`wetechinetmon_incident_events_late_total`, and left alone.
+`tidegard_incident_events_late_total`, and left alone.
 
 ## Worked examples
 

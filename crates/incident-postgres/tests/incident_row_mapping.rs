@@ -5,9 +5,9 @@ mod support;
 use support::{
     all_scopes, host_scope, hostgroup_scope, network_scope_with_host_bits, worked_incident,
 };
-use wetechinetmon_incident::authorization::Actor;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::row::IncidentRow;
+use tidegard_incident::authorization::Actor;
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::row::IncidentRow;
 
 fn host_row() -> IncidentRow {
     let (uow, id) = worked_incident(&host_scope(), 1);

@@ -1,29 +1,29 @@
-//! Phase 7F (ADR 0051): what the edge router receives. WetechiNetMon's
+//! Phase 7F (ADR 0051): what the edge router receives. Tidegard's
 //! speaker announces every action; a second `gobgpd`, standing in for the
 //! edge router and peered over iBGP, must receive exactly those routes,
 //! with their next hops, communities and FlowSpec actions, and nothing
 //! once they are withdrawn.
 //!
 //! Needs the two-speaker lab of `scripts/start-gobgp-lab.sh`:
-//! `WETECHINETMON_GOBGP_LAB_SPEAKER` (`http://127.0.0.1:50061`) and
-//! `WETECHINETMON_GOBGP_LAB_EDGE` (`http://127.0.0.1:50062`). Both listen
+//! `TIDEGARD_GOBGP_LAB_SPEAKER` (`http://127.0.0.1:50061`) and
+//! `TIDEGARD_GOBGP_LAB_EDGE` (`http://127.0.0.1:50062`). Both listen
 //! on loopback and peer only with each other. Without them the test says
 //! why and passes; CI starts them and fails on the skip message. Only
 //! documentation prefixes and a private ASN are used.
 
 use std::time::{Duration, Instant};
 
-use wetechinetmon_mitigation::{Action, FlowMatch, Prefix};
-use wetechinetmon_mitigator::api;
-use wetechinetmon_mitigator::api::attribute::Attr;
-use wetechinetmon_mitigator::api::extended_community::Extcom;
-use wetechinetmon_mitigator::gobgp::{GoBgp, GoBgpEndpoint};
-use wetechinetmon_mitigator::route::{
+use tidegard_mitigation::{Action, FlowMatch, Prefix};
+use tidegard_mitigator::api;
+use tidegard_mitigator::api::attribute::Attr;
+use tidegard_mitigator::api::extended_community::Extcom;
+use tidegard_mitigator::gobgp::{GoBgp, GoBgpEndpoint};
+use tidegard_mitigator::route::{
     announcement, withdrawal, OwnedRoute, RouteConfig, BLACKHOLE, NO_EXPORT,
 };
 
-const SPEAKER_VAR: &str = "WETECHINETMON_GOBGP_LAB_SPEAKER";
-const EDGE_VAR: &str = "WETECHINETMON_GOBGP_LAB_EDGE";
+const SPEAKER_VAR: &str = "TIDEGARD_GOBGP_LAB_SPEAKER";
+const EDGE_VAR: &str = "TIDEGARD_GOBGP_LAB_EDGE";
 /// Sessions come up and updates propagate within seconds on loopback.
 const PATIENCE: Duration = Duration::from_secs(30);
 

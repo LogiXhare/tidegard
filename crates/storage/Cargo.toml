@@ -1,15 +1,15 @@
 [package]
-name = "wetechinetmon-storage"
-description = "ClickHouse output for WetechiNetMon analytics: original schemas, bounded batching, and bounded-retry writes."
+name = "tidegard-storage"
+description = "ClickHouse output for Tidegard analytics: original schemas, bounded batching, and bounded-retry writes."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-wetechinetmon-common = { path = "../common" }
-wetechinetmon-aggregator = { path = "../aggregator" }
-wetechinetmon-detector = { path = "../detector" }
+tidegard-common = { path = "../common" }
+tidegard-aggregator = { path = "../aggregator" }
+tidegard-detector = { path = "../detector" }
 thiserror.workspace = true
 tracing.workspace = true
 tokio.workspace = true

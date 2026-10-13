@@ -1,6 +1,6 @@
-# wetechinetmon-mitigator
+# tidegard-mitigator
 
-The only code in WetechiNetMon that speaks to GoBGP
+The only code in Tidegard that speaks to GoBGP
 ([ADR 0048](../../docs/architecture/decisions/0048-phase7c-gobgp-adapter.md)).
 GoBGP runs as its own process, `gobgpd`; this crate is a client of its
 gRPC API, generated from the vendored `.proto` files in `proto/`
@@ -10,8 +10,8 @@ gRPC API, generated from the vendored `.proto` files in `proto/`
   the ownership community, and reading a path back into its mitigation.
 - `gobgp`: the connection (plain HTTP to loopback only; TLS with a CA,
   and optionally a client certificate, anywhere else), announce,
-  withdraw, the routes WetechiNetMon owns, and the peers.
-- `service` and the `wetechinetmon-mitigator` binary
+  withdraw, the routes Tidegard owns, and the peers.
+- `service` and the `tidegard-mitigator` binary
   ([ADR 0049](../../docs/architecture/decisions/0049-phase7d-mitigator-service.md)):
   announcing approved mitigations, withdrawing them at their end or
   under the kill switch, reconciliation, and proposals. `config`
@@ -21,7 +21,7 @@ Nothing here decides whether to mitigate: that is the mitigation record,
 its approval and the safety guard (`crates/mitigation`).
 
 ```sh
-cargo test -p wetechinetmon-mitigator
+cargo test -p tidegard-mitigator
 # The lab test needs a throwaway gobgpd on loopback:
-WETECHINETMON_GOBGP_TEST_ENDPOINT=http://127.0.0.1:50051 cargo test -p wetechinetmon-mitigator --test gobgp_lab
+TIDEGARD_GOBGP_TEST_ENDPOINT=http://127.0.0.1:50051 cargo test -p tidegard-mitigator --test gobgp_lab
 ```

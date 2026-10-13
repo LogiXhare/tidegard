@@ -1,6 +1,6 @@
 version: "3"
 
-# wetechi-netmon — documentation + Rust workspace tasks.
+# tidegard — documentation + Rust workspace tasks.
 # Frontend tasks are added starting Phase 6. See docs/roadmap.md.
 
 tasks:

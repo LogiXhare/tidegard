@@ -21,13 +21,13 @@ use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::Serialize;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::incident::Incident;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::queries;
+use tidegard_incident_postgres::row::{ActorColumns, IncidentRow};
+use tidegard_incident_postgres::status;
 use utoipa::ToSchema;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::incident::Incident;
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::queries;
-use wetechinetmon_incident_postgres::row::{ActorColumns, IncidentRow};
-use wetechinetmon_incident_postgres::status;
 
 use crate::auth::Principal;
 use crate::problem::{ErrorCode, Problem};
@@ -78,12 +78,12 @@ pub fn limit(
 }
 
 /// How an actor is shown to people, as in every API response.
-pub fn actor_label(actor: &wetechinetmon_incident::authorization::Actor) -> String {
+pub fn actor_label(actor: &tidegard_incident::authorization::Actor) -> String {
     actor_text(actor)
 }
 
-pub(crate) fn actor_text(actor: &wetechinetmon_incident::authorization::Actor) -> String {
-    use wetechinetmon_incident::authorization::Actor;
+pub(crate) fn actor_text(actor: &tidegard_incident::authorization::Actor) -> String {
+    use tidegard_incident::authorization::Actor;
     match actor {
         Actor::Operator { id } => id.clone(),
         Actor::ServiceAccount { id } => format!("service_account:{id}"),
@@ -252,7 +252,7 @@ impl IncidentView {
         mut self,
         client: &impl tokio_postgres::GenericClient,
     ) -> Result<Self, Problem> {
-        let tenant = wetechinetmon_incident::correlation::TenantId::new(self.tenant_id.clone());
+        let tenant = tidegard_incident::correlation::TenantId::new(self.tenant_id.clone());
         self.mitigation_status =
             status::incident_mitigation_status(client, &tenant, &self.incident_id)
                 .await

@@ -19,15 +19,15 @@ use std::time::Duration;
 use deadpool_postgres::Pool;
 use prometheus::core::Collector;
 use prometheus::{IntCounter, IntGauge, Registry};
-use tokio::sync::watch;
-use tokio::task::JoinHandle;
-use wetechinetmon_detector::DetectionEventSink;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::connect::{connect, ConnectError, Transport};
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::producer::{
+use tidegard_detector::DetectionEventSink;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::connect::{connect, ConnectError, Transport};
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::producer::{
     inbox_producers, DrainReport, ProducerPolicy, TenantRouter,
 };
+use tokio::sync::watch;
+use tokio::task::JoinHandle;
 
 use crate::config::IncidentDatabase;
 
@@ -45,15 +45,15 @@ impl InboxMetrics {
     fn new(registry: &Registry) -> Result<Self, prometheus::Error> {
         let metrics = InboxMetrics {
             queued: IntGauge::new(
-                "wetechinetmon_collector_incident_inbox_queued",
+                "tidegard_collector_incident_inbox_queued",
                 "Detection events waiting in memory to be written to the incident inbox.",
             )?,
             written_total: IntCounter::new(
-                "wetechinetmon_collector_incident_inbox_written_total",
+                "tidegard_collector_incident_inbox_written_total",
                 "Detection events written to the incident inbox.",
             )?,
             write_failures_total: IntCounter::new(
-                "wetechinetmon_collector_incident_inbox_write_failures_total",
+                "tidegard_collector_incident_inbox_write_failures_total",
                 "Failed writes to the incident inbox; each is retried.",
             )?,
         };
@@ -237,7 +237,7 @@ mod tests {
             .iter()
             .map(|family| family.name().to_string())
             .collect();
-        assert!(names.contains(&"wetechinetmon_collector_incident_inbox_queued".to_string()));
+        assert!(names.contains(&"tidegard_collector_incident_inbox_queued".to_string()));
         // Nothing was queued, so shutdown has nothing to write and returns
         // promptly even though port 1 accepts no connection.
         let report = inbox.shutdown().await;

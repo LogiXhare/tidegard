@@ -14,7 +14,7 @@
 //! correlation key includes the tenant.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -27,20 +27,20 @@ use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use serde_json::{json, Value};
 use support::{event, host_scope};
+use tidegard_api::auth::Role;
+use tidegard_api::token_admin::{self, ActorType, NewToken};
+use tidegard_api::{router, AppState};
+use tidegard_detector::{EventKind, MetricKind};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
 use tokio_postgres::Client;
 use tower::ServiceExt;
-use wetechinetmon_api::auth::Role;
-use wetechinetmon_api::token_admin::{self, ActorType, NewToken};
-use wetechinetmon_api::{router, AppState};
-use wetechinetmon_detector::{EventKind, MetricKind};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 const OPENAPI: &str = include_str!("../../../docs/api/openapi.json");
 const MISSING: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
 
@@ -158,7 +158,7 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .expect("migrations must apply");
@@ -187,7 +187,7 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         .unwrap()
         .to_canonical_string();
 
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {
@@ -200,8 +200,8 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
     // there: acme's callers reach ClickHouse and get 503, while another
     // tenant is refused before anything is read (ADR 0042).
     let unreachable =
-        wetechinetmon_api::clickhouse::ClickHouse::new(wetechinetmon_api::clickhouse::Endpoint {
-            scheme: wetechinetmon_api::clickhouse::Scheme::Http,
+        tidegard_api::clickhouse::ClickHouse::new(tidegard_api::clickhouse::Endpoint {
+            scheme: tidegard_api::clickhouse::Scheme::Http,
             host: "127.0.0.1".into(),
             port: 9,
             user: "default".into(),
@@ -210,18 +210,18 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         })
         .unwrap();
     // acme may mitigate its own 203.0.113.0/24 (ADR 0050).
-    let guard = wetechinetmon_mitigation::Guard::new(wetechinetmon_mitigation::GuardConfig {
-        allowlist: vec![wetechinetmon_mitigation::guard::AllowlistEntry {
+    let guard = tidegard_mitigation::Guard::new(tidegard_mitigation::GuardConfig {
+        allowlist: vec![tidegard_mitigation::guard::AllowlistEntry {
             prefix: "203.0.113.0/24".parse().unwrap(),
             tenant: "acme".into(),
-            actions: vec![wetechinetmon_mitigation::ActionKind::Rtbh],
+            actions: vec![tidegard_mitigation::ActionKind::Rtbh],
         }],
-        ..wetechinetmon_mitigation::GuardConfig::default()
+        ..tidegard_mitigation::GuardConfig::default()
     })
     .unwrap();
     let app = router(
         AppState::new(pool)
-            .with_traffic(wetechinetmon_api::traffic::TrafficSource {
+            .with_traffic(tidegard_api::traffic::TrafficSource {
                 tenant: TenantId::new("acme"),
                 clickhouse: unreachable,
             })
@@ -252,7 +252,7 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
     assert_eq!(status, StatusCode::OK);
     let (_, before) = send(&app, &Method::GET, &base, &owner, "", None).await;
 
-    let soon = wetechinetmon_api::time::rfc3339(
+    let soon = tidegard_api::time::rfc3339(
         (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()

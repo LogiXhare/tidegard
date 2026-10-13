@@ -1,6 +1,6 @@
 //! Compiles GoBGP's API from the `.proto` files vendored in `proto/`
 //! (GoBGP v4.9.0, ADR 0048). `protox` parses them in Rust, so no `protoc`
-//! is needed. Only the client is generated: WetechiNetMon never serves
+//! is needed. Only the client is generated: Tidegard never serves
 //! GoBGP's API.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

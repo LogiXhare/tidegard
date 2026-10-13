@@ -24,21 +24,21 @@
 
 use std::collections::BTreeMap;
 
-use wetechinetmon_detector::{AddressFamily, MetricKind, ScopeId, Severity, TrafficDirection};
-use wetechinetmon_incident::assignment::{Assignee, Assignment};
-use wetechinetmon_incident::authorization::Actor;
-use wetechinetmon_incident::category::IncidentCategory;
-use wetechinetmon_incident::closure::ClosureReason;
-use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
-use wetechinetmon_incident::durable_time::DurableTimestamp;
-use wetechinetmon_incident::evidence::EvidenceLedger;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::incident::{Incident, Note, NoteRedaction, NoteVisibility, PolicyRef};
-use wetechinetmon_incident::number::IncidentNumber;
-use wetechinetmon_incident::severity::{Priority, SeveritySource};
-use wetechinetmon_incident::snapshot::IncidentSnapshot;
-use wetechinetmon_incident::state::IncidentState;
-use wetechinetmon_incident::suppression::SuppressionDisplay;
+use tidegard_detector::{AddressFamily, MetricKind, ScopeId, Severity, TrafficDirection};
+use tidegard_incident::assignment::{Assignee, Assignment};
+use tidegard_incident::authorization::Actor;
+use tidegard_incident::category::IncidentCategory;
+use tidegard_incident::closure::ClosureReason;
+use tidegard_incident::correlation::{CorrelationKey, TenantId};
+use tidegard_incident::durable_time::DurableTimestamp;
+use tidegard_incident::evidence::EvidenceLedger;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::incident::{Incident, Note, NoteRedaction, NoteVisibility, PolicyRef};
+use tidegard_incident::number::IncidentNumber;
+use tidegard_incident::severity::{Priority, SeveritySource};
+use tidegard_incident::snapshot::IncidentSnapshot;
+use tidegard_incident::state::IncidentState;
+use tidegard_incident::suppression::SuppressionDisplay;
 
 use crate::error::PersistError;
 

@@ -2152,6 +2152,283 @@ dependencies = [
 ]
 
 [[package]]
+name = "tidegard-aggregator"
+version = "1.0.0-rc.1"
+dependencies = [
+ "proptest",
+ "thiserror 2.0.21",
+ "tidegard-classifier",
+ "tidegard-common",
+]
+
+[[package]]
+name = "tidegard-api"
+version = "1.0.0-rc.1"
+dependencies = [
+ "axum",
+ "bytes",
+ "deadpool-postgres",
+ "getrandom 0.4.3",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "proptest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "tidegard-common",
+ "tidegard-detector",
+ "tidegard-incident",
+ "tidegard-incident-postgres",
+ "tidegard-mitigation",
+ "tidegard-storage",
+ "tokio",
+ "tokio-postgres",
+ "tokio-rustls",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
+name = "tidegard-classifier"
+version = "1.0.0-rc.1"
+dependencies = [
+ "proptest",
+ "thiserror 2.0.21",
+ "tidegard-common",
+]
+
+[[package]]
+name = "tidegard-cli"
+version = "1.0.0-rc.1"
+dependencies = [
+ "axum",
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tidegard-common",
+ "tokio",
+ "tokio-rustls",
+ "uuid",
+]
+
+[[package]]
+name = "tidegard-collector"
+version = "1.0.0-rc.1"
+dependencies = [
+ "deadpool-postgres",
+ "prometheus",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-aggregator",
+ "tidegard-classifier",
+ "tidegard-common",
+ "tidegard-detector",
+ "tidegard-incident",
+ "tidegard-incident-manager",
+ "tidegard-incident-postgres",
+ "tidegard-protocol-ipfix",
+ "tidegard-storage",
+ "time",
+ "tokio",
+ "tokio-postgres",
+ "tracing",
+]
+
+[[package]]
+name = "tidegard-common"
+version = "1.0.0-rc.1"
+dependencies = [
+ "prometheus",
+ "proptest",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tidegard-dashboard-check"
+version = "1.0.0-rc.1"
+dependencies = [
+ "serde_json",
+ "tidegard-collector",
+ "tidegard-incident-manager",
+ "tidegard-notification",
+ "tidegard-storage",
+]
+
+[[package]]
+name = "tidegard-detector"
+version = "1.0.0-rc.1"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-aggregator",
+ "tidegard-classifier",
+ "tidegard-common",
+ "tracing",
+]
+
+[[package]]
+name = "tidegard-flow-replay"
+version = "1.0.0-rc.1"
+dependencies = [
+ "tidegard-protocol-ipfix",
+ "tokio",
+]
+
+[[package]]
+name = "tidegard-incident"
+version = "1.0.0-rc.1"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-detector",
+]
+
+[[package]]
+name = "tidegard-incident-manager"
+version = "1.0.0-rc.1"
+dependencies = [
+ "deadpool-postgres",
+ "prometheus",
+ "thiserror 2.0.21",
+ "tidegard-common",
+ "tidegard-detector",
+ "tidegard-incident",
+ "tidegard-incident-postgres",
+ "tokio",
+ "tokio-postgres",
+ "tracing",
+]
+
+[[package]]
+name = "tidegard-incident-postgres"
+version = "1.0.0-rc.1"
+dependencies = [
+ "deadpool-postgres",
+ "refinery",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-detector",
+ "tidegard-incident",
+ "tidegard-incident-postgres",
+ "tidegard-mitigation",
+ "tokio",
+ "tokio-postgres",
+ "tokio-postgres-rustls",
+ "uuid",
+]
+
+[[package]]
+name = "tidegard-mitigation"
+version = "1.0.0-rc.1"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-incident",
+]
+
+[[package]]
+name = "tidegard-mitigator"
+version = "1.0.0-rc.1"
+dependencies = [
+ "deadpool-postgres",
+ "prometheus",
+ "prost",
+ "prost-types",
+ "protox",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-common",
+ "tidegard-detector",
+ "tidegard-incident",
+ "tidegard-incident-postgres",
+ "tidegard-mitigation",
+ "tokio",
+ "tokio-postgres",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
+ "tracing",
+]
+
+[[package]]
+name = "tidegard-notification"
+version = "1.0.0-rc.1"
+dependencies = [
+ "axum",
+ "bytes",
+ "deadpool-postgres",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "lettre",
+ "prometheus",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "tidegard-common",
+ "tidegard-detector",
+ "tidegard-incident",
+ "tidegard-incident-postgres",
+ "tidegard-mitigation",
+ "tokio",
+ "tokio-postgres",
+ "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tidegard-protocol-ipfix"
+version = "1.0.0-rc.1"
+dependencies = [
+ "proptest",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "tidegard-storage"
+version = "1.0.0-rc.1"
+dependencies = [
+ "clickhouse",
+ "hyper-rustls",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tidegard-aggregator",
+ "tidegard-common",
+ "tidegard-detector",
+ "time",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "time"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2742,283 +3019,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "wetechinetmon-aggregator"
-version = "1.0.0-rc.1"
-dependencies = [
- "proptest",
- "thiserror 2.0.21",
- "wetechinetmon-classifier",
- "wetechinetmon-common",
-]
-
-[[package]]
-name = "wetechinetmon-api"
-version = "1.0.0-rc.1"
-dependencies = [
- "axum",
- "bytes",
- "deadpool-postgres",
- "getrandom 0.4.3",
- "http-body-util",
- "hyper",
- "hyper-util",
- "proptest",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "tokio",
- "tokio-postgres",
- "tokio-rustls",
- "tower",
- "tracing",
- "tracing-subscriber",
- "utoipa",
- "uuid",
- "wetechinetmon-common",
- "wetechinetmon-detector",
- "wetechinetmon-incident",
- "wetechinetmon-incident-postgres",
- "wetechinetmon-mitigation",
- "wetechinetmon-storage",
-]
-
-[[package]]
-name = "wetechinetmon-classifier"
-version = "1.0.0-rc.1"
-dependencies = [
- "proptest",
- "thiserror 2.0.21",
- "wetechinetmon-common",
-]
-
-[[package]]
-name = "wetechinetmon-cli"
-version = "1.0.0-rc.1"
-dependencies = [
- "axum",
- "bytes",
- "http-body-util",
- "hyper",
- "hyper-util",
- "rustls",
- "serde",
- "serde_json",
- "tokio",
- "tokio-rustls",
- "uuid",
- "wetechinetmon-common",
-]
-
-[[package]]
-name = "wetechinetmon-collector"
-version = "1.0.0-rc.1"
-dependencies = [
- "deadpool-postgres",
- "prometheus",
- "serde_json",
- "thiserror 2.0.21",
- "time",
- "tokio",
- "tokio-postgres",
- "tracing",
- "wetechinetmon-aggregator",
- "wetechinetmon-classifier",
- "wetechinetmon-common",
- "wetechinetmon-detector",
- "wetechinetmon-incident",
- "wetechinetmon-incident-manager",
- "wetechinetmon-incident-postgres",
- "wetechinetmon-protocol-ipfix",
- "wetechinetmon-storage",
-]
-
-[[package]]
-name = "wetechinetmon-common"
-version = "1.0.0-rc.1"
-dependencies = [
- "prometheus",
- "proptest",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "wetechinetmon-dashboard-check"
-version = "1.0.0-rc.1"
-dependencies = [
- "serde_json",
- "wetechinetmon-collector",
- "wetechinetmon-incident-manager",
- "wetechinetmon-notification",
- "wetechinetmon-storage",
-]
-
-[[package]]
-name = "wetechinetmon-detector"
-version = "1.0.0-rc.1"
-dependencies = [
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tracing",
- "wetechinetmon-aggregator",
- "wetechinetmon-classifier",
- "wetechinetmon-common",
-]
-
-[[package]]
-name = "wetechinetmon-flow-replay"
-version = "1.0.0-rc.1"
-dependencies = [
- "tokio",
- "wetechinetmon-protocol-ipfix",
-]
-
-[[package]]
-name = "wetechinetmon-incident"
-version = "1.0.0-rc.1"
-dependencies = [
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "wetechinetmon-detector",
-]
-
-[[package]]
-name = "wetechinetmon-incident-manager"
-version = "1.0.0-rc.1"
-dependencies = [
- "deadpool-postgres",
- "prometheus",
- "thiserror 2.0.21",
- "tokio",
- "tokio-postgres",
- "tracing",
- "wetechinetmon-common",
- "wetechinetmon-detector",
- "wetechinetmon-incident",
- "wetechinetmon-incident-postgres",
-]
-
-[[package]]
-name = "wetechinetmon-incident-postgres"
-version = "1.0.0-rc.1"
-dependencies = [
- "deadpool-postgres",
- "refinery",
- "rustls",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tokio-postgres",
- "tokio-postgres-rustls",
- "uuid",
- "wetechinetmon-detector",
- "wetechinetmon-incident",
- "wetechinetmon-incident-postgres",
- "wetechinetmon-mitigation",
-]
-
-[[package]]
-name = "wetechinetmon-mitigation"
-version = "1.0.0-rc.1"
-dependencies = [
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "wetechinetmon-incident",
-]
-
-[[package]]
-name = "wetechinetmon-mitigator"
-version = "1.0.0-rc.1"
-dependencies = [
- "deadpool-postgres",
- "prometheus",
- "prost",
- "prost-types",
- "protox",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "tokio",
- "tokio-postgres",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
- "tracing",
- "wetechinetmon-common",
- "wetechinetmon-detector",
- "wetechinetmon-incident",
- "wetechinetmon-incident-postgres",
- "wetechinetmon-mitigation",
-]
-
-[[package]]
-name = "wetechinetmon-notification"
-version = "1.0.0-rc.1"
-dependencies = [
- "axum",
- "bytes",
- "deadpool-postgres",
- "http-body-util",
- "hyper",
- "hyper-util",
- "lettre",
- "prometheus",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "tokio",
- "tokio-postgres",
- "tokio-rustls",
- "tracing",
- "tracing-subscriber",
- "wetechinetmon-common",
- "wetechinetmon-detector",
- "wetechinetmon-incident",
- "wetechinetmon-incident-postgres",
- "wetechinetmon-mitigation",
-]
-
-[[package]]
-name = "wetechinetmon-protocol-ipfix"
-version = "1.0.0-rc.1"
-dependencies = [
- "proptest",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "wetechinetmon-storage"
-version = "1.0.0-rc.1"
-dependencies = [
- "clickhouse",
- "hyper-rustls",
- "hyper-util",
- "rustls",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
- "time",
- "tokio",
- "tracing",
- "wetechinetmon-aggregator",
- "wetechinetmon-common",
- "wetechinetmon-detector",
 ]
 
 [[package]]

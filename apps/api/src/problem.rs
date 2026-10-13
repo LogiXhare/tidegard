@@ -14,10 +14,10 @@
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Map, Value};
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::mitigation::MitigationStoreError;
-use wetechinetmon_mitigation::{GuardRefusal, MitigationError};
+use tidegard_incident::error::IncidentError;
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::mitigation::MitigationStoreError;
+use tidegard_mitigation::{GuardRefusal, MitigationError};
 
 use crate::request_id;
 

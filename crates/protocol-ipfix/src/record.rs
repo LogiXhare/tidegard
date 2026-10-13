@@ -6,7 +6,7 @@ use crate::template::{Template, VARIABLE_LENGTH};
 /// One decoded field within a Data Record.
 ///
 /// Phase 2 deliberately decodes into raw bytes rather than a fully typed
-/// value per Information Element — WetechiNetMon's IANA IE registry only
+/// value per Information Element — Tidegard's IANA IE registry only
 /// covers a small, commonly used subset today (see `crate::ie`). Callers
 /// that know which IE they're looking at can use `as_u64_be`, `as_ipv4`,
 /// or `as_ipv6` to interpret the bytes; full semantic typing for every

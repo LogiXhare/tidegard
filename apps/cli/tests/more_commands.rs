@@ -11,8 +11,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::{Json, Router};
 use serde_json::{json, Value};
-use wetechinetmon_cli::config::{Environment, TOKEN_VAR, URL_VAR};
-use wetechinetmon_cli::{exit, run_with, Io};
+use tidegard_cli::config::{Environment, TOKEN_VAR, URL_VAR};
+use tidegard_cli::{exit, run_with, Io};
 
 const ID: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
 const NOW: i64 = 1_700_000_000_000_000;
@@ -60,7 +60,7 @@ async fn anything(
     if path.ends_with("/export") {
         return (
             StatusCode::OK,
-            json!({"format": "wetechinetmon.incident-export", "incident": incident()}).to_string(),
+            json!({"format": "tidegard.incident-export", "incident": incident()}).to_string(),
         )
             .into_response();
     }
@@ -203,7 +203,7 @@ async fn export_writes_a_new_file_and_never_overwrites() {
     let printed = cli(&url, &format!("incidents export {ID}")).await;
     assert_eq!(printed.code, exit::SUCCESS, "{}", printed.err);
     let document: Value = serde_json::from_str(&printed.out).unwrap();
-    assert_eq!(document["format"], "wetechinetmon.incident-export");
+    assert_eq!(document["format"], "tidegard.incident-export");
 
     let path = std::env::temp_dir().join(format!("wnmctl-export-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);

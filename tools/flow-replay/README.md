@@ -13,7 +13,7 @@ never real captured traffic and never anything resembling attack traffic.
 ## Usage
 
 ```bash
-cargo run -p wetechinetmon-flow-replay -- <target_host:port> [options]
+cargo run -p tidegard-flow-replay -- <target_host:port> [options]
 ```
 
 See [../../docs/development/flow-replay.md](../../docs/development/flow-replay.md)
@@ -24,11 +24,11 @@ convention used for `--scenario`.
 ## Testing
 
 ```bash
-cargo test -p wetechinetmon-flow-replay
+cargo test -p tidegard-flow-replay
 ```
 
 5 tests, including round-trip tests (IPv4, IPv6, and Options-Template
 sampling) that build synthetic messages with this tool's own byte-
 building code and decode them with the real
-`wetechinetmon-protocol-ipfix` decoder, confirming the values survive
+`tidegard-protocol-ipfix` decoder, confirming the values survive
 unchanged — the same path a live exporter's traffic would take.

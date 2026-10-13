@@ -16,7 +16,7 @@ Manager, Mitigation Controller, Notification, Public API, Internal gRPC API,
 Web App, CLI, Configuration, Audit, Reporting, Backup/Restore).
 
 **Option A — Monorepo, multiple deployable binaries (recommended for MVP)**
-Single repository (`wetechi-netmon`), Cargo workspace for Rust crates, one
+Single repository (`tidegard`), Cargo workspace for Rust crates, one
 binary per service, shared internal libraries in `crates/common`,
 `crates/storage`, etc. Deployed as separate containers/processes but built
 and versioned together up through v1.0.0.

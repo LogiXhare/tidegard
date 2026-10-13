@@ -28,7 +28,7 @@ docs/risk-register.md R4 for the tracked follow-up.
 ## What's Covered
 
 `fuzz_targets/decode_message.rs` fuzzes
-`wetechinetmon_protocol_ipfix::decode_message` — the same "never panics
+`tidegard_protocol_ipfix::decode_message` — the same "never panics
 on arbitrary bytes" property already covered by `proptest` in
 `crates/protocol-ipfix/src/lib.rs`, but via libFuzzer's coverage-guided
 mutation engine rather than proptest's random sampling.

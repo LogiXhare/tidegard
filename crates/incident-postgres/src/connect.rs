@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn a_missing_ca_file_is_reported_with_its_path() {
         let tls = TlsFiles {
-            ca_file: std::env::temp_dir().join("wetechinetmon-missing-ca.pem"),
+            ca_file: std::env::temp_dir().join("tidegard-missing-ca.pem"),
             client_identity: None,
         };
         let Err(error) = connect("host=db.example.net sslmode=require", Some(&tls), policy())
@@ -159,7 +159,7 @@ mod tests {
             panic!("a missing CA file must be refused");
         };
         assert!(matches!(error, ConnectError::ReadFile { .. }), "{error}");
-        assert!(error.to_string().contains("wetechinetmon-missing-ca.pem"));
+        assert!(error.to_string().contains("tidegard-missing-ca.pem"));
     }
 
     #[test]

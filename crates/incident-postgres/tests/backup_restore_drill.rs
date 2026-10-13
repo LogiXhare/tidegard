@@ -6,10 +6,10 @@
 //! and `pg_restore`, and they mean nothing on their own.
 //!
 //! - `drill_seed` resets the opt-in, ephemeral database named by
-//!   `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL` and fills it through the
+//!   `TIDEGARD_INCIDENT_POSTGRES_TEST_URL` and fills it through the
 //!   service, so every table the incident schema has carries rows.
 //! - `drill_verify` runs against the restored copy, named by
-//!   `WETECHINETMON_INCIDENT_POSTGRES_DRILL_RESTORED_URL`, and proves it is
+//!   `TIDEGARD_INCIDENT_POSTGRES_DRILL_RESTORED_URL`, and proves it is
 //!   a working database, not just one with the same rows: the schema is
 //!   current, every incident reconstitutes, idempotency replays, numbering
 //!   continues, a command commits, and pending outbox rows are claimable.
@@ -22,24 +22,24 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 
 use support::{all_scopes, event, in_episode, operator};
-use tokio_postgres::Client;
-use wetechinetmon_detector::{EventKind, MetricKind, ScopeId, TestClock};
-use wetechinetmon_incident::authorization::{
+use tidegard_detector::{EventKind, MetricKind, ScopeId, TestClock};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::{IncidentId, TestIncidentGenerator};
-use wetechinetmon_incident::idempotency::IdempotencyKey;
-use wetechinetmon_incident::incident::NoteVisibility;
-use wetechinetmon_incident::unit_of_work::IngestOutcomeKind;
-use wetechinetmon_incident_postgres::outbox::{outbox_stats, OutboxConsumer, OutboxPolicy};
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_incident_postgres::sql::{load_incident, Locking};
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::{IncidentId, TestIncidentGenerator};
+use tidegard_incident::idempotency::IdempotencyKey;
+use tidegard_incident::incident::NoteVisibility;
+use tidegard_incident::unit_of_work::IngestOutcomeKind;
+use tidegard_incident_postgres::outbox::{outbox_stats, OutboxConsumer, OutboxPolicy};
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_incident_postgres::sql::{load_incident, Locking};
+use tokio_postgres::Client;
 
-const SOURCE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
-const RESTORED_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_DRILL_RESTORED_URL";
+const SOURCE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
+const RESTORED_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_DRILL_RESTORED_URL";
 
 /// The acknowledgement the seed makes with a key, replayed after restore.
 const ACK_KEY: &str = "drill-ack-request-0001";
@@ -75,7 +75,7 @@ async fn drill_seed() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");
@@ -186,7 +186,7 @@ async fn drill_verify() {
     let mut client = connect(RESTORED_URL_VAR).await;
 
     // The schema history came back with the schema: nothing left to apply.
-    let report = wetechinetmon_incident_postgres::migrations::migrations::runner()
+    let report = tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("the migration history must be readable");

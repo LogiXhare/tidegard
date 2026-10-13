@@ -129,7 +129,7 @@ fn retryable_sqlstate(code: &SqlState, constraint: Option<&str>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use wetechinetmon_incident::id::{IncidentGenerator, TestIncidentGenerator};
+    use tidegard_incident::id::{IncidentGenerator, TestIncidentGenerator};
 
     use super::*;
 

@@ -12,7 +12,7 @@ use hyper_util::client::legacy::Client as HyperClient;
 use hyper_util::rt::TokioExecutor;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::CertificateDer;
-use wetechinetmon_common::http_endpoint::{authority_url, is_loopback, parse_url, Scheme};
+use tidegard_common::http_endpoint::{authority_url, is_loopback, parse_url, Scheme};
 
 /// The same as the `clickhouse` crate's own client.
 const TCP_KEEPALIVE: Duration = Duration::from_secs(60);

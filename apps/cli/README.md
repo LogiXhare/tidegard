@@ -1,4 +1,4 @@
-# wetechinetmonctl
+# tidegardctl
 
 The incident CLI ([Milestone 5E](../../docs/development/phase5-implementation-plan.md),
 [ADR 0040](../../docs/architecture/decisions/0040-phase5e-cli-client.md)).
@@ -19,12 +19,12 @@ history. The environment overrides the config file, field by field.
 
 | Setting | Environment | Profile field |
 |---|---|---|
-| API URL | `WETECHINETMON_API_URL` | `url` |
-| Token | `WETECHINETMON_API_TOKEN` | `token` |
-| CA bundle (PEM) | `WETECHINETMON_API_CA_FILE` | `ca_file` |
+| API URL | `TIDEGARD_API_URL` | `url` |
+| Token | `TIDEGARD_API_TOKEN` | `token` |
+| CA bundle (PEM) | `TIDEGARD_API_CA_FILE` | `ca_file` |
 
-The config file is JSON, at `$WETECHINETMON_CONFIG`. By default it is at
-`~/.config/wetechinetmon/cli.json`, or `%APPDATA%\wetechinetmon\cli.json`
+The config file is JSON, at `$TIDEGARD_CONFIG`. By default it is at
+`~/.config/tidegard/cli.json`, or `%APPDATA%\tidegard\cli.json`
 on Windows.
 
 ```json
@@ -33,7 +33,7 @@ on Windows.
   "profiles": {
     "noc": {
       "url": "https://wnm-api.example.net:8443",
-      "ca_file": "/etc/wetechinetmon/ca.pem",
+      "ca_file": "/etc/tidegard/ca.pem",
       "token": "wnm_..."
     }
   }
@@ -51,7 +51,7 @@ Keep the file readable only by you, because it holds a token.
 ## Commands
 
 ```text
-wetechinetmonctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
+tidegardctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
 
 incidents list [--state S] [--severity S] [--priority P] [--direction D]
                [--target-type T] [--sort opened_at|last_detected_at]
@@ -123,7 +123,7 @@ The CLI talks only to the API. It never talks to GoBGP.
   version is read unless `--expected-version` pins it, and a `409` exits `4`.
 - **Releasing the kill switch is not a CLI command.** No API token may
   release it. On the API host, run
-  `wetechinetmon-api kill-switch release --actor-id ID --reason TEXT`.
+  `tidegard-api kill-switch release --actor-id ID --reason TEXT`.
 - **`bgp peers` warns when the snapshot is old.** The mitigator records
   its peers each time it reconciles. If the newest record is more than
   five minutes old, the mitigator has probably stopped, and the sessions

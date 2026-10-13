@@ -10,7 +10,7 @@ Deciders: Repository owner
 consequence, not a preference" and must be justified by the frameworks
 selected, not chosen first. [ADR 0020](0020-phase5b-postgresql-client.md)
 selects `tokio-postgres`, which is Tokio-based. Separately,
-`wetechinetmon-incident` (Phase 5A) is entirely synchronous — every
+`tidegard-incident` (Phase 5A) is entirely synchronous — every
 method on `IncidentUnitOfWork` is `pub fn`, not `pub async fn`
 (verified against
 `crates/incident/src/unit_of_work.rs`) — and

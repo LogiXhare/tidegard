@@ -12,12 +12,12 @@
 
 use prometheus::core::Collector;
 use prometheus::{IntCounter, IntCounterVec, IntGauge, Opts, Registry};
-use wetechinetmon_incident_postgres::inbox::{BatchReport, InboxStats};
-use wetechinetmon_incident_postgres::maintenance::MaintenanceReport;
-use wetechinetmon_incident_postgres::outbox::OutboxStats;
-use wetechinetmon_incident_postgres::retention::RetentionReport;
+use tidegard_incident_postgres::inbox::{BatchReport, InboxStats};
+use tidegard_incident_postgres::maintenance::MaintenanceReport;
+use tidegard_incident_postgres::outbox::OutboxStats;
+use tidegard_incident_postgres::retention::RetentionReport;
 
-const PREFIX: &str = "wetechinetmon_incident";
+const PREFIX: &str = "tidegard_incident";
 
 /// Every label name, and every value it may take.
 pub const LABEL_ALLOWLIST: &[(&str, &[&str])] = &[

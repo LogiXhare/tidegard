@@ -1,17 +1,17 @@
-# WetechiNetMon incident manager (ADR 0052), installed by install.sh. Settings live in
-# /etc/wetechinetmon/incident-manager.env, which only root reads.
+# Tidegard BGP mitigator (ADR 0052), installed by install.sh. Settings live in
+# /etc/tidegard/mitigator.env, which only root reads.
 [Unit]
-Description=WetechiNetMon incident manager
-Documentation=https://github.com/LogiXhare/wetechi-netmon
-After=network-online.target
+Description=Tidegard BGP mitigator
+Documentation=https://github.com/LogiXhare/tidegard
+After=network-online.target tidegard-incident-manager.service
 Wants=network-online.target
 
 [Service]
 Type=exec
-User=wetechinetmon-incident-manager
-Group=wetechinetmon-incident-manager
-EnvironmentFile=/etc/wetechinetmon/incident-manager.env
-ExecStart=/opt/wetechinetmon/bin/wetechinetmon-incident-manager
+User=tidegard-mitigator
+Group=tidegard-mitigator
+EnvironmentFile=/etc/tidegard/mitigator.env
+ExecStart=/opt/tidegard/bin/tidegard-mitigator
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s

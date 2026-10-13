@@ -9,11 +9,11 @@ and do not ship in the repository.
 
 | Binary | Role | Listens on |
 |---|---|---|
-| `wetechinetmon-collector` | Receives flows, runs detection, writes detection events to the incident inbox | UDP `0.0.0.0:2055`; metrics `0.0.0.0:9090` |
-| `wetechinetmon-incident-manager` | Turns detection events into incidents; runs the timers and retention; applies migrations | metrics `0.0.0.0:9091` |
-| `wetechinetmon-api` | REST API, and the `token` command | `127.0.0.1:8080` |
-| `wetechinetmonctl` | CLI for operators, through the API | — |
-| `wetechinetmon-notifier` | Delivers notifications from the outbox | metrics `127.0.0.1:9093` |
+| `tidegard-collector` | Receives flows, runs detection, writes detection events to the incident inbox | UDP `0.0.0.0:2055`; metrics `0.0.0.0:9090` |
+| `tidegard-incident-manager` | Turns detection events into incidents; runs the timers and retention; applies migrations | metrics `0.0.0.0:9091` |
+| `tidegard-api` | REST API, and the `token` command | `127.0.0.1:8080` |
+| `tidegardctl` | CLI for operators, through the API | — |
+| `tidegard-notifier` | Delivers notifications from the outbox | metrics `127.0.0.1:9093` |
 | NOC UI (`apps/web/dist`) | The browser UI, served by the API | through the API |
 
 PostgreSQL holds all incident state. ClickHouse holds flow and detection
@@ -33,15 +33,15 @@ analytics for the collector, and is optional for incidents.
 ## 1. Build
 
 ```sh
-git clone https://github.com/LogiXhare/wetechi-netmon.git
-cd wetechi-netmon
+git clone https://github.com/LogiXhare/tidegard.git
+cd tidegard
 cargo build --release --locked \
-  -p wetechinetmon-collector -p wetechinetmon-incident-manager \
-  -p wetechinetmon-api -p wetechinetmon-cli -p wetechinetmon-notification
-sudo install -m 0755 target/release/wetechinetmon-collector \
-  target/release/wetechinetmon-incident-manager \
-  target/release/wetechinetmon-api target/release/wetechinetmonctl \
-  target/release/wetechinetmon-notifier /usr/local/bin/
+  -p tidegard-collector -p tidegard-incident-manager \
+  -p tidegard-api -p tidegard-cli -p tidegard-notification
+sudo install -m 0755 target/release/tidegard-collector \
+  target/release/tidegard-incident-manager \
+  target/release/tidegard-api target/release/tidegardctl \
+  target/release/tidegard-notifier /usr/local/bin/
 ```
 
 The UI needs Node.js 22.12 or later, at build time only:
@@ -50,8 +50,8 @@ The UI needs Node.js 22.12 or later, at build time only:
 cd apps/web
 npm ci --ignore-scripts
 npm run build
-sudo mkdir -p /usr/local/share/wetechinetmon
-sudo cp -r dist /usr/local/share/wetechinetmon/web
+sudo mkdir -p /usr/local/share/tidegard
+sudo cp -r dist /usr/local/share/tidegard/web
 ```
 
 ## 2. The database
@@ -61,8 +61,8 @@ keep it in a libpq password file (`~/.pgpass` of the service user),
 never on a command line.
 
 ```sql
-CREATE ROLE wetechinetmon LOGIN PASSWORD '<from your secret store>';
-CREATE DATABASE wetechinetmon OWNER wetechinetmon;
+CREATE ROLE tidegard LOGIN PASSWORD '<from your secret store>';
+CREATE DATABASE tidegard OWNER tidegard;
 ```
 
 Migrations need no manual step. The incident manager applies them on
@@ -74,25 +74,25 @@ Phase 8. Nothing logs in as that role yet.
 
 Each service reads environment variables. Put them in a root-owned file
 that only the service user can read, for example
-`/etc/wetechinetmon/incident.env`, mode `0640`.
+`/etc/tidegard/incident.env`, mode `0640`.
 
 ```sh
 # The same database for all three. On another host, add the CA file.
-WETECHINETMON_INCIDENT_DATABASE_URL="host=db.example.net user=wetechinetmon dbname=wetechinetmon sslmode=require"
-WETECHINETMON_INCIDENT_DATABASE_CA_FILE=/etc/wetechinetmon/db-ca.pem
-WETECHINETMON_API_DATABASE_URL="host=db.example.net user=wetechinetmon dbname=wetechinetmon sslmode=require"
-WETECHINETMON_API_DATABASE_CA_FILE=/etc/wetechinetmon/db-ca.pem
-WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL="host=db.example.net user=wetechinetmon dbname=wetechinetmon sslmode=require"
-WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_CA_FILE=/etc/wetechinetmon/db-ca.pem
+TIDEGARD_INCIDENT_DATABASE_URL="host=db.example.net user=tidegard dbname=tidegard sslmode=require"
+TIDEGARD_INCIDENT_DATABASE_CA_FILE=/etc/tidegard/db-ca.pem
+TIDEGARD_API_DATABASE_URL="host=db.example.net user=tidegard dbname=tidegard sslmode=require"
+TIDEGARD_API_DATABASE_CA_FILE=/etc/tidegard/db-ca.pem
+TIDEGARD_COLLECTOR_INCIDENT_DATABASE_URL="host=db.example.net user=tidegard dbname=tidegard sslmode=require"
+TIDEGARD_COLLECTOR_INCIDENT_DATABASE_CA_FILE=/etc/tidegard/db-ca.pem
 # Detection, and so incidents, is off without a policy file.
-WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE=/etc/wetechinetmon/policies.json
+TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE=/etc/tidegard/policies.json
 ```
 
 The full list of settings is in each service's README:
 
-- [collector](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/collector)
-- [incident manager](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/incident-manager)
-- [API](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/api)
+- [collector](https://github.com/LogiXhare/tidegard/tree/main/crates/collector)
+- [incident manager](https://github.com/LogiXhare/tidegard/tree/main/crates/incident-manager)
+- [API](https://github.com/LogiXhare/tidegard/tree/main/apps/api)
 
 Detection policies are described in
 [Detection Policies](../configuration/detection-policies.md).
@@ -111,16 +111,16 @@ Start them in this order:
 An example unit for the incident manager:
 
 ```ini
-# /etc/systemd/system/wetechinetmon-incident-manager.service
+# /etc/systemd/system/tidegard-incident-manager.service
 [Unit]
-Description=WetechiNetMon incident manager
+Description=Tidegard incident manager
 After=network-online.target postgresql.service
 Wants=network-online.target
 
 [Service]
-User=wetechinetmon
-EnvironmentFile=/etc/wetechinetmon/incident.env
-ExecStart=/usr/local/bin/wetechinetmon-incident-manager
+User=tidegard
+EnvironmentFile=/etc/tidegard/incident.env
+ExecStart=/usr/local/bin/tidegard-incident-manager
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
@@ -138,8 +138,8 @@ database. `Restart=on-failure` then retries it.
 
 The API binds to loopback by default, where plaintext is allowed, for a
 reverse proxy on the same host. To serve it directly on another address,
-set `WETECHINETMON_API_BIND` together with `WETECHINETMON_API_TLS_CERT_FILE`
-and `WETECHINETMON_API_TLS_KEY_FILE`. The API refuses to start without
+set `TIDEGARD_API_BIND` together with `TIDEGARD_API_TLS_CERT_FILE`
+and `TIDEGARD_API_TLS_KEY_FILE`. The API refuses to start without
 TLS on any address other than loopback.
 
 ## 5. Tokens and the CLI
@@ -152,20 +152,20 @@ Issue a token per person, with the least role they need:
 - `noc_lead`
 
 ```sh
-wetechinetmon-api token create --tenant acme --actor-id alice --role operator \
+tidegard-api token create --tenant acme --actor-id alice --role operator \
   --days 90 --description "alice laptop"
 ```
 
 The token is printed once. Give it to Alice over a secure channel. She
-keeps it in `WETECHINETMON_API_TOKEN` or in her CLI profile. It never goes
+keeps it in `TIDEGARD_API_TOKEN` or in her CLI profile. It never goes
 on a command line.
 
 Alice then configures the CLI, as the
-[CLI README](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/cli)
+[CLI README](https://github.com/LogiXhare/tidegard/tree/main/apps/cli)
 describes, and checks it:
 
 ```sh
-wetechinetmonctl incidents list
+tidegardctl incidents list
 ```
 
 ## 6. The NOC UI
@@ -173,7 +173,7 @@ wetechinetmonctl incidents list
 Point the API at the build, and restart it:
 
 ```sh
-WETECHINETMON_API_WEB_ROOT=/usr/local/share/wetechinetmon/web
+TIDEGARD_API_WEB_ROOT=/usr/local/share/tidegard/web
 ```
 
 Open the API's address in a browser and sign in with a token. Off
@@ -184,39 +184,39 @@ give the API a ClickHouse user that can only `SELECT`
 ([ADR 0042](../architecture/decisions/0042-phase6b-traffic-read-api.md)):
 
 ```sh
-WETECHINETMON_API_TRAFFIC_TENANT=acme
-WETECHINETMON_API_CLICKHOUSE_URL=https://clickhouse.example.net:8443
-WETECHINETMON_API_CLICKHOUSE_USER=wnm_reader
-WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE=/etc/wetechinetmon/clickhouse-password
-WETECHINETMON_API_CLICKHOUSE_CA_FILE=/etc/wetechinetmon/clickhouse-ca.pem
+TIDEGARD_API_TRAFFIC_TENANT=acme
+TIDEGARD_API_CLICKHOUSE_URL=https://clickhouse.example.net:8443
+TIDEGARD_API_CLICKHOUSE_USER=wnm_reader
+TIDEGARD_API_CLICKHOUSE_PASSWORD_FILE=/etc/tidegard/clickhouse-password
+TIDEGARD_API_CLICKHOUSE_CA_FILE=/etc/tidegard/clickhouse-ca.pem
 ```
 
 ## 7. Notifications
 
 Write the channels-and-routes file and the secret files it names, as the
-[notifier README](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/notification)
+[notifier README](https://github.com/LogiXhare/tidegard/tree/main/crates/notification)
 shows, then run the notifier after the incident manager:
 
 ```sh
-WETECHINETMON_NOTIFY_DATABASE_URL="host=127.0.0.1 user=wetechinetmon dbname=incidents" \
-WETECHINETMON_NOTIFY_CONFIG=/etc/wetechinetmon/notify.json \
-wetechinetmon-notifier
+TIDEGARD_NOTIFY_DATABASE_URL="host=127.0.0.1 user=tidegard dbname=incidents" \
+TIDEGARD_NOTIFY_CONFIG=/etc/tidegard/notify.json \
+tidegard-notifier
 ```
 
 Run one notifier per installation, or give each its own
-`WETECHINETMON_NOTIFY_CONSUMER_ID`. Open an incident by hand
-(`wetechinetmonctl incidents open ...`) and check its timeline for a
+`TIDEGARD_NOTIFY_CONSUMER_ID`. Open an incident by hand
+(`tidegardctl incidents open ...`) and check its timeline for a
 `notification_result` entry per channel.
 
 ## 8. Grafana
 
-Grafana is yours to run; WetechiNetMon ships dashboards, not Grafana
+Grafana is yours to run; Tidegard ships dashboards, not Grafana
 ([ADR 0041](../architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)).
 Install the `grafana-clickhouse-datasource` plugin, copy
 `grafana/provisioning` into Grafana's provisioning directory and
-`grafana/dashboards` to `/var/lib/grafana/dashboards/wetechinetmon`, set
+`grafana/dashboards` to `/var/lib/grafana/dashboards/tidegard`, set
 the variables the
-[provisioning README](https://github.com/LogiXhare/wetechi-netmon/tree/main/grafana/provisioning)
+[provisioning README](https://github.com/LogiXhare/tidegard/tree/main/grafana/provisioning)
 lists, and restart Grafana.
 
 ## 9. Check the installation
@@ -228,7 +228,7 @@ lists, and restart Grafana.
   migrations. Every service except the API answers `/healthz` and
   `/readyz` on its metrics address
   ([ADR 0052](../architecture/decisions/0052-phase9a-packaging.md)).
-- `curl -fsS http://127.0.0.1:9091/metrics | grep wetechinetmon_incident_inbox_pending`
+- `curl -fsS http://127.0.0.1:9091/metrics | grep tidegard_incident_inbox_pending`
   shows the incident manager's gauges.
 - `curl -fsS http://127.0.0.1:9093/metrics` answers once the notifier
   runs; its counters appear after the first message.

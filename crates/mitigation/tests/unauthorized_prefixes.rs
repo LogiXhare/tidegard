@@ -9,11 +9,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
 use proptest::prelude::*;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_mitigation::guard::{
-    AllowlistEntry, Guard, GuardConfig, GuardRefusal, MinLength,
-};
-use wetechinetmon_mitigation::{Action, ActionKind, FlowMatch, Prefix};
+use tidegard_incident::correlation::TenantId;
+use tidegard_mitigation::guard::{AllowlistEntry, Guard, GuardConfig, GuardRefusal, MinLength};
+use tidegard_mitigation::{Action, ActionKind, FlowMatch, Prefix};
 
 const ALL: [ActionKind; 4] = [
     ActionKind::Rtbh,

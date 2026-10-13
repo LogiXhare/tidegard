@@ -7,7 +7,7 @@
 //! rewrite the operator's screen.
 
 use serde_json::Value;
-use wetechinetmon_common::rfc3339::parse_rfc3339;
+use tidegard_common::rfc3339::parse_rfc3339;
 
 use crate::args::History;
 
@@ -554,7 +554,7 @@ pub fn stale_peers(page: &Value, now_micros: i64) -> Option<String> {
         format!(
             "Warning: the mitigator last reported its peers {} ago. It may have stopped; \
              these sessions may no longer be as shown.",
-            age(&wetechinetmon_common::rfc3339::rfc3339(newest), now_micros)
+            age(&tidegard_common::rfc3339::rfc3339(newest), now_micros)
         )
     })
 }

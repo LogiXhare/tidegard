@@ -1,17 +1,17 @@
-# WetechiNetMon notifier (ADR 0052), installed by install.sh. Settings live in
-# /etc/wetechinetmon/notifier.env, which only root reads.
+# Tidegard flow collector and detector (ADR 0052), installed by install.sh. Settings live in
+# /etc/tidegard/collector.env, which only root reads.
 [Unit]
-Description=WetechiNetMon notifier
-Documentation=https://github.com/LogiXhare/wetechi-netmon
-After=network-online.target wetechinetmon-incident-manager.service
+Description=Tidegard flow collector and detector
+Documentation=https://github.com/LogiXhare/tidegard
+After=network-online.target tidegard-incident-manager.service
 Wants=network-online.target
 
 [Service]
 Type=exec
-User=wetechinetmon-notifier
-Group=wetechinetmon-notifier
-EnvironmentFile=/etc/wetechinetmon/notifier.env
-ExecStart=/opt/wetechinetmon/bin/wetechinetmon-notifier
+User=tidegard-collector
+Group=tidegard-collector
+EnvironmentFile=/etc/tidegard/collector.env
+ExecStart=/opt/tidegard/bin/tidegard-collector
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s

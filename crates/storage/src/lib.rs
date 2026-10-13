@@ -1,4 +1,4 @@
-//! ClickHouse output for WetechiNetMon analytics: original schemas
+//! ClickHouse output for Tidegard analytics: original schemas
 //! (docs/clean-room-boundary.md), bounded batching, and bounded-retry
 //! writes. See docs/architecture/decisions/0005-clickhouse-batching-and-retry.md
 //! and docs/integrations/clickhouse.md.
