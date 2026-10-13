@@ -143,6 +143,8 @@ round-trip in CI, not only on paper (the Phase 9 acceptance criterion).
 **Exit:** a security review document lists every finding with its
 severity and disposition, and none rated Critical or High is open.
 
+**Progress:** the supply chain checks are in CI: `cargo deny` (RustSec advisories, licences, wildcards, sources) in the Rust job, `npm audit` in the web job, Trivy over every image in the package job, and gitleaks over the full history in the history job, which found nothing in 406 commits. The first findings: a 46-byte IPFIX message that made the collector allocate without bound, through a template of zero-length records (High; the fix is in review); a weekly fuzz run that had been failing unnoticed; the collector's ClickHouse export in plain HTTP (fixed, ADR 0053); and a panic in the collector's ClickHouse writer on the first row (fixed).
+
 ## Phase 10 milestones
 
 ### 10A — The release pipeline

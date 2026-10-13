@@ -127,7 +127,12 @@ candidate that needs the same two-step review.
   any commercial/managed-service use, since BSL is not OSI-approved
   open-source and can carry field-of-use restrictions.
 
-## Out of Scope for Phase 0
+## Enforcement
 
-Actually running `cargo deny`, `cargo audit`, or SBOM tooling — that is a
-Phase 1 CI deliverable once there is a real `Cargo.toml` to scan.
+Since Phase 9D, CI runs `cargo deny check` on every pull request
+([`deny.toml`](https://github.com/LogiXhare/wetechi-netmon/blob/main/deny.toml)):
+any RustSec advisory, a licence outside the permissive list this matrix
+approves, a wildcard version or a source other than crates.io fails the
+build. A dependency still needs its row here first; `cargo deny` catches
+what review misses, not the other way round. SBOMs come with the release
+pipeline (Phase 10A).
