@@ -57,6 +57,11 @@ impl TemplateCache {
         self.templates.insert(template.template_id, template);
     }
 
+    /// Forgets one template: a Template Withdrawal (RFC 7011 §8.1).
+    pub fn remove(&mut self, template_id: u16) {
+        self.templates.remove(&template_id);
+    }
+
     pub fn get(&self, template_id: u16) -> Option<&Template> {
         self.templates.get(&template_id)
     }

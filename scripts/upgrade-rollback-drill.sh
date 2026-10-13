@@ -121,6 +121,22 @@ call() {
   rm -f "$out"
 }
 
+# Stop the collector, then wait for the incident manager to work through
+# every detection event already queued (V14's inbox), so what is counted
+# and backed up afterwards is final. Without this, events still queued at
+# the stop open incidents on the next start, after the count was taken.
+drain() {
+  kill "${pids[2]}" 2>/dev/null || true
+  wait "${pids[2]}" 2>/dev/null || true
+  for _ in $(seq 60); do
+    [ "$(sql "SELECT count(*) FROM detection_event_inbox WHERE status IN ('pending', 'retrying')")" = 0 ] \
+      && return 0
+    sleep 1
+  done
+  echo "drill: the detection event inbox did not drain"
+  exit 1
+}
+
 # Rows in every table that holds what an operator would miss.
 fingerprint() {
   for table in incidents incident_notes incident_audit incident_timeline incident_outbox \
@@ -164,7 +180,7 @@ call "$lead" POST "/api/v1/incidents/$first/notes" '{"body": "written by v0.9.0"
 mitigation=$(call "$operator" POST /api/v1/mitigations \
   '{"prefix": "203.0.113.9/32", "action": "rtbh", "reason": "upgrade drill", "duration_seconds": 600}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["mitigation_id"])')
-sleep 3
+drain
 stop_all
 fingerprint > "$work/v090.txt"
 cat "$work/v090.txt"
@@ -187,8 +203,9 @@ call "$new_lead" GET "/api/v1/mitigations/$mitigation" | grep -q '"state":"reque
 before=$(sql 'SELECT count(*) FROM incidents')
 "$REPLAY" 127.0.0.1:2055 --rate 20000 --hosts 400 --duration-secs 10 > /dev/null
 incidents_after "$before"
-echo "drill: upgraded; $(sql 'SELECT count(*) FROM incidents') incidents"
+drain
 stop_all
+echo "drill: upgraded; $(sql 'SELECT count(*) FROM incidents') incidents"
 
 # What the disaster recovery drill starts from: the candidate's database,
 # backed up as the runbook says (roles, then the database), and what it

@@ -52,4 +52,16 @@ pub enum DecodeError {
 
     #[error("variable-length field encoding is truncated")]
     VariableLengthTruncated,
+
+    /// A template whose records take no bytes (every field fixed at length
+    /// zero). Decoding its Data Set could never advance, so it is refused
+    /// where it is defined.
+    #[error("template {template_id} defines records of zero length")]
+    ZeroLengthTemplate { template_id: u16 },
+
+    /// A Data Record that consumed no bytes. A guard: no template the
+    /// decoder accepts can produce one, but a loop that does not advance
+    /// must never be possible on untrusted input.
+    #[error("a data record for template {template_id} consumed no bytes")]
+    EmptyDataRecord { template_id: u16 },
 }
