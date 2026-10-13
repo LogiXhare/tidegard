@@ -57,6 +57,7 @@ validation:
 
 nav:
   - Home: index.md
+  - Quick Start: quick-start.md
   - Product Foundation:
       - Product Charter: product-charter.md
       - Clean-Room Boundary: clean-room-boundary.md
@@ -134,6 +135,7 @@ nav:
       - Disaster Recovery: operations/disaster-recovery.md
       - Verifying a Release: operations/verifying-a-release.md
       - Upgrading and Rolling Back: operations/upgrading.md
+      - Customer Onboarding: operations/customer-onboarding.md
       - Incident Runbook: operations/incident-runbook.md
       - RTBH Guide: operations/rtbh-guide.md
       - FlowSpec Guide: operations/flowspec-guide.md
@@ -142,7 +144,9 @@ nav:
       - Overview: api/index.md
       - Incident API Plan: api/incident-api-plan.md
       - Error Codes: api/error-codes.md
-  - Commercial: commercial/index.md
+  - Commercial:
+      - Overview: commercial/index.md
+      - Deployment Guide: commercial/deployment-guide.md
   - Development:
       - Overview: development/index.md
       - Local Setup: development/local-setup.md

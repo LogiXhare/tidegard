@@ -5,6 +5,9 @@ Status: **v1.0.0 candidate**, 2026-10-13 (Phase 10B).
 What an operator needs to take a WetechiNetMon release into production,
 and what the owner signs before v1.0.0 is tagged.
 
+- [Quick Start](../quick-start.md): one host with Docker, from a release.
+- [Customer Onboarding](../operations/customer-onboarding.md) and the
+  [Commercial Deployment Guide](../commercial/deployment-guide.md).
 - [Verifying a Release](../operations/verifying-a-release.md): check the
   signatures, checksums and provenance before installing.
 - [Upgrading and Rolling Back](../operations/upgrading.md): from v0.9.0,

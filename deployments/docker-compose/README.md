@@ -71,6 +71,7 @@ Put these in `.env` next to the ones `setup.sh` wrote:
 | `WETECHINETMON_TRAFFIC_TENANT` | `default` | The tenant traffic pages show |
 | `WETECHINETMON_API_PUBLISH` | `127.0.0.1:8443` | Where the API is published |
 | `WETECHINETMON_FLOW_PUBLISH` | `2055` | Where the collector's UDP port is published |
+| `WETECHINETMON_ALLOWED_EXPORTERS` | empty: any source | Your routers' addresses or networks, comma-separated; flows from anywhere else are dropped unread ([ADR 0056](../../docs/architecture/decisions/0056-phase9d-collector-input-bounds.md)). Docker's default NAT keeps a published UDP packet's source address; check `datagrams_refused_total` once it is set |
 
 ## Upgrading and backups
 
