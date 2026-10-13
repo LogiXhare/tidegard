@@ -65,7 +65,7 @@ install -m 0755 deployments/systemd/install.sh "$dir/"
 install -m 0644 LICENSE NOTICE CHANGELOG.md "$dir/"
 # Every third-party licence the binaries and the UI carry, with its
 # text, as MIT, BSD and Apache-2.0 require of a binary distribution.
-"$about" generate --frozen --fail --all-features --workspace about.hbs \
+"$about" generate --locked --fail --all-features --workspace about.hbs \
   -o "$dir/THIRD-PARTY-NOTICES.txt"
 node scripts/web-licenses.mjs apps/web > "$dir/THIRD-PARTY-NOTICES-WEB.txt"
 printf '%s\n' "$version" > "$dir/VERSION"
