@@ -72,7 +72,7 @@ before upgrading from v0.9.0, read
 - `cargo deny` in CI, and the [security review](docs/security/security-review.md)
   with threats T-49 to T-57.
 
-### Security
+### Security — Phase 9D review
 
 - A 46-byte IPFIX message could make the collector allocate until it ran
   out of memory (a template of zero-length records). Fixed.
@@ -82,7 +82,7 @@ before upgrading from v0.9.0, read
   credentials in its URL. Now TLS with a configured CA, and credentials
   from a file (ADR 0053).
 
-### Fixed
+### Fixed — Phase 9
 
 - The collector's ClickHouse writer panicked on its first row.
 - The shipped detection policy's window did not match the collector's,
