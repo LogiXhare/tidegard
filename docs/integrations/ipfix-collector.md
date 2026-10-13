@@ -68,7 +68,7 @@ real router at a test collector:
 cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 10
 ```
 
-See [tools/flow-replay/README.md](https://github.com/badshashorif/tidegard/blob/main/tools/flow-replay/README.md).
+See [tools/flow-replay/README.md](https://github.com/LogiXhare/tidegard/blob/main/tools/flow-replay/README.md).
 Per [../security-principles.md](../security-principles.md), never use
 real captured traffic or anything resembling attack traffic for testing —
 synthetic fixtures only.

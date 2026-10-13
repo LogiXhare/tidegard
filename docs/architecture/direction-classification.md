@@ -13,7 +13,7 @@ Status: Phase 3 — implemented in `crates/classifier`.
 | — (no local prefixes configured) | — | Unknown |
 
 "Local" means the address matched a configured prefix in the
-[`PrefixRegistry`](https://github.com/badshashorif/tidegard/blob/main/crates/classifier/src/registry.rs). `Unknown` is
+[`PrefixRegistry`](https://github.com/LogiXhare/tidegard/blob/main/crates/classifier/src/registry.rs). `Unknown` is
 returned when the registry has zero configured prefixes — direction is
 undefined without any notion of "local," so the classifier says so rather
 than guessing (Phase 3 objective 4).

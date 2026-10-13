@@ -57,7 +57,7 @@ cargo --version && rustc --version && rustfmt --version && cargo clippy --versio
 ## Clone
 
 ```bash
-git clone https://github.com/badshashorif/tidegard.git
+git clone https://github.com/LogiXhare/tidegard.git
 cd tidegard
 ```
 

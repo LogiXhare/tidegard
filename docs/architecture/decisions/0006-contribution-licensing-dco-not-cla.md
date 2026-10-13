@@ -6,8 +6,8 @@ Deciders: WeTechi Solutions (badshashorif)
 
 ## Context
 
-Tidegard is licensed under Apache-2.0 ([LICENSE](https://github.com/badshashorif/tidegard/blob/main/LICENSE),
-[NOTICE](https://github.com/badshashorif/tidegard/blob/main/NOTICE)). Until now the project had no stated position
+Tidegard is licensed under Apache-2.0 ([LICENSE](https://github.com/LogiXhare/tidegard/blob/main/LICENSE),
+[NOTICE](https://github.com/LogiXhare/tidegard/blob/main/NOTICE)). Until now the project had no stated position
 on the terms under which *incoming* contributions are accepted:
 `CONTRIBUTING.md` at the repository root covered process but not
 licensing, and there was no sign-off requirement of any kind.
@@ -34,7 +34,7 @@ remains subject to its own legal-verification caveat.
 ### Option A — DCO 1.1 sign-off, no CLA
 
 Every non-merge commit carries a `Signed-off-by` trailer certifying the
-[Developer Certificate of Origin](https://github.com/badshashorif/tidegard/blob/main/DCO): that the contributor
+[Developer Certificate of Origin](https://github.com/LogiXhare/tidegard/blob/main/DCO): that the contributor
 wrote the change, or otherwise has the right to submit it under the
 project's license. Contributions are accepted under Apache-2.0. This is
 what the Linux kernel, Git, and most CNCF projects use.

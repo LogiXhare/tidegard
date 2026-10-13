@@ -20,18 +20,6 @@
     },
     {
       "pattern": "^https://github.com/LogiXhare/tidegard/blob/"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/tidegard/security/advisories/new"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/tidegard/discussions"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/tidegard/compare/"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/tidegard/blob/"
     }
   ],
   "aliveStatusCodes": [

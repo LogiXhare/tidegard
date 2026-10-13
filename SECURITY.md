@@ -27,7 +27,7 @@ Include, where possible:
 
 This project has real, merged, tested source (Phases 0–4 and 5A) but has
 not yet cut a versioned release (no Git tag, no GitHub Release) — see
-[Project Status](https://github.com/badshashorif/tidegard#readme).
+[Project Status](https://github.com/LogiXhare/tidegard#readme).
 There is no formal SLA for response time yet. Once the first versioned
 release ships, this policy will be updated with:
 

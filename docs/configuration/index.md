@@ -7,7 +7,7 @@ configuration option is added here in the same PR that introduces it, per
 ## Telemetry Collector (`tidegard-collector`)
 
 Configuration is environment-variable-only in Phase 2 — see
-[crates/collector/README.md](https://github.com/badshashorif/tidegard/blob/main/crates/collector/README.md)
+[crates/collector/README.md](https://github.com/LogiXhare/tidegard/blob/main/crates/collector/README.md)
 "Known limitations" for why (the real Configuration Service doesn't exist
 yet). Source of truth: `crates/collector/src/config.rs`.
 
@@ -22,7 +22,7 @@ yet). Source of truth: `crates/collector/src/config.rs`.
 | Security implications | This is the collector's untrusted-input surface (see [../security-principles.md](../security-principles.md)) — binding `0.0.0.0` exposes it on every interface; bind to a specific management/telemetry interface in production. |
 | Reload requirement | Restart required — read once at process startup. |
 | Related metrics | `tidegard_collector_flow_datagrams_received_total`, `tidegard_collector_parser_failures_total` |
-| Verification command | `curl -s http://<metrics_bind>/metrics \| grep flow_datagrams_received_total` after sending test traffic — see [tools/flow-replay/README.md](https://github.com/badshashorif/tidegard/blob/main/tools/flow-replay/README.md) |
+| Verification command | `curl -s http://<metrics_bind>/metrics \| grep flow_datagrams_received_total` after sending test traffic — see [tools/flow-replay/README.md](https://github.com/LogiXhare/tidegard/blob/main/tools/flow-replay/README.md) |
 | Troubleshooting | An invalid value causes the process to log an error and exit(1) at startup rather than silently falling back — check the startup log line for `invalid configuration`. |
 
 ### `TIDEGARD_COLLECTOR_METRICS_BIND`

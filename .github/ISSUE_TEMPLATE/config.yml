@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security Vulnerability Report
-    url: https://github.com/badshashorif/tidegard/security/advisories/new
+    url: https://github.com/LogiXhare/tidegard/security/advisories/new
     about: Please do NOT open a public issue for security vulnerabilities — see SECURITY.md and use private reporting instead.
   - name: Questions and General Discussion
-    url: https://github.com/badshashorif/tidegard/discussions
+    url: https://github.com/LogiXhare/tidegard/discussions
     about: For questions and open-ended discussion, use GitHub Discussions once enabled (see SUPPORT.md).

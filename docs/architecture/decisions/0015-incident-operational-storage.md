@@ -15,7 +15,7 @@ others produces a record that is wrong in a way nobody can detect later.
 The repository already runs ClickHouse for
 `wetechinetmon_detection_events` and the Phase 3 traffic tables, so
 "reuse what we have" is the obvious first question. The
-[master prompt](https://github.com/badshashorif/tidegard/blob/main/prompts/CLAUDE_MASTER_PROMPT.md) names
+[master prompt](https://github.com/LogiXhare/tidegard/blob/main/prompts/CLAUDE_MASTER_PROMPT.md) names
 PostgreSQL for Phase 5, and this ADR should either confirm that with
 reasons or dispute it — not simply defer to it.
 

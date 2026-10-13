@@ -3,8 +3,8 @@ site_description: >-
   Independently engineered open network telemetry, DDoS detection, traffic
   analytics, and policy-controlled mitigation platform.
 site_author: WeTechi Solutions
-repo_name: badshashorif/tidegard
-repo_url: https://github.com/badshashorif/tidegard
+repo_name: LogiXhare/tidegard
+repo_url: https://github.com/LogiXhare/tidegard
 edit_uri: edit/main/docs/
 
 theme:
