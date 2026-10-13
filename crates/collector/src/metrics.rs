@@ -32,6 +32,12 @@ pub struct Metrics {
     /// see the traffic mix without needing per-kind counters wired up by
     /// hand for every future Set kind.
     pub sets_by_kind_total: IntCounterVec,
+    /// Datagrams dropped before decoding (Phase 9D, ADR 0056), labeled by
+    /// `reason`: `not_allowed` (the source is outside
+    /// `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS`) or `exporter_limit`
+    /// (a new exporter while `WETECHINETMON_COLLECTOR_MAX_EXPORTERS` are
+    /// already tracked). Two fixed values, never an address.
+    pub datagrams_refused_total: IntCounterVec,
 
     // --- Phase 3: normalization, sampling, classification, aggregation ---
     pub normalized_flows_total: IntCounter,
@@ -106,7 +112,7 @@ impl Metrics {
         )?;
         let active_exporters = IntGauge::new(
             "wetechinetmon_collector_active_exporters",
-            "Current number of exporters (source addresses) with at least one cached template.",
+            "Current number of exporters tracked: source address and observation domain pairs.",
         )?;
         let sets_by_kind_total = IntCounterVec::new(
             Opts::new(
@@ -114,6 +120,13 @@ impl Metrics {
                 "Total decoded Sets, labeled by kind.",
             ),
             &["kind"],
+        )?;
+        let datagrams_refused_total = IntCounterVec::new(
+            Opts::new(
+                "wetechinetmon_collector_datagrams_refused_total",
+                "Total datagrams dropped before decoding, labeled by reason (not_allowed, exporter_limit).",
+            ),
+            &["reason"],
         )?;
 
         let normalized_flows_total = IntCounter::new(
@@ -205,6 +218,7 @@ impl Metrics {
             template_cache_size,
             active_exporters,
             sets_by_kind_total,
+            datagrams_refused_total,
             normalized_flows_total,
             incomplete_records_total,
             unsupported_protocol_fields_total,
@@ -249,6 +263,7 @@ impl Metrics {
             Box::new(self.template_cache_size.clone()),
             Box::new(self.active_exporters.clone()),
             Box::new(self.sets_by_kind_total.clone()),
+            Box::new(self.datagrams_refused_total.clone()),
             Box::new(self.normalized_flows_total.clone()),
             Box::new(self.incomplete_records_total.clone()),
             Box::new(self.unsupported_protocol_fields_total.clone()),

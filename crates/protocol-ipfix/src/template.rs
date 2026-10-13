@@ -160,7 +160,11 @@ impl Template {
             (0, 4)
         };
 
-        let mut fields = Vec::with_capacity(field_count as usize);
+        // At most what the bytes left can hold (four per specifier): a
+        // record that claims 65,535 fields in a 20-byte set reserves no
+        // more than five.
+        let mut fields =
+            Vec::with_capacity(usize::from(field_count).min((input.len() - offset) / 4));
         for _ in 0..field_count {
             let (spec, consumed) = FieldSpecifier::parse(&input[offset..])?;
             offset += consumed;

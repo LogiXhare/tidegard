@@ -161,6 +161,7 @@ fn collector_config(url: &str, bind: SocketAddr, policy_file: &std::path::Path) 
             tenant: TENANT.to_string(),
             hostgroup: None,
         }],
+        exporters: wetechinetmon_collector::ExporterLimits::default(),
         max_hosts: 1_000,
         max_networks: 1_000,
         max_hostgroups: 100,
