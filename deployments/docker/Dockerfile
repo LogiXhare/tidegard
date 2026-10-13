@@ -24,7 +24,7 @@ LABEL org.opencontainers.image.source="https://github.com/LogiXhare/wetechi-netm
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="WeTechi Solutions" \
       org.opencontainers.image.version="${VERSION}"
-COPY LICENSE NOTICE /usr/share/doc/wetechinetmon/
+COPY LICENSE NOTICE THIRD-PARTY-NOTICES.txt THIRD-PARTY-NOTICES-WEB.txt /usr/share/doc/wetechinetmon/
 # Numeric, so a runtime can verify it is not root (runAsNonRoot).
 USER 65532:65532
 
