@@ -13,6 +13,7 @@ Markdown; the exit status is 1 when ADR 0054's pass criteria are missed.
 
 import argparse
 import json
+import math
 import os
 import platform
 import re
@@ -287,7 +288,9 @@ def soak(args):
 
 
 def rss_in_hour(samples, hour):
-    window = [s["rss_bytes"] for s in samples if hour * 3600 <= s["elapsed_seconds"] < (hour + 1) * 3600]
+    # A sample closes its interval, so the one taken at 3,600 s is the
+    # first hour's last, not the second hour's first.
+    window = [s["rss_bytes"] for s in samples if hour * 3600 < s["elapsed_seconds"] <= (hour + 1) * 3600]
     return sum(window) / len(window) if window else None
 
 
@@ -349,7 +352,7 @@ def markdown(result):
             "| Hour | Mean RSS |",
             "|---:|---:|",
         ]
-        for hour in range(int(s["hours"]) + 1):
+        for hour in range(math.ceil(s["hours"])):
             mean = rss_in_hour(result["samples"], hour)
             if mean is not None:
                 lines.append(f"| {hour + 1} | {mib(mean)} |")
