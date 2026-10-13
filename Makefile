@@ -1,7 +1,7 @@
 .PHONY: help hooks validate lint-markdown lint-yaml rust-build rust-test rust-fmt rust-clippy docs-serve docs-build clean
 
 help:
-	@echo "wetechi-netmon — targets"
+	@echo "tidegard — targets"
 	@echo ""
 	@echo "  make hooks          Enable the repo Git hooks (pre-push Rust gate)"
 	@echo "  make validate       Run all available validation (docs + Rust)"

@@ -210,12 +210,14 @@ fn known_metric(name: &str, metrics: &BTreeSet<String>) -> bool {
         })
 }
 
-/// Every `wetechinetmon_...` identifier in a query.
+/// Every product identifier in a query: a metric, `tidegard_...`, or a
+/// ClickHouse table, whose names keep the product's first name,
+/// `wetechinetmon_...`, so that renaming it lost no history (ADR 0058).
 pub fn product_identifiers(query: &str) -> Vec<String> {
-    const PREFIX: &str = "wetechinetmon_";
+    const PREFIXES: [&str; 2] = ["tidegard_", "wetechinetmon_"];
     let mut found = Vec::new();
     let mut rest = query;
-    while let Some(start) = rest.find(PREFIX) {
+    while let Some(start) = PREFIXES.iter().filter_map(|prefix| rest.find(prefix)).min() {
         let preceded_by_word = rest[..start]
             .chars()
             .next_back()
@@ -239,7 +241,7 @@ mod tests {
 
     fn known() -> Known {
         Known {
-            metrics: ["wetechinetmon_collector_queue_depth", "wetechinetmon_lat"]
+            metrics: ["tidegard_collector_queue_depth", "tidegard_lat"]
                 .map(String::from)
                 .into(),
             tables: ["wetechinetmon_host_traffic".to_string()].into(),
@@ -281,8 +283,8 @@ mod tests {
         let json = dashboard(
             "wnm-test",
             json!([
-                prometheus("sum(wetechinetmon_collector_queue_depth)"),
-                prometheus("histogram_quantile(0.9, rate(wetechinetmon_lat_bucket[5m]))"),
+                prometheus("sum(tidegard_collector_queue_depth)"),
+                prometheus("histogram_quantile(0.9, rate(tidegard_lat_bucket[5m]))"),
                 {"type": "row", "title": "R", "panels": [
                     clickhouse("SELECT 1 FROM wetechinetmon_host_traffic WHERE $__timeFilter(timestamp)")
                 ]},
@@ -296,19 +298,19 @@ mod tests {
         let json = dashboard(
             "wnm-test",
             json!([
-                prometheus("rate(wetechinetmon_renamed_total[5m])"),
+                prometheus("rate(tidegard_renamed_total[5m])"),
                 clickhouse("SELECT 1 FROM wetechinetmon_gone_traffic"),
             ]),
         );
         let found = problems(&json);
         assert_eq!(found.len(), 2, "{found:?}");
-        assert!(found[0].contains("wetechinetmon_renamed_total"));
+        assert!(found[0].contains("tidegard_renamed_total"));
         assert!(found[1].contains("wetechinetmon_gone_traffic"));
     }
 
     #[test]
     fn a_hard_coded_datasource_is_refused() {
-        let mut panel = prometheus("wetechinetmon_collector_queue_depth");
+        let mut panel = prometheus("tidegard_collector_queue_depth");
         panel["datasource"]["uid"] = json!("P1809F7CD0C75ACF3");
         let found = problems(&dashboard("wnm-test", json!([panel])));
         assert!(
@@ -320,7 +322,7 @@ mod tests {
     #[test]
     fn uids_are_checked_for_form_and_uniqueness() {
         let mut seen = BTreeSet::new();
-        let panels = json!([prometheus("wetechinetmon_collector_queue_depth")]);
+        let panels = json!([prometheus("tidegard_collector_queue_depth")]);
         let first = check_dashboard(
             "a.json",
             &dashboard("wnm-a", panels.clone()),
@@ -361,8 +363,8 @@ mod tests {
     #[test]
     fn identifiers_are_whole_words() {
         assert_eq!(
-            product_identifiers("sum(xwetechinetmon_a) + wetechinetmon_b_total{x=\"y\"}"),
-            vec!["wetechinetmon_b_total".to_string()]
+            product_identifiers("sum(xtidegard_a) + tidegard_b_total{x=\"y\"}"),
+            vec!["tidegard_b_total".to_string()]
         );
     }
 }

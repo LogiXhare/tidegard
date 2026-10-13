@@ -23,12 +23,12 @@
 
 use std::time::SystemTime;
 
+use tidegard_incident::correlation::{CorrelationKey, TenantId};
+use tidegard_incident::durable_time::DurableTimestamp;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::incident::Incident;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::{GenericClient, Row};
-use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
-use wetechinetmon_incident::durable_time::DurableTimestamp;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::incident::Incident;
 
 use crate::error::PersistError;
 use crate::row::{

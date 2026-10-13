@@ -4,7 +4,7 @@
 
 **Planned for:** As supplied by WeTechi Solutions (see [../docs/roadmap.md](../docs/roadmap.md)).
 
-Logos, color palette, and brand assets for WetechiNetMon. See docs/naming-and-branding.md.
+Logos, color palette, and brand assets for Tidegard. See docs/naming-and-branding.md.
 
 This directory is intentionally a placeholder as of Phase 1
 (repository and documentation foundation). No production code has been

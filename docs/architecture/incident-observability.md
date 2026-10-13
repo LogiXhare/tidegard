@@ -16,63 +16,63 @@ which a test enforces. The rest of this page is still the plan.
 
 ## Metrics
 
-Prefix `wetechinetmon_incident_*`, matching the
-`wetechinetmon_<component>_*` convention that ADR 0009's naming decision
-established and that Phase 4's `wetechinetmon_detector_*` follows.
+Prefix `tidegard_incident_*`, matching the
+`tidegard_<component>_*` convention that ADR 0009's naming decision
+established and that Phase 4's `tidegard_detector_*` follows.
 
 ### Counters
 
 | Metric | Labels |
 |---|---|
-| `wetechinetmon_incident_events_ingested_total` | `result` |
-| `wetechinetmon_incident_events_duplicate_total` | — |
-| `wetechinetmon_incident_events_late_total` | — |
-| `wetechinetmon_incident_events_rejected_total` | `reason` |
-| `wetechinetmon_incident_events_quarantined_total` | `reason` |
-| `wetechinetmon_incidents_opened_total` | `severity`, `category` |
-| `wetechinetmon_incidents_acknowledged_total` | `severity` |
-| `wetechinetmon_incidents_resolved_total` | `severity`, `result` |
-| `wetechinetmon_incidents_closed_total` | `severity`, `closure_reason` |
-| `wetechinetmon_incidents_reopened_total` | `severity` |
-| `wetechinetmon_incidents_suppressed_total` | `severity` |
-| `wetechinetmon_incident_state_transitions_total` | `from`, `to`, `actor_type` |
-| `wetechinetmon_incident_command_conflicts_total` | `command`, `reason` |
-| `wetechinetmon_incident_commands_total` | `command`, `result` |
-| `wetechinetmon_incident_authz_denied_total` | `permission` |
-| `wetechinetmon_incident_repository_failures_total` | `operation` |
-| `wetechinetmon_incident_audit_failures_total` | — |
-| `wetechinetmon_incident_outbox_published_total` | `event_type`, `result` |
-| `wetechinetmon_incident_outbox_failures_total` | `event_type` |
-| `wetechinetmon_incident_dead_letter_total` | `reason` |
-| `wetechinetmon_incident_limit_reached_total` | `limit` |
+| `tidegard_incident_events_ingested_total` | `result` |
+| `tidegard_incident_events_duplicate_total` | — |
+| `tidegard_incident_events_late_total` | — |
+| `tidegard_incident_events_rejected_total` | `reason` |
+| `tidegard_incident_events_quarantined_total` | `reason` |
+| `tidegard_incidents_opened_total` | `severity`, `category` |
+| `tidegard_incidents_acknowledged_total` | `severity` |
+| `tidegard_incidents_resolved_total` | `severity`, `result` |
+| `tidegard_incidents_closed_total` | `severity`, `closure_reason` |
+| `tidegard_incidents_reopened_total` | `severity` |
+| `tidegard_incidents_suppressed_total` | `severity` |
+| `tidegard_incident_state_transitions_total` | `from`, `to`, `actor_type` |
+| `tidegard_incident_command_conflicts_total` | `command`, `reason` |
+| `tidegard_incident_commands_total` | `command`, `result` |
+| `tidegard_incident_authz_denied_total` | `permission` |
+| `tidegard_incident_repository_failures_total` | `operation` |
+| `tidegard_incident_audit_failures_total` | — |
+| `tidegard_incident_outbox_published_total` | `event_type`, `result` |
+| `tidegard_incident_outbox_failures_total` | `event_type` |
+| `tidegard_incident_dead_letter_total` | `reason` |
+| `tidegard_incident_limit_reached_total` | `limit` |
 
 ### Gauges
 
 | Metric | Labels |
 |---|---|
-| `wetechinetmon_incidents_active` | `state`, `severity` |
-| `wetechinetmon_incidents_unassigned` | `severity` |
-| `wetechinetmon_incident_outbox_pending` | — |
-| `wetechinetmon_incident_dead_letter_pending` | — |
-| `wetechinetmon_incident_inbox_pending` | — |
-| `wetechinetmon_incident_timeline_pressure` | — |
-| `wetechinetmon_incident_oldest_unacknowledged_seconds` | `severity` |
+| `tidegard_incidents_active` | `state`, `severity` |
+| `tidegard_incidents_unassigned` | `severity` |
+| `tidegard_incident_outbox_pending` | — |
+| `tidegard_incident_dead_letter_pending` | — |
+| `tidegard_incident_inbox_pending` | — |
+| `tidegard_incident_timeline_pressure` | — |
+| `tidegard_incident_oldest_unacknowledged_seconds` | `severity` |
 
 ### Histograms
 
 | Metric | Labels |
 |---|---|
-| `wetechinetmon_incident_correlation_duration_seconds` | `outcome` |
-| `wetechinetmon_incident_command_duration_seconds` | `command` |
-| `wetechinetmon_incident_detection_to_open_seconds` | `severity` |
-| `wetechinetmon_incident_time_to_acknowledge_seconds` | `severity` |
-| `wetechinetmon_incident_time_to_resolve_seconds` | `severity` |
-| `wetechinetmon_incident_time_to_close_seconds` | `severity` |
+| `tidegard_incident_correlation_duration_seconds` | `outcome` |
+| `tidegard_incident_command_duration_seconds` | `command` |
+| `tidegard_incident_detection_to_open_seconds` | `severity` |
+| `tidegard_incident_time_to_acknowledge_seconds` | `severity` |
+| `tidegard_incident_time_to_resolve_seconds` | `severity` |
+| `tidegard_incident_time_to_close_seconds` | `severity` |
 
 ### Cardinality
 
 Every label is a **closed set**, following the discipline Phase 4 applied
-to `wetechinetmon_detector_*`:
+to `tidegard_detector_*`:
 
 | Label | Values |
 |---|---|
@@ -95,11 +95,11 @@ ClickHouse, which is built for exactly that.
 
 Because critical incidents never auto-close (BQ-8), a
 resolved-but-unclosed backlog is now an expected steady state rather than
-an anomaly. `wetechinetmon_incidents_active{state="resolved"}` is what
+an anomaly. `tidegard_incidents_active{state="resolved"}` is what
 makes it visible, and the alert above is what stops it becoming a place
 incidents go to be forgotten.
 
-`wetechinetmon_incident_timeline_pressure` exists because the timeline is
+`tidegard_incident_timeline_pressure` exists because the timeline is
 never truncated: it reports the largest timeline size so an operator is
 alerted before an incident becomes unmanageable, rather than discovering
 it when a query times out.

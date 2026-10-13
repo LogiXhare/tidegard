@@ -7,7 +7,7 @@ sync with it.
 
 ## Delivery Model
 
-WetechiNetMon is built in explicit, sequential phases. A phase does not
+Tidegard is built in explicit, sequential phases. A phase does not
 begin until the previous one has documented output, acceptance criteria,
 passing tests, a summary, a decision record, a commit, and updated
 documentation. See [docs/acceptance-criteria.md](docs/acceptance-criteria.md).

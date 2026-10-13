@@ -1,7 +1,7 @@
 # Monitoring Detection
 
 Every metric below is exposed on the collector's existing `/metrics`
-endpoint and is prefixed `wetechinetmon_detector_`. None appears until a
+endpoint and is prefixed `tidegard_detector_`. None appears until a
 policy document is configured — if you see no detector metrics at all,
 detection is off.
 
@@ -36,11 +36,11 @@ for.
 **`state_table_full_total` increasing.** This is an availability
 problem, not a tuning nit — the detector is refusing to track new scopes,
 so a real attack on a newly seen address will not be detected. Raise
-`WETECHINETMON_COLLECTOR_DETECTION_MAX_SCOPES`, or find out why the
+`TIDEGARD_COLLECTOR_DETECTION_MAX_SCOPES`, or find out why the
 distinct-address count grew.
 
 ```promql
-increase(wetechinetmon_detector_state_table_full_total[15m]) > 0
+increase(tidegard_detector_state_table_full_total[15m]) > 0
 ```
 
 **`events_failed_total` increasing.** An alert nobody received. Check
@@ -48,21 +48,21 @@ which sink from the `sink` label — `clickhouse` usually means the export
 buffer filled because ClickHouse is slow or down.
 
 ```promql
-increase(wetechinetmon_detector_events_failed_total[5m]) > 0
+increase(tidegard_detector_events_failed_total[5m]) > 0
 ```
 
 **`detections_stale_total` increasing while traffic looks normal.** Either
 attacks really are ending by their source going silent, or an exporter
 stopped sending. Cross-check against
-`wetechinetmon_collector_flow_datagrams_received_total`.
+`tidegard_collector_flow_datagrams_received_total`.
 
 **`snapshots_ignored_total{reason="windowMismatch"}` non-zero.** Your
 policies' `window` does not match
-`WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS`. Nothing is being
+`TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS`. Nothing is being
 evaluated. This should be zero always.
 
 ```promql
-wetechinetmon_detector_snapshots_ignored_total{reason="windowMismatch"} > 0
+tidegard_detector_snapshots_ignored_total{reason="windowMismatch"} > 0
 ```
 
 ## What to watch while tuning

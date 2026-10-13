@@ -5,7 +5,7 @@
 //! generated in.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -14,16 +14,16 @@ mod support;
 use std::sync::Arc;
 
 use support::{all_scopes, event};
+use tidegard_detector::{EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_incident_postgres::sql::{load_incident, Locking};
 use tokio_postgres::Client;
 use uuid::Uuid;
-use wetechinetmon_detector::{EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_incident_postgres::sql::{load_incident, Locking};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 async fn connect(url: &str) -> Client {
     let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls)
@@ -52,7 +52,7 @@ async fn uuidv7_incident_ids_round_trip_through_the_native_uuid_column() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");

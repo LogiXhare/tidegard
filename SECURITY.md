@@ -27,7 +27,7 @@ Include, where possible:
 
 This project has real, merged, tested source (Phases 0–4 and 5A) but has
 not yet cut a versioned release (no Git tag, no GitHub Release) — see
-[Project Status](https://github.com/badshashorif/wetechi-netmon#readme).
+[Project Status](https://github.com/LogiXhare/tidegard#readme).
 There is no formal SLA for response time yet. Once the first versioned
 release ships, this policy will be updated with:
 
@@ -38,7 +38,7 @@ release ships, this policy will be updated with:
 
 ## Scope
 
-WetechiNetMon's largest attack surface is the Telemetry Collector, which
+Tidegard's largest attack surface is the Telemetry Collector, which
 parses untrusted UDP input from network exporters (IPFIX/NetFlow/sFlow).
 See [docs/security-principles.md](docs/security-principles.md) for the
 current threat model. Reports concerning parser safety, template-cache

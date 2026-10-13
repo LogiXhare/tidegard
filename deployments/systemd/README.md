@@ -3,7 +3,7 @@
 **Status:** Implemented in Phase 9A-2
 ([ADR 0052](../../docs/architecture/decisions/0052-phase9a-packaging.md)).
 
-The release tarball installs WetechiNetMon on Ubuntu 22.04 or 24.04, or
+The release tarball installs Tidegard on Ubuntu 22.04 or 24.04, or
 Debian 12 or 13, as five systemd services. `scripts/package.sh` builds
 the tarball from this directory and
 [`../config`](../config), and CI installs every build with `install.sh`
@@ -13,31 +13,31 @@ writes the third-party licence notices the tarball ships.
 
 | File | Installed as |
 |---|---|
-| `units/wetechinetmon-*.service` | `/etc/systemd/system/` |
-| `wetechinetmon.sysusers` | `/etc/sysusers.d/wetechinetmon.conf`: one system user per service, and the `wetechinetmon-guard` group the API and the mitigator share |
-| `env/*.env` | `/etc/wetechinetmon/`, mode `0600`, root only: systemd reads them before dropping privileges |
-| `../config/*.json` | `/etc/wetechinetmon/`, mode `0640`, readable by the service that uses each |
+| `units/tidegard-*.service` | `/etc/systemd/system/` |
+| `tidegard.sysusers` | `/etc/sysusers.d/tidegard.conf`: one system user per service, and the `tidegard-guard` group the API and the mitigator share |
+| `env/*.env` | `/etc/tidegard/`, mode `0600`, root only: systemd reads them before dropping privileges |
+| `../config/*.json` | `/etc/tidegard/`, mode `0640`, readable by the service that uses each |
 | `install.sh` | Run from the unpacked tarball |
 
 ## Installing
 
 ```bash
-tar -xzf wetechinetmon-<version>-linux-$(uname -m).tar.gz
-sudo ./wetechinetmon-<version>-linux-$(uname -m)/install.sh
+tar -xzf tidegard-<version>-linux-$(uname -m).tar.gz
+sudo ./tidegard-<version>-linux-$(uname -m)/install.sh
 ```
 
-`install.sh` puts the binaries and the web UI in `/opt/wetechinetmon`,
+`install.sh` puts the binaries and the web UI in `/opt/tidegard`,
 creates the users, copies each example setting only where none exists,
 and installs the units. It enables and starts nothing. Then:
 
 1. Create the PostgreSQL role and database, as the
    [installation guide](../../docs/installation/incident-management.md)
    describes.
-2. Replace every `CHANGE_ME` in `/etc/wetechinetmon/*.env`. Off this
+2. Replace every `CHANGE_ME` in `/etc/tidegard/*.env`. Off this
    host, set the CA file too: plaintext reaches loopback only.
-3. `systemctl enable --now wetechinetmon-incident-manager`, which applies
+3. `systemctl enable --now tidegard-incident-manager`, which applies
    the migrations.
-4. `systemctl enable --now wetechinetmon-api wetechinetmon-collector`.
+4. `systemctl enable --now tidegard-api tidegard-collector`.
 5. The notifier and the mitigator when you need them. The mitigator ships
    dry-run with BGP off: read the
    [mitigation installation guide](../../docs/installation/mitigation.md)

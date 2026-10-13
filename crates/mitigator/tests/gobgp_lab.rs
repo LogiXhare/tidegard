@@ -1,20 +1,20 @@
 //! Phase 7C (ADR 0048): every action is announced to a real `gobgpd`,
 //! read back with its attributes, and withdrawn. A route without the
-//! ownership community is never listed as WetechiNetMon's.
+//! ownership community is never listed as Tidegard's.
 //!
-//! Needs `WETECHINETMON_GOBGP_TEST_ENDPOINT`, a throwaway `gobgpd` on
+//! Needs `TIDEGARD_GOBGP_TEST_ENDPOINT`, a throwaway `gobgpd` on
 //! loopback (`http://127.0.0.1:50051`) that this test fills and empties.
 //! Without it the test says why and passes; CI starts one and fails on the
 //! skip message. Only documentation prefixes and private ASNs are used.
 
-use wetechinetmon_mitigation::{Action, FlowMatch, Prefix};
-use wetechinetmon_mitigator::api;
-use wetechinetmon_mitigator::api::attribute::Attr;
-use wetechinetmon_mitigator::api::extended_community::Extcom;
-use wetechinetmon_mitigator::gobgp::{GoBgp, GoBgpEndpoint};
-use wetechinetmon_mitigator::route::{announcement, withdrawal, RouteConfig, BLACKHOLE, NO_EXPORT};
+use tidegard_mitigation::{Action, FlowMatch, Prefix};
+use tidegard_mitigator::api;
+use tidegard_mitigator::api::attribute::Attr;
+use tidegard_mitigator::api::extended_community::Extcom;
+use tidegard_mitigator::gobgp::{GoBgp, GoBgpEndpoint};
+use tidegard_mitigator::route::{announcement, withdrawal, RouteConfig, BLACKHOLE, NO_EXPORT};
 
-const ENDPOINT_VAR: &str = "WETECHINETMON_GOBGP_TEST_ENDPOINT";
+const ENDPOINT_VAR: &str = "TIDEGARD_GOBGP_TEST_ENDPOINT";
 
 fn p(text: &str) -> Prefix {
     text.parse().unwrap()

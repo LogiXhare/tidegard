@@ -2,7 +2,7 @@
 
 Status: Phase 7F.
 
-BGP FlowSpec (RFC 8955 for IPv4, RFC 8956 for IPv6), as WetechiNetMon uses
+BGP FlowSpec (RFC 8955 for IPv4, RFC 8956 for IPv6), as Tidegard uses
 it. FlowSpec tells your edge routers to drop or rate-limit only the
 traffic that matches a rule, such as UDP from port 53 to one host, so the
 victim stays reachable. Read the [RTBH guide](rtbh-guide.md) first: the
@@ -37,7 +37,7 @@ For example, to rate-limit DNS reflection towards one host to
 1 Mbit/s:
 
 ```sh
-wetechinetmonctl mitigations request --prefix 203.0.113.9/32 \
+tidegardctl mitigations request --prefix 203.0.113.9/32 \
   --action flowspec_rate_limit --protocol 17 --source-port 53 \
   --rate 125000 --for 30m --reason "DNS reflection, WNM-2026-000123"
 ```
@@ -52,7 +52,7 @@ with its `traffic-rate`, and nothing after withdrawal
 ## What your edge routers must do
 
 1. **Negotiate FlowSpec** (`ipv4-flowspec` and, if you use it,
-   `ipv6-flowspec`) on the iBGP session with WetechiNetMon's `gobgpd`.
+   `ipv6-flowspec`) on the iBGP session with Tidegard's `gobgpd`.
 2. **Install FlowSpec rules in the forwarding plane** on the interfaces
    that face your upstreams. Many platforms need this turned on per
    interface or globally, and some limit how many rules the hardware
@@ -60,7 +60,7 @@ with its `traffic-rate`, and nothing after withdrawal
 3. **Validation.** RFC 8955's validation compares a rule with the best
    unicast route to its destination. Platforms differ in how they apply
    it to rules from an iBGP peer that does not carry the unicast route.
-   Configure the session so that rules from WetechiNetMon are accepted,
+   Configure the session so that rules from Tidegard are accepted,
    and import **only** rules whose destination is inside your own space.
 4. **Never send these rules to another AS** unless you have arranged it
    with that network.

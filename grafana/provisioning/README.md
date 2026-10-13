@@ -1,13 +1,13 @@
 # Grafana Provisioning
 
-Example provisioning for the [WetechiNetMon dashboards](../dashboards/).
+Example provisioning for the [Tidegard dashboards](../dashboards/).
 Grafana is not shipped: you run your own, and load these files into it
 ([ADR 0041](../../docs/architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)).
 
 | File | What it does |
 |---|---|
-| `dashboards/wetechinetmon.yaml` | Loads every JSON file from `/var/lib/grafana/dashboards/wetechinetmon` into a `WetechiNetMon` folder, read-only |
-| `datasources/wetechinetmon.yaml` | An example Prometheus and ClickHouse datasource, configured from the environment |
+| `dashboards/tidegard.yaml` | Loads every JSON file from `/var/lib/grafana/dashboards/tidegard` into a `Tidegard` folder, read-only |
+| `datasources/tidegard.yaml` | An example Prometheus and ClickHouse datasource, configured from the environment |
 
 The ClickHouse datasource needs the `grafana-clickhouse-datasource`
 plugin (Apache-2.0). CI tests with version 4.21.3.

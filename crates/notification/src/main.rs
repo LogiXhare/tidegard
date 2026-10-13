@@ -3,8 +3,8 @@
 
 #[tokio::main]
 async fn main() {
-    wetechinetmon_common::logging::init();
-    let config = wetechinetmon_notification::Config::from_env().unwrap_or_else(|error| {
+    tidegard_common::logging::init();
+    let config = tidegard_notification::Config::from_env().unwrap_or_else(|error| {
         tracing::error!(error = %error, "invalid configuration");
         std::process::exit(1);
     });
@@ -13,13 +13,13 @@ async fn main() {
         metrics_bind = %config.metrics_bind,
         channels = config.file.channels.len(),
         routes = config.file.routes.len(),
-        "starting wetechinetmon-notifier"
+        "starting tidegard-notifier"
     );
-    if let Err(error) = wetechinetmon_notification::run(config, shutdown_signal()).await {
-        tracing::error!(error = %error, "wetechinetmon-notifier could not start");
+    if let Err(error) = tidegard_notification::run(config, shutdown_signal()).await {
+        tracing::error!(error = %error, "tidegard-notifier could not start");
         std::process::exit(1);
     }
-    tracing::info!("wetechinetmon-notifier stopped");
+    tracing::info!("tidegard-notifier stopped");
 }
 
 /// Ctrl+C, or SIGTERM on Unix (what systemd and containers send).

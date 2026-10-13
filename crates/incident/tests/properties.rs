@@ -26,17 +26,17 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use proptest::prelude::*;
-use wetechinetmon_detector::{
+use tidegard_detector::{
     ActionTaken, AddressFamily, Clock, DataCompleteness, DetectionEvent, DetectionState, EventKind,
     EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates, SamplingStatus, ScopeId,
     ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
 };
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::category::IncidentCategory;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::TestIncidentGenerator;
-use wetechinetmon_incident::number::InMemoryNumberAllocator;
-use wetechinetmon_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::category::IncidentCategory;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::TestIncidentGenerator;
+use tidegard_incident::number::InMemoryNumberAllocator;
+use tidegard_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
 
 fn event_with_metric(
     detection_id: &str,
@@ -46,7 +46,7 @@ fn event_with_metric(
     observed: u64,
 ) -> DetectionEvent {
     DetectionEvent {
-        schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+        schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
         event_id: format!("{detection_id}-{sequence}"),
         detection_id: detection_id.to_string(),
         sequence,

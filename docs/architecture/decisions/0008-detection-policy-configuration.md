@@ -6,7 +6,7 @@ Deciders: WeTechi Solutions (badshashorif)
 
 ## Context
 
-Detection policies are the first thing in WetechiNetMon an operator
+Detection policies are the first thing in Tidegard an operator
 writes by hand. Everything configured so far — bind addresses, map
 caps, local prefixes — fits in environment variables, which is why the
 collector has [no config file at all](../../configuration/index.md). A

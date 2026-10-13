@@ -132,7 +132,7 @@ criteria.
   correlation IDs
 - FR-8.4 Internal gRPC API for service-to-service communication
 
-## FR-9 CLI (`wetechinetmonctl`)
+## FR-9 CLI (`tidegardctl`)
 
 - FR-9.1 Original command surface (see master prompt section 14) covering
   health, version, exporters, traffic, incidents, mitigations, bgp,

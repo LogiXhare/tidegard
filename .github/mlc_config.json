@@ -7,31 +7,19 @@
       "pattern": "^http://localhost"
     },
     {
-      "pattern": "^https://github.com/LogiXhare/wetechi-netmon/security/advisories/new"
+      "pattern": "^https://github.com/LogiXhare/tidegard/security/advisories/new"
     },
     {
-      "pattern": "^https://github.com/LogiXhare/wetechi-netmon/discussions"
+      "pattern": "^https://github.com/LogiXhare/tidegard/discussions"
     },
     {
-      "pattern": "^https://github.com/LogiXhare/wetechi-netmon/compare/"
+      "pattern": "^https://github.com/LogiXhare/tidegard/compare/"
     },
     {
-      "pattern": "^https://github.com/LogiXhare/wetechi-netmon/releases/"
+      "pattern": "^https://github.com/LogiXhare/tidegard/releases/"
     },
     {
-      "pattern": "^https://github.com/LogiXhare/wetechi-netmon/blob/"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/wetechi-netmon/security/advisories/new"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/wetechi-netmon/discussions"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/wetechi-netmon/compare/"
-    },
-    {
-      "pattern": "^https://github.com/badshashorif/wetechi-netmon/blob/"
+      "pattern": "^https://github.com/LogiXhare/tidegard/blob/"
     }
   ],
   "aliveStatusCodes": [

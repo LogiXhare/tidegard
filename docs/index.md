@@ -1,8 +1,8 @@
-# WetechiNetMon Documentation
+# Tidegard Documentation
 
 **See Every Flow. Defend Every Network.**
 
-WetechiNetMon is an independently engineered open network telemetry, DDoS
+Tidegard is an independently engineered open network telemetry, DDoS
 detection, traffic analytics, and policy-controlled mitigation platform,
 built by WeTechi Solutions.
 
@@ -11,7 +11,7 @@ built by WeTechi Solutions.
 > (PostgreSQL persistence) is in planning. There is no packaged release,
 > HTTP API, or notification/mitigation implementation yet. See
 > [product-charter.md](product-charter.md) and the repository
-> [README](https://github.com/badshashorif/wetechi-netmon#readme) for
+> [README](https://github.com/LogiXhare/tidegard#readme) for
 > full context.
 
 ## Start Here
@@ -26,7 +26,7 @@ built by WeTechi Solutions.
 ## Section Index
 
 This site mirrors the `docs/` directory of the
-[wetechi-netmon](https://github.com/badshashorif/wetechi-netmon)
+[tidegard](https://github.com/LogiXhare/tidegard)
 repository. Use the navigation to browse Product Foundation, Requirements,
 Architecture, Security, Licensing, Planning, and the per-phase technical
 sections (Installation, Configuration, Integrations, Operations, API

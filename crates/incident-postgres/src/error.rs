@@ -1,7 +1,7 @@
 //! Errors from mapping incidents to rows and from the SQL that stores them.
 
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::IncidentId;
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::IncidentId;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PersistError {

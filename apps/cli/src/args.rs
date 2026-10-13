@@ -1,6 +1,6 @@
 //! The command line, parsed by hand (ADR 0040).
 //!
-//! `wetechinetmonctl [GLOBAL FLAGS] <noun> <verb> [ARGUMENTS] [FLAGS]`, where
+//! `tidegardctl [GLOBAL FLAGS] <noun> <verb> [ARGUMENTS] [FLAGS]`, where
 //! the noun is `incidents`, `mitigations`, `kill-switch` or `bgp`.
 //! Flags may sit anywhere after the program name. An unknown flag, a
 //! missing value, a flag the verb does not take, or a stray argument is a
@@ -273,7 +273,7 @@ fn usage(text: impl Into<String>) -> UsageError {
 }
 
 pub const USAGE: &str = "\
-Usage: wetechinetmonctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
+Usage: tidegardctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
 
 Reading:
   incidents list [--state S] [--severity S] [--priority P] [--direction D]
@@ -331,14 +331,14 @@ Mitigations (BGP, ADR 0050):
 
   A request announces nothing: a noc_lead approves it, then the mitigator
   announces it. Releasing the kill switch is host-only:
-  wetechinetmon-api kill-switch release, on the API host.
+  tidegard-api kill-switch release, on the API host.
 
 INCIDENT is an incident id or number, such as WNM-2026-000123.
 MITIGATION is a mitigation id, as mitigations list shows it.
 --state, --severity and --priority repeat, or take a comma-separated list.
 
-Credentials are never flags. Set WETECHINETMON_API_TOKEN, or a profile in
-the config file (WETECHINETMON_CONFIG). See apps/cli/README.md.
+Credentials are never flags. Set TIDEGARD_API_TOKEN, or a profile in
+the config file (TIDEGARD_CONFIG). See apps/cli/README.md.
 ";
 
 /// Every flag that takes a value, as `(flag, name)`. Which verb accepts
@@ -527,7 +527,7 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
         if CREDENTIAL_FLAGS.contains(&name) {
             return Err(usage(format!(
                 "{name} is not accepted: credentials on the command line land in shell \
-                 history. Set WETECHINETMON_API_TOKEN or use a profile."
+                 history. Set TIDEGARD_API_TOKEN or use a profile."
             )));
         }
         let mut value = |name: &str| -> Result<String, UsageError> {
@@ -874,7 +874,7 @@ fn mitigation_command(words: &[&str], mut flags: Flags) -> Result<Command, Usage
         ["kill-switch", "release", ..] => {
             return Err(usage(
                 "kill-switch release is host-only, and no API token may release it. On the \
-                 API host, run wetechinetmon-api kill-switch release --actor-id ID --reason TEXT",
+                 API host, run tidegard-api kill-switch release --actor-id ID --reason TEXT",
             ))
         }
         ["bgp", "routes"] => {
@@ -1370,7 +1370,7 @@ mod tests {
             "--api-token=wnm_x incidents list",
         ] {
             let error = run(line).unwrap_err();
-            assert!(error.0.contains("WETECHINETMON_API_TOKEN"), "{}", error.0);
+            assert!(error.0.contains("TIDEGARD_API_TOKEN"), "{}", error.0);
             assert!(!error.0.contains("wnm_x"), "the secret is never echoed");
         }
     }

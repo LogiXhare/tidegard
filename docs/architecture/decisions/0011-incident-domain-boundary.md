@@ -125,7 +125,7 @@ decision — see **BQ-7** and
 
 Accepted as implemented in Phase 5:
 
-- `wetechinetmon-incident` is its own crate and consumes the detector's
+- `tidegard-incident` is its own crate and consumes the detector's
   `DetectionEvent` only. The detector does not depend on it.
 - The safety property is checked, not asserted.
   `crates/incident/tests/dependency_closure.rs` holds the detector's and

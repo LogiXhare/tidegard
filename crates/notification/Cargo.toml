@@ -1,5 +1,5 @@
 [package]
-name = "wetechinetmon-notification"
+name = "tidegard-notification"
 description = "The notifier: delivers incident outbox events to webhook, Slack, Teams and Telegram, with SSRF and storm controls (ADR 0045)."
 version.workspace = true
 edition.workspace = true
@@ -7,13 +7,13 @@ license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "wetechinetmon-notifier"
+name = "tidegard-notifier"
 path = "src/main.rs"
 
 [dependencies]
-wetechinetmon-common = { path = "../common", features = ["metrics-server"] }
-wetechinetmon-incident = { path = "../incident" }
-wetechinetmon-incident-postgres = { path = "../incident-postgres" }
+tidegard-common = { path = "../common", features = ["metrics-server"] }
+tidegard-incident = { path = "../incident" }
+tidegard-incident-postgres = { path = "../incident-postgres" }
 deadpool-postgres.workspace = true
 tokio-postgres.workspace = true
 tokio.workspace = true
@@ -39,8 +39,8 @@ lettre = { version = "0.11.23", default-features = false, features = ["builder",
 [dev-dependencies]
 # Local mock channels for the tests: nothing leaves the machine.
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
-wetechinetmon-detector = { path = "../detector" }
+tidegard-detector = { path = "../detector" }
 # tests/mitigation_notices.rs requests a mitigation and engages the kill switch.
-wetechinetmon-mitigation = { path = "../mitigation" }
+tidegard-mitigation = { path = "../mitigation" }
 # tests/delivery.rs captures the log to prove no channel secret reaches it.
 tracing-subscriber.workspace = true

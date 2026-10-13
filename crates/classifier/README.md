@@ -12,7 +12,7 @@ and traffic direction classification
 ## Testing
 
 ```bash
-cargo test -p wetechinetmon-classifier
+cargo test -p tidegard-classifier
 ```
 
 29 tests: trie insertion/lookup/overlap/duplicate detection, registry

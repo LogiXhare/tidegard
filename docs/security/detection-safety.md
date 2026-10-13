@@ -8,8 +8,8 @@ are structural rather than behavioural.
 This is the important one, and it is a property of the dependency graph
 rather than a runtime check.
 
-`wetechinetmon-detector` depends on `wetechinetmon-common`,
-`wetechinetmon-classifier`, `wetechinetmon-aggregator`, `serde`,
+`tidegard-detector` depends on `tidegard-common`,
+`tidegard-classifier`, `tidegard-aggregator`, `serde`,
 `serde_json`, `thiserror`, and `tracing`. None of these can open a socket
 to a network device, execute a command, or announce a route. There is no
 flag to flip and no configuration that changes it.
@@ -73,7 +73,7 @@ block is populated; omitting it skips the check.
 distinct addresses will fill both the windowing maps and the state
 table. Both are bounded and neither grows without limit. The windowing
 maps evict; the state table refuses new scopes and counts each refusal
-as `wetechinetmon_detector_state_table_full_total`.
+as `tidegard_detector_state_table_full_total`.
 
 **Each refusal is a detection that could not be opened**, so that
 counter being non-zero is an availability problem, not a tuning nit.

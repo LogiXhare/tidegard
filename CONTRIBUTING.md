@@ -1,4 +1,4 @@
-# Contributing to WetechiNetMon
+# Contributing to Tidegard
 
 Thank you for considering a contribution. This document covers process;
 for what the project is and why, start with
@@ -7,7 +7,7 @@ for what the project is and why, start with
 ## Before You Start
 
 1. Read [docs/clean-room-boundary.md](docs/clean-room-boundary.md) in
-   full. This is not optional. WetechiNetMon must remain an independently
+   full. This is not optional. Tidegard must remain an independently
    engineered, clean-room implementation — contributions that copy,
    translate, or closely imitate any proprietary product's code, schemas,
    configuration syntax, CLI syntax, dashboards, or documentation will be
@@ -24,7 +24,7 @@ for what the project is and why, start with
 
 ## Licensing and Sign-Off (DCO)
 
-WetechiNetMon is licensed under Apache-2.0 (see [LICENSE](LICENSE) and
+Tidegard is licensed under Apache-2.0 (see [LICENSE](LICENSE) and
 [NOTICE](NOTICE)), and contributions are accepted under that same
 license. Contributing does not transfer your copyright — you keep it,
 and the Apache-2.0 grant is what lets the project ship your work.

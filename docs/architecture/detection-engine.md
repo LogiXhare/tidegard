@@ -225,7 +225,7 @@ Two bounds, deliberately behaving differently:
   tracked one. LRU eviction there would silently discard an open
   detection and its end event, turning a memory bound into a correctness
   bug. Refusals are counted as
-  `wetechinetmon_detector_state_table_full_total` — each one is a
+  `tidegard_detector_state_table_full_total` — each one is a
   detection that could not be opened.
 
 ## Events

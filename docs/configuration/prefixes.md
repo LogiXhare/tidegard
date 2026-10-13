@@ -3,17 +3,17 @@
 Status: Phase 3. See [../architecture/direction-classification.md](../architecture/direction-classification.md)
 for the design behind this.
 
-## `WETECHINETMON_COLLECTOR_LOCAL_PREFIXES`
+## `TIDEGARD_COLLECTOR_LOCAL_PREFIXES`
 
 | Field | Value |
 |---|---|
 | Type | Comma-separated list of `network/prefix_len[@tenant[@hostgroup]]` entries |
 | Default | Empty (no local prefixes — every flow classifies as `Unknown`) |
 | Allowed values | Valid IPv4 or IPv6 network + prefix length; `tenant` defaults to `"default"`; `hostgroup` defaults to none |
-| Example | `WETECHINETMON_COLLECTOR_LOCAL_PREFIXES=10.0.0.0/8@wetechi@core,2001:db8::/32@wetechi@core-v6` |
+| Example | `TIDEGARD_COLLECTOR_LOCAL_PREFIXES=10.0.0.0/8@wetechi@core,2001:db8::/32@wetechi@core-v6` |
 | Security implications | None directly — this is classification metadata, not an access-control boundary |
 | Reload requirement | Restart required — read once at process startup |
-| Related metrics | `wetechinetmon_collector_prefix_lookup_failures_total`, `wetechinetmon_collector_classified_flows_by_direction_total{direction="unknown"}` |
+| Related metrics | `tidegard_collector_prefix_lookup_failures_total`, `tidegard_collector_classified_flows_by_direction_total{direction="unknown"}` |
 | Verification command | `curl -s http://<metrics_bind>/metrics \| grep classified_flows_by_direction` after sending known-local/known-external test traffic via `tools/flow-replay` |
 | Troubleshooting | An invalid entry (bad prefix length, unparseable address) causes the collector to log the bad entry and start with an otherwise-valid registry (or empty, if every entry is bad) — check startup logs for `invalid local-prefix configuration entry` |
 
@@ -39,7 +39,7 @@ current usage.
 ## What Happens With No Prefixes Configured
 
 Every flow classifies as `Direction::Unknown`
-(`wetechinetmon_collector_prefix_lookup_failures_total` increments for
+(`tidegard_collector_prefix_lookup_failures_total` increments for
 each one). The collector still runs, decodes, normalizes, and aggregates
 — direction classification is the only thing degraded. This is
 deliberate: a misconfigured or not-yet-configured prefix list shouldn't
@@ -48,7 +48,7 @@ prevent the collector from being useful for raw traffic totals.
 ## Full Reference Example
 
 ```bash
-export WETECHINETMON_COLLECTOR_LOCAL_PREFIXES="10.0.0.0/8@wetechi@core,203.0.113.0/24@wetechi@collector-segment,2001:db8::/32@wetechi@core-v6"
+export TIDEGARD_COLLECTOR_LOCAL_PREFIXES="10.0.0.0/8@wetechi@core,203.0.113.0/24@wetechi@collector-segment,2001:db8::/32@wetechi@core-v6"
 ```
 
 ## Known Limitations

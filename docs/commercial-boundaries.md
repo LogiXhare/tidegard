@@ -5,7 +5,7 @@ Last updated: 2026-08-20
 
 ## 1. Business Intent
 
-WeTechi Solutions intends to use WetechiNetMon for internal network
+WeTechi Solutions intends to use Tidegard for internal network
 monitoring, ISP infrastructure monitoring, enterprise customer monitoring,
 data-center traffic visibility, managed DDoS detection/mitigation services,
 as an on-premises customer appliance, as a subscription-based commercial
@@ -78,7 +78,7 @@ foreclose them:
 
 ## 5. Licensing Posture for the Product Itself
 
-This document does not select WetechiNetMon's own open-source license.
+This document does not select Tidegard's own open-source license.
 That is a Phase 1 decision (`LICENSE` file, per master prompt section 22)
 and should weigh:
 

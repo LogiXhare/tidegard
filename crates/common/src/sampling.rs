@@ -36,7 +36,7 @@ impl SamplingRate {
     /// Applies this rate to a raw (pre-correction) counter value.
     /// Overflow is never silently wrapped — it is reported so the caller
     /// can reject the flow and count the failure (see
-    /// `wetechinetmon-aggregator`'s `sampling_errors_total`-style metric).
+    /// `tidegard-aggregator`'s `sampling_errors_total`-style metric).
     pub fn apply(&self, raw: u64) -> Result<u64, SamplingOverflow> {
         raw.checked_mul(self.get() as u64).ok_or(SamplingOverflow)
     }

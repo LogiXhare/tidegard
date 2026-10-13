@@ -8,7 +8,7 @@
 //!   manual incident instead of opening another.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -21,20 +21,20 @@ use axum::body::Body;
 use axum::http::{header, Request, StatusCode};
 use serde_json::{json, Value};
 use support::{event, host_scope};
+use tidegard_api::auth::Role;
+use tidegard_api::token_admin::{self, ActorType, NewToken};
+use tidegard_api::{router, AppState};
+use tidegard_detector::{EventKind, MetricKind};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
 use tokio_postgres::Client;
 use tower::ServiceExt;
-use wetechinetmon_api::auth::Role;
-use wetechinetmon_api::token_admin::{self, ActorType, NewToken};
-use wetechinetmon_api::{router, AppState};
-use wetechinetmon_detector::{EventKind, MetricKind};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 async fn connect(url: &str) -> Client {
     let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls)
@@ -113,12 +113,12 @@ async fn operators_open_incidents_that_detections_then_attach_to() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .expect("migrations must apply");
 
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {

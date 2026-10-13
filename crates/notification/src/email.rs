@@ -91,7 +91,7 @@ impl Email {
 
     fn message(&self, notice: &dyn Render) -> Result<Message, String> {
         let mut builder = Message::builder().from(self.from.clone()).subject(clean(
-            &format!("WetechiNetMon {}", notice.headline()),
+            &format!("Tidegard {}", notice.headline()),
             SUBJECT_MAX_CHARS,
         ));
         for recipient in &self.to {

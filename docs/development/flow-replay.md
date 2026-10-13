@@ -10,7 +10,7 @@ anything else) to generate real attack traffic.
 ## Usage
 
 ```bash
-cargo run -p wetechinetmon-flow-replay -- <target_host:port> [options]
+cargo run -p tidegard-flow-replay -- <target_host:port> [options]
 ```
 
 | Option | Values | Default |
@@ -53,21 +53,21 @@ collector under test at a local-prefix configuration matching this
 convention:
 
 ```bash
-export WETECHINETMON_COLLECTOR_LOCAL_PREFIXES="10.0.0.0/8@test@lab,2001:db8::/32@test@lab-v6"
+export TIDEGARD_COLLECTOR_LOCAL_PREFIXES="10.0.0.0/8@test@lab,2001:db8::/32@test@lab-v6"
 ```
 
 ## Examples
 
 ```bash
 # Basic incoming IPv4 TCP traffic
-cargo run -p wetechinetmon-flow-replay -- 127.0.0.1:2055 --count 10
+cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 --count 10
 
 # IPv6 UDP, outgoing, with a declared 1:100 sampling rate
-cargo run -p wetechinetmon-flow-replay -- 127.0.0.1:2055 \
+cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 \
   --scenario outgoing --family ipv6 --protocol udp --sampling-rate 100
 
 # Simulate 3 separate exporters sending internal ICMP traffic
-cargo run -p wetechinetmon-flow-replay -- 127.0.0.1:2055 \
+cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 \
   --scenario internal --protocol icmp --exporters 3
 ```
 
@@ -85,7 +85,7 @@ messages byte-for-byte:
   and its Data Set
 
 Every builder function has a round-trip test decoding its own output
-through the real `wetechinetmon-protocol-ipfix` decoder — the same
+through the real `tidegard-protocol-ipfix` decoder — the same
 exercise a live exporter's traffic gets.
 
 ## Verifying a Test Run

@@ -8,7 +8,7 @@
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_detector::MetricKind;
+use tidegard_detector::MetricKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

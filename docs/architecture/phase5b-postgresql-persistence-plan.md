@@ -18,7 +18,7 @@ strategy, backup and restore, and the Community/Enterprise boundary.
 
 `phase5-implementation-plan.md` previously stated Milestone 5A delivered
 "repository *traits* with in-memory implementations." Verified against
-actual source (2026-08-24), it did not: `wetechinetmon-incident` exposes
+actual source (2026-08-24), it did not: `tidegard-incident` exposes
 three narrow traits (`IncidentGenerator`, `NumberAllocator`,
 `PermissionResolver`); `IncidentUnitOfWork` is a 2,713-line concrete
 struct with 72 direct accesses to its own storage fields, and `Incident`

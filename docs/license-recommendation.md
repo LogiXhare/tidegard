@@ -27,7 +27,7 @@ strategy discussion in
 - Includes an explicit patent grant and patent-retaliation clause, which
   matters for a security/networking product where patent risk is
   non-trivial.
-- Permissive — does not, by itself, force WetechiNetMon's own source to
+- Permissive — does not, by itself, force Tidegard's own source to
   stay open if WeTechi Solutions later wants closed-source Enterprise
   modules built *alongside* (not modifying) the Apache-licensed core.
 - Compatible with the majority of the candidate dependencies listed in
@@ -46,7 +46,7 @@ strategy discussion in
 2. **Interaction with Grafana's AGPLv3 terms**: if the eventual
    integration approach changes from "external Grafana, original
    dashboard JSON only" to something that bundles or modifies Grafana
-   itself, Apache-2.0 for WetechiNetMon's own code would not resolve that
+   itself, Apache-2.0 for Tidegard's own code would not resolve that
    separate AGPLv3 exposure — see
    [`docs/dependency-license-matrix.md`](dependency-license-matrix.md).
 3. **No legal review has occurred.** This document and the `LICENSE` file

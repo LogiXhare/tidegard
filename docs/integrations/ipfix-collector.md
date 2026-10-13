@@ -4,7 +4,7 @@ Status: Phase 2
 
 ## What This Covers
 
-How to point an IPFIX exporter at `wetechinetmon-collector` and verify
+How to point an IPFIX exporter at `tidegard-collector` and verify
 it's receiving and decoding flows. This is a Phase 2 MVP guide — NetFlow
 v9/v5 and sFlow v5 exporter guides will be added when those protocols are
 implemented (see [../roadmap.md](../roadmap.md)).
@@ -12,10 +12,10 @@ implemented (see [../roadmap.md](../roadmap.md)).
 ## 1. Start the Collector
 
 ```bash
-export WETECHINETMON_COLLECTOR_BIND=0.0.0.0:2055
-export WETECHINETMON_COLLECTOR_METRICS_BIND=0.0.0.0:9090
+export TIDEGARD_COLLECTOR_BIND=0.0.0.0:2055
+export TIDEGARD_COLLECTOR_METRICS_BIND=0.0.0.0:9090
 export RUST_LOG=info
-cargo run --bin wetechinetmon-collector
+cargo run --bin tidegard-collector
 ```
 
 Full option reference: [../configuration/index.md](../configuration/index.md).
@@ -25,7 +25,7 @@ Full option reference: [../configuration/index.md](../configuration/index.md).
 ### Generic router/exporter
 
 Configure your device to export IPFIX to the collector's host on the UDP
-port from `WETECHINETMON_COLLECTOR_BIND` (default `2055`).
+port from `TIDEGARD_COLLECTOR_BIND` (default `2055`).
 
 ### Cisco NCS540 (reference lab device)
 
@@ -38,7 +38,7 @@ The reference lab configuration in
 
 These are **lab reference values only** — never hardcode them; configure
 your own deployment's actual addresses via
-`WETECHINETMON_COLLECTOR_BIND`. Cisco NCS540-specific IPFIX export
+`TIDEGARD_COLLECTOR_BIND`. Cisco NCS540-specific IPFIX export
 configuration (flow monitor / flow exporter / sampler CLI) will be
 documented here once validated against real hardware — not fabricated
 from memory in the meantime.
@@ -46,16 +46,16 @@ from memory in the meantime.
 ## 3. Verify Flows Are Being Received
 
 ```bash
-curl -s http://localhost:9090/metrics | grep wetechinetmon_collector
+curl -s http://localhost:9090/metrics | grep tidegard_collector
 ```
 
-Expect `wetechinetmon_collector_flow_datagrams_received_total` and
-`wetechinetmon_collector_parsed_flow_records_total` to increase. If
-`wetechinetmon_collector_parser_failures_total` increases instead, check
+Expect `tidegard_collector_flow_datagrams_received_total` and
+`tidegard_collector_parsed_flow_records_total` to increase. If
+`tidegard_collector_parser_failures_total` increases instead, check
 the collector's structured logs (`RUST_LOG=debug`) for the specific
 `DecodeError` reported per datagram.
 
-If `wetechinetmon_collector_unknown_templates_total` increases and stays
+If `tidegard_collector_unknown_templates_total` increases and stays
 elevated, the exporter's Data Sets are arriving before (or without) their
 Template Set — check the exporter's template-refresh interval.
 
@@ -65,10 +65,10 @@ Use the replay tool to send synthetic IPFIX traffic instead of pointing a
 real router at a test collector:
 
 ```bash
-cargo run -p wetechinetmon-flow-replay -- 127.0.0.1:2055 10
+cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 10
 ```
 
-See [tools/flow-replay/README.md](https://github.com/badshashorif/wetechi-netmon/blob/main/tools/flow-replay/README.md).
+See [tools/flow-replay/README.md](https://github.com/LogiXhare/tidegard/blob/main/tools/flow-replay/README.md).
 Per [../security-principles.md](../security-principles.md), never use
 real captured traffic or anything resembling attack traffic for testing —
 synthetic fixtures only.

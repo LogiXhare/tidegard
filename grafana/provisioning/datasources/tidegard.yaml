@@ -1,4 +1,4 @@
-# Example datasources for the WetechiNetMon dashboards. Every dashboard
+# Example datasources for the Tidegard dashboards. Every dashboard
 # selects its datasource through a variable, so these UIDs and names are
 # suggestions, not requirements.
 #
@@ -8,7 +8,7 @@
 apiVersion: 1
 
 datasources:
-  - name: WetechiNetMon Prometheus
+  - name: Tidegard Prometheus
     uid: wnm-prometheus
     type: prometheus
     access: proxy
@@ -16,7 +16,7 @@ datasources:
     jsonData:
       httpMethod: POST
 
-  - name: WetechiNetMon ClickHouse
+  - name: Tidegard ClickHouse
     uid: wnm-clickhouse
     type: grafana-clickhouse-datasource
     jsonData:

@@ -2,7 +2,7 @@
 
 Status: summary page. The authoritative document is `CONTRIBUTING.md` at
 the repository root —
-[read it on GitHub](https://github.com/badshashorif/wetechi-netmon/blob/main/CONTRIBUTING.md).
+[read it on GitHub](https://github.com/LogiXhare/tidegard/blob/main/CONTRIBUTING.md).
 This page exists so the documentation site can link to the contribution
 process without pointing outside the documentation tree.
 

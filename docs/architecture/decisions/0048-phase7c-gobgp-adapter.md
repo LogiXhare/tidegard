@@ -8,7 +8,7 @@ under the delegation of 2026-10-05 to industry practice
 ## Context
 
 BQ-13 chose GoBGP's gRPC API, from Rust, to a `gobgpd` the operator
-runs. This is the first code in WetechiNetMon that can change what the
+runs. This is the first code in Tidegard that can change what the
 internet routes, so the plan names its risks: an exposed, unauthenticated
 API (R27), a new dependency tree (R28), and an API that changes between
 releases (R29) ([Phase 7 plan](../phase7-bgp-mitigation-lab-plan.md),

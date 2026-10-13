@@ -3,8 +3,8 @@
 use std::io::IsTerminal;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use wetechinetmon_cli::config::ProcessEnvironment;
-use wetechinetmon_cli::{run, Io};
+use tidegard_cli::config::ProcessEnvironment;
+use tidegard_cli::{run, Io};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -20,7 +20,7 @@ fn main() {
         Ok(runtime) => runtime,
         Err(error) => {
             eprintln!("Error: cannot start: {error}");
-            std::process::exit(wetechinetmon_cli::exit::FAILURE);
+            std::process::exit(tidegard_cli::exit::FAILURE);
         }
     };
     let mut stdout = std::io::stdout().lock();

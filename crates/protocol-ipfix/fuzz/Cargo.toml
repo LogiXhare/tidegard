@@ -1,11 +1,11 @@
 [package]
-name = "wetechinetmon-protocol-ipfix-fuzz"
+name = "tidegard-protocol-ipfix-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
 
 # Marks this as its own standalone workspace root, so Cargo never tries
-# to fold it into the parent wetechi-netmon workspace (this crate lives
+# to fold it into the parent tidegard workspace (this crate lives
 # nested inside crates/protocol-ipfix/, which *is* a workspace member) —
 # the standard cargo-fuzz convention.
 [workspace]
@@ -15,7 +15,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-wetechinetmon-protocol-ipfix = { path = ".." }
+tidegard-protocol-ipfix = { path = ".." }
 
 [[bin]]
 name = "decode_message"

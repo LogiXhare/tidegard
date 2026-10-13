@@ -12,26 +12,26 @@ a guide to handling network incidents, which is what the product is for.
 | Part | Does | Where to look |
 |---|---|---|
 | Collector | Runs the detector. Writes each detection event to `detection_event_inbox` through a bounded queue that never blocks detection ([ADR 0035](../architecture/decisions/0035-phase5c-detection-event-inbox.md)) | Its log; the detector's metrics ([detection monitoring](detection-monitoring.md)) |
-| `wetechinetmon-incident-manager` | The correlation worker (inbox to incidents), the incident timers, retention, and the depth gauges | `/metrics`, `/healthz` and `/readyz` (ready while correlation batches succeed) on `WETECHINETMON_INCIDENT_METRICS_BIND` (default `0.0.0.0:9091`); JSON logs |
-| `wetechinetmon-api` | The REST API | `GET /healthz` (process up), `GET /readyz` (database answers); JSON logs with `X-Request-Id` |
-| `wetechinetmonctl` | The CLI, which goes through the API only | — |
-| NOC UI (`apps/web`) | The browser UI, served by the API from `WETECHINETMON_API_WEB_ROOT`; signs in with a token, then a session cookie | The browser console; the API's log |
-| `wetechinetmon-notifier` | Consumes the outbox and delivers notifications ([ADR 0045](../architecture/decisions/0045-phase6e-notification-delivery.md)) | `/metrics`, `/healthz` and `/readyz` (ready while outbox batches succeed) on `WETECHINETMON_NOTIFY_METRICS_BIND` (default `127.0.0.1:9093`); JSON logs |
-| Grafana | Your own; the dashboards in `grafana/dashboards` | The **WetechiNetMon** folder |
+| `tidegard-incident-manager` | The correlation worker (inbox to incidents), the incident timers, retention, and the depth gauges | `/metrics`, `/healthz` and `/readyz` (ready while correlation batches succeed) on `TIDEGARD_INCIDENT_METRICS_BIND` (default `0.0.0.0:9091`); JSON logs |
+| `tidegard-api` | The REST API | `GET /healthz` (process up), `GET /readyz` (database answers); JSON logs with `X-Request-Id` |
+| `tidegardctl` | The CLI, which goes through the API only | — |
+| NOC UI (`apps/web`) | The browser UI, served by the API from `TIDEGARD_API_WEB_ROOT`; signs in with a token, then a session cookie | The browser console; the API's log |
+| `tidegard-notifier` | Consumes the outbox and delivers notifications ([ADR 0045](../architecture/decisions/0045-phase6e-notification-delivery.md)) | `/metrics`, `/healthz` and `/readyz` (ready while outbox batches succeed) on `TIDEGARD_NOTIFY_METRICS_BIND` (default `127.0.0.1:9093`); JSON logs |
+| Grafana | Your own; the dashboards in `grafana/dashboards` | The **Tidegard** folder |
 | PostgreSQL | All incident state | `pg_stat_activity`, its own log |
 
 Configuration for each part is in its README:
 
-- [incident manager](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/incident-manager)
-- [API](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/api)
-- [CLI](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/cli)
-- [notifier](https://github.com/LogiXhare/wetechi-netmon/tree/main/crates/notification)
-- [NOC UI](https://github.com/LogiXhare/wetechi-netmon/tree/main/apps/web)
-- [Grafana provisioning](https://github.com/LogiXhare/wetechi-netmon/tree/main/grafana/provisioning)
+- [incident manager](https://github.com/LogiXhare/tidegard/tree/main/crates/incident-manager)
+- [API](https://github.com/LogiXhare/tidegard/tree/main/apps/api)
+- [CLI](https://github.com/LogiXhare/tidegard/tree/main/apps/cli)
+- [notifier](https://github.com/LogiXhare/tidegard/tree/main/crates/notification)
+- [NOC UI](https://github.com/LogiXhare/tidegard/tree/main/apps/web)
+- [Grafana provisioning](https://github.com/LogiXhare/tidegard/tree/main/grafana/provisioning)
 
 ## Health
 
-All metrics are `wetechinetmon_incident_*`, from the incident manager.
+All metrics are `tidegard_incident_*`, from the incident manager.
 
 | Metric | Healthy |
 |---|---|
@@ -49,30 +49,30 @@ Suggested Prometheus alerts:
 
 ```yaml
 groups:
-  - name: wetechinetmon-incident
+  - name: tidegard-incident
     rules:
       - alert: IncidentDeadLetter
-        expr: wetechinetmon_incident_dead_letter_pending > 0
+        expr: tidegard_incident_dead_letter_pending > 0
         for: 1m
       - alert: IncidentInboxBacklog
-        expr: wetechinetmon_incident_inbox_pending > 1000
+        expr: tidegard_incident_inbox_pending > 1000
         for: 10m
       - alert: IncidentWorkerFailing
-        expr: increase(wetechinetmon_incident_inbox_batches_total{result="failed"}[10m]) > 0
+        expr: increase(tidegard_incident_inbox_batches_total{result="failed"}[10m]) > 0
       - alert: IncidentJobFailing
-        expr: increase(wetechinetmon_incident_job_runs_total{result="failed"}[30m]) > 0
+        expr: increase(tidegard_incident_job_runs_total{result="failed"}[30m]) > 0
       - alert: IncidentManagerDown
-        expr: up{job="wetechinetmon-incident-manager"} == 0
+        expr: up{job="tidegard-incident-manager"} == 0
         for: 2m
       - alert: NotificationsFailing
-        expr: increase(wetechinetmon_notifier_notifications_total{result="failed"}[15m]) > 0
+        expr: increase(tidegard_notifier_notifications_total{result="failed"}[15m]) > 0
       - alert: NotificationsRefused
-        expr: increase(wetechinetmon_notifier_notifications_total{result="refused"}[15m]) > 0
+        expr: increase(tidegard_notifier_notifications_total{result="refused"}[15m]) > 0
       - alert: NotifierDown
-        expr: up{job="wetechinetmon-notifier"} == 0
+        expr: up{job="tidegard-notifier"} == 0
         for: 2m
       - alert: IncidentTimelinePressure
-        expr: wetechinetmon_incident_timeline_pressure > 40000
+        expr: tidegard_incident_timeline_pressure > 40000
         for: 15m
 ```
 
@@ -216,7 +216,7 @@ refuse a timestamp more than five minutes old.
 ## Sessions and the UI
 
 - **Sign someone out everywhere:** revoke their token
-  (`wetechinetmon-api token revoke --token-id ...`). Every session made
+  (`tidegard-api token revoke --token-id ...`). Every session made
   from it ends at its next request.
 - **Sign everyone out:** `DELETE FROM api_sessions;`. Tokens are
   untouched; people sign in again.
@@ -230,7 +230,7 @@ refuse a timestamp more than five minutes old.
 
 ## Traffic in the UI
 
-Only the tenant named by `WETECHINETMON_API_TRAFFIC_TENANT` sees traffic
+Only the tenant named by `TIDEGARD_API_TRAFFIC_TENANT` sees traffic
 ([ADR 0042](../architecture/decisions/0042-phase6b-traffic-read-api.md)).
 Anyone else gets `404` and an overview with incidents alone. `503` from
 `/api/v1/traffic/*` means ClickHouse is unreachable; incidents keep
@@ -305,8 +305,8 @@ intervening. **Never** mark a migration as applied by hand.
 
 Each process has its own pool:
 
-- `WETECHINETMON_INCIDENT_POOL_MAX_SIZE` for the incident manager;
-- `WETECHINETMON_API_POOL_MAX_SIZE` for the API.
+- `TIDEGARD_INCIDENT_POOL_MAX_SIZE` for the incident manager;
+- `TIDEGARD_API_POOL_MAX_SIZE` for the API.
 
 Both default to 16. An exhausted pool returns `503` within a bounded
 time, never an indefinite hang

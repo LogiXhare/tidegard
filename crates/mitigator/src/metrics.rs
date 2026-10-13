@@ -39,29 +39,29 @@ impl MitigatorMetrics {
         let metrics = MitigatorMetrics {
             actions_total: IntCounterVec::new(
                 Opts::new(
-                    "wetechinetmon_mitigator_actions_total",
+                    "tidegard_mitigator_actions_total",
                     "What the mitigator did with mitigations, by result.",
                 ),
                 &["result"],
             )?,
             reconcile_total: IntCounterVec::new(
                 Opts::new(
-                    "wetechinetmon_mitigator_reconcile_total",
+                    "tidegard_mitigator_reconcile_total",
                     "Routes reconciliation withdrew or restored, by result.",
                 ),
                 &["result"],
             )?,
             kill_switch: IntGauge::new(
-                "wetechinetmon_mitigator_kill_switch",
+                "tidegard_mitigator_kill_switch",
                 "1 while the kill switch is on.",
             )?,
             owned_routes: IntGauge::new(
-                "wetechinetmon_mitigator_owned_routes",
-                "Routes in GoBGP carrying WetechiNetMon's ownership community.",
+                "tidegard_mitigator_owned_routes",
+                "Routes in GoBGP carrying Tidegard's ownership community.",
             )?,
             bgp_peers: IntGaugeVec::new(
                 Opts::new(
-                    "wetechinetmon_mitigator_bgp_peers",
+                    "tidegard_mitigator_bgp_peers",
                     "GoBGP's peers, by whether the session is established.",
                 ),
                 &["state"],

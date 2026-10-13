@@ -10,7 +10,7 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_detector::Severity;
+use tidegard_detector::Severity;
 
 /// `Resolved -> Closed` policy.
 ///

@@ -18,7 +18,7 @@ use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_classifier::Direction;
+use tidegard_classifier::Direction;
 
 /// IP version of the traffic a snapshot describes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ impl AddressFamily {
 
 /// The detector's own direction enum.
 ///
-/// This deliberately mirrors [`wetechinetmon_classifier::Direction`]
+/// This deliberately mirrors [`tidegard_classifier::Direction`]
 /// rather than reusing it: direction is part of a hash-map key and of
 /// every serialized event here, and the classifier's type derives
 /// neither `Hash` nor `Serialize`. Adding those upstream would make the

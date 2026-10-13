@@ -1,0 +1,11 @@
+# System users for Tidegard (ADR 0052): one per service, so no
+# service can read another's secrets. The API and the mitigator share the
+# guard file through the tidegard-guard group.
+g tidegard-guard -
+u tidegard-collector - "Tidegard collector" / /usr/sbin/nologin
+u tidegard-incident-manager - "Tidegard incident manager" / /usr/sbin/nologin
+u tidegard-api - "Tidegard API" / /usr/sbin/nologin
+u tidegard-notifier - "Tidegard notifier" / /usr/sbin/nologin
+u tidegard-mitigator - "Tidegard mitigator" / /usr/sbin/nologin
+m tidegard-api tidegard-guard
+m tidegard-mitigator tidegard-guard

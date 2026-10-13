@@ -131,5 +131,5 @@ fn _probe_every_dependency_links() {
     let _ = std::any::type_name::<rustls::ClientConfig>();
     let _ = std::any::type_name::<tokio_postgres_rustls::MakeRustlsConnect>();
     let _ = std::any::type_name::<refinery::Report>();
-    let _ = std::any::type_name::<dyn wetechinetmon_incident::store::IncidentStore>();
+    let _ = std::any::type_name::<dyn tidegard_incident::store::IncidentStore>();
 }

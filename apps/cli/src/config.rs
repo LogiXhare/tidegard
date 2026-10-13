@@ -4,11 +4,11 @@
 //!
 //! | Field | Environment | Config file profile |
 //! |---|---|---|
-//! | endpoint | `WETECHINETMON_API_URL` | `url` |
-//! | token | `WETECHINETMON_API_TOKEN` | `token` |
-//! | CA bundle | `WETECHINETMON_API_CA_FILE` | `ca_file` |
+//! | endpoint | `TIDEGARD_API_URL` | `url` |
+//! | token | `TIDEGARD_API_TOKEN` | `token` |
+//! | CA bundle | `TIDEGARD_API_CA_FILE` | `ca_file` |
 //!
-//! The file is JSON, at `$WETECHINETMON_CONFIG` or the platform default,
+//! The file is JSON, at `$TIDEGARD_CONFIG` or the platform default,
 //! and holds named profiles; `--profile` picks one, else
 //! `default_profile`, else the one named `default`. A token is never
 //! taken from a flag.
@@ -23,10 +23,10 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-pub const URL_VAR: &str = "WETECHINETMON_API_URL";
-pub const TOKEN_VAR: &str = "WETECHINETMON_API_TOKEN";
-pub const CA_FILE_VAR: &str = "WETECHINETMON_API_CA_FILE";
-pub const CONFIG_VAR: &str = "WETECHINETMON_CONFIG";
+pub const URL_VAR: &str = "TIDEGARD_API_URL";
+pub const TOKEN_VAR: &str = "TIDEGARD_API_TOKEN";
+pub const CA_FILE_VAR: &str = "TIDEGARD_API_CA_FILE";
+pub const CONFIG_VAR: &str = "TIDEGARD_CONFIG";
 
 /// The process environment, injectable for tests.
 pub trait Environment {
@@ -39,7 +39,10 @@ pub struct ProcessEnvironment;
 
 impl Environment for ProcessEnvironment {
     fn var(&self, name: &str) -> Option<String> {
-        std::env::var(name).ok().filter(|value| !value.is_empty())
+        tidegard_common::env::var(name)
+            .ok()
+            .flatten()
+            .filter(|value| !value.is_empty())
     }
 
     fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
@@ -164,7 +167,7 @@ impl std::fmt::Debug for Endpoint {
 fn default_config_path(env: &dyn Environment) -> Option<PathBuf> {
     if cfg!(windows) {
         env.var("APPDATA")
-            .map(|dir| PathBuf::from(dir).join("wetechinetmon").join("cli.json"))
+            .map(|dir| PathBuf::from(dir).join("tidegard").join("cli.json"))
     } else {
         env.var("XDG_CONFIG_HOME")
             .map(PathBuf::from)
@@ -172,7 +175,7 @@ fn default_config_path(env: &dyn Environment) -> Option<PathBuf> {
                 env.var("HOME")
                     .map(|home| PathBuf::from(home).join(".config"))
             })
-            .map(|dir| dir.join("wetechinetmon").join("cli.json"))
+            .map(|dir| dir.join("tidegard").join("cli.json"))
     }
 }
 

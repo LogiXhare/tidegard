@@ -29,7 +29,7 @@ archiving, described [below](#point-in-time-recovery).
 | The incident database | `pg_dump --format=custom` | All incident state, history, audit, idempotency, outbox, and the migration history |
 | ClickHouse's tables | `BACKUP TABLE ... TO File(...)`, [below](#clickhouse-flow-and-detection-history) | Flow and detection history for the dashboards and traffic pages |
 | Cluster roles | `pg_dumpall --roles-only` | Migration `V11` grants to the role `wetechinetmon_app`. A restore into a new cluster needs that role to exist first |
-| Configuration | Copy the services' environment (`WETECHINETMON_API_*` and the incident manager's) | It names the database and the TLS files |
+| Configuration | Copy the services' environment (`TIDEGARD_API_*` and the incident manager's) | It names the database and the TLS files |
 
 Some of these files are secrets, so treat them that way:
 
@@ -45,12 +45,12 @@ repository. Back them up wherever the rest of the host's secrets live.
 Run the client tools at the server's major version or newer.
 
 ```sh
-pg_dump --host=db.example.net --username=wetechinetmon_backup \
-  --dbname=wetechinetmon --format=custom --no-owner \
-  --file=wetechinetmon-$(date -u +%Y%m%dT%H%M%SZ).dump
-pg_restore --list wetechinetmon-*.dump > /dev/null   # the archive is readable
+pg_dump --host=db.example.net --username=tidegard_backup \
+  --dbname=tidegard --format=custom --no-owner \
+  --file=tidegard-$(date -u +%Y%m%dT%H%M%SZ).dump
+pg_restore --list tidegard-*.dump > /dev/null   # the archive is readable
 pg_dumpall --host=db.example.net --username=postgres --roles-only \
-  --file=wetechinetmon-roles.sql
+  --file=tidegard-roles.sql
 ```
 
 `pg_dump` reads from a single snapshot, so the backup is consistent while
@@ -68,14 +68,14 @@ starting a new release whose migrations have not yet been applied.
 
 1. Stop the API and the inbox worker, so nothing writes during the restore.
 2. If this is a new cluster, restore the roles:
-   `psql --file=wetechinetmon-roles.sql`.
+   `psql --file=tidegard-roles.sql`.
 3. Create an empty database and restore into it in one transaction. A
    failure then leaves nothing half-restored.
 
    ```sh
-   createdb wetechinetmon_restored
-   pg_restore --dbname=wetechinetmon_restored --no-owner \
-     --exit-on-error --single-transaction wetechinetmon-20261005T020000Z.dump
+   createdb tidegard_restored
+   pg_restore --dbname=tidegard_restored --no-owner \
+     --exit-on-error --single-transaction tidegard-20261005T020000Z.dump
    ```
 
 4. Point the API's configuration at the restored database and start it.
@@ -111,9 +111,9 @@ starting a new release whose migrations have not yet been applied.
 Check against incidents an operator knows, from tickets or chat:
 
 ```sh
-wetechinetmonctl incidents list                 # the expected incidents are there
-wetechinetmonctl incidents show <incident>      # one you know, at the version you expect
-wetechinetmonctl incidents audit <incident>     # the audit trail reaches back as far as expected
+tidegardctl incidents list                 # the expected incidents are there
+tidegardctl incidents show <incident>      # one you know, at the version you expect
+tidegardctl incidents audit <incident>     # the audit trail reaches back as far as expected
 ```
 
 ## The drill CI runs
@@ -173,7 +173,7 @@ the `clickhouse` user.
 </clickhouse>
 ```
 
-**Taking a backup:** every WetechiNetMon table, into one archive.
+**Taking a backup:** every Tidegard table, into one archive.
 
 ```sql
 BACKUP TABLE default.wetechinetmon_total_ipv4_traffic,
@@ -186,7 +186,7 @@ BACKUP TABLE default.wetechinetmon_total_ipv4_traffic,
        TABLE default.wetechinetmon_exporter_traffic,
        TABLE default.wetechinetmon_interface_traffic,
        TABLE default.wetechinetmon_detection_events
-TO File('wetechinetmon-2026-10-13.zip');
+TO File('tidegard-2026-10-13.zip');
 ```
 
 The server writes it while the collector keeps exporting. Copy the archive
@@ -217,6 +217,6 @@ To come close to the 15-minute RPO, do two things:
 
 Recovery then replays WAL up to a chosen moment
 (`recovery_target_time`). This is standard PostgreSQL, documented in its
-*Continuous Archiving and Point-in-Time Recovery* chapter. WetechiNetMon
+*Continuous Archiving and Point-in-Time Recovery* chapter. Tidegard
 needs nothing extra for it. This path is not yet drilled (FU-61), so
 test it on a staging copy before relying on it.

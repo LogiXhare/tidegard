@@ -13,7 +13,7 @@ Status: Phase 3 — implemented in `crates/classifier`.
 | — (no local prefixes configured) | — | Unknown |
 
 "Local" means the address matched a configured prefix in the
-[`PrefixRegistry`](https://github.com/badshashorif/wetechi-netmon/blob/main/crates/classifier/src/registry.rs). `Unknown` is
+[`PrefixRegistry`](https://github.com/LogiXhare/tidegard/blob/main/crates/classifier/src/registry.rs). `Unknown` is
 returned when the registry has zero configured prefixes — direction is
 undefined without any notion of "local," so the classifier says so rather
 than guessing (Phase 3 objective 4).
@@ -27,7 +27,7 @@ against each other by accident.
 
 ## Registry Construction and Validation
 
-`wetechinetmon_classifier::build_registry` takes a list of
+`tidegard_classifier::build_registry` takes a list of
 `PrefixConfigEntry` (network, prefix length, tenant, optional hostgroup)
 and:
 
@@ -68,5 +68,5 @@ returns the same result — proven by
 Each matched prefix carries a `tenant: String` and optional
 `hostgroup: Option<String>`. `ClassificationResult` surfaces both ends'
 matches (`source_matched_tenant`, `destination_matched_hostgroup`, etc.),
-feeding `wetechinetmon-aggregator`'s hostgroup dimension directly — see
+feeding `tidegard-aggregator`'s hostgroup dimension directly — see
 [aggregation.md](aggregation.md).

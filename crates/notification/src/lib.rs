@@ -1,4 +1,4 @@
-//! The WetechiNetMon notifier (Phase 6E, ADR 0045): the incident outbox's
+//! The Tidegard notifier (Phase 6E, ADR 0045): the incident outbox's
 //! first consumer. It tells people about incidents by webhook, Slack,
 //! Microsoft Teams and Telegram, and records every attempt on the
 //! incident's timeline.
@@ -20,14 +20,14 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use wetechinetmon_common::metrics_server::Readiness;
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
+use tidegard_common::metrics_server::Readiness;
+use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::outbox::{OutboxConsumer, OutboxPolicy};
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::service::IncidentPersistence;
 
 pub use config::Config;
 
@@ -70,22 +70,20 @@ pub async fn run(
     let readiness = Readiness::new();
     let served = readiness.clone();
     let server = tokio::spawn(async move {
-        if let Err(error) =
-            wetechinetmon_common::metrics_server::serve(bind, registry, served).await
-        {
+        if let Err(error) = tidegard_common::metrics_server::serve(bind, registry, served).await {
             tracing::error!(error = %error, "the metrics server stopped");
         }
     });
-    let tls = wetechinetmon_incident_postgres::connect::TlsFiles::from_paths(
+    let tls = tidegard_incident_postgres::connect::TlsFiles::from_paths(
         config.database_ca_file.clone(),
         None,
         None,
     )
     .map_err(|detail| StartupError::Database(detail.to_string()))?;
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &config.database_url,
         tls.as_ref(),
-        wetechinetmon_incident_postgres::pool::PoolPolicy::starting_default(),
+        tidegard_incident_postgres::pool::PoolPolicy::starting_default(),
     )
     .map_err(|error| StartupError::Database(error.to_string()))?;
     let platform = platform_authority();

@@ -14,8 +14,8 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::{Duration, Instant};
 
-use wetechinetmon_classifier::ClassificationResult;
-use wetechinetmon_common::{NormalizedFlow, Protocol};
+use tidegard_classifier::ClassificationResult;
+use tidegard_common::{NormalizedFlow, Protocol};
 
 use crate::bounded_map::{BoundedMap, BoundedMapConfig, UpsertOutcome};
 use crate::counters::TrafficCounters;
@@ -344,8 +344,8 @@ fn mask_v6(addr: Ipv6Addr, prefix_len: u8) -> Ipv6Addr {
 mod tests {
     use super::*;
     use std::time::Instant;
-    use wetechinetmon_classifier::{classify, PrefixRegistry};
-    use wetechinetmon_common::{NormalizedFlowBuilder, SamplingRate, SamplingSource};
+    use tidegard_classifier::{classify, PrefixRegistry};
+    use tidegard_common::{NormalizedFlowBuilder, SamplingRate, SamplingSource};
 
     fn make_flow(source: IpAddr, destination: IpAddr, bytes: u64, packets: u64) -> NormalizedFlow {
         NormalizedFlowBuilder {

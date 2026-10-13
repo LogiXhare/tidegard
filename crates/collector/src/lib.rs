@@ -1,10 +1,10 @@
-//! WetechiNetMon Telemetry Collector.
+//! Tidegard Telemetry Collector.
 //!
 //! Binds a UDP socket, decodes incoming IPFIX messages via
-//! `wetechinetmon-protocol-ipfix`, normalizes Data Records into
+//! `tidegard-protocol-ipfix`, normalizes Data Records into
 //! `NormalizedFlow`s (Phase 3), classifies their direction
-//! (`wetechinetmon-classifier`), and aggregates them
-//! (`wetechinetmon-aggregator`). Exposes Prometheus metrics on a
+//! (`tidegard-classifier`), and aggregates them
+//! (`tidegard-aggregator`). Exposes Prometheus metrics on a
 //! separate HTTP port. See docs/functional-requirements.md (FR-1, FR-2,
 //! FR-3) — NetFlow v9/v5 and sFlow v5 support are later phases.
 //!
@@ -39,8 +39,8 @@ pub fn metric_names() -> Vec<String> {
     names
 }
 
-/// Kept at its old path; the endpoint now lives in `wetechinetmon-common`.
-pub use wetechinetmon_common::metrics_server;
+/// Kept at its old path; the endpoint now lives in `tidegard-common`.
+pub use tidegard_common::metrics_server;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -48,9 +48,9 @@ use std::time::{Duration, Instant};
 
 use std::time::SystemTime;
 
+use tidegard_classifier::{build_registry, classify, Direction};
+use tidegard_protocol_ipfix::{decode_message, DecodedSet};
 use tokio::net::UdpSocket;
-use wetechinetmon_classifier::{build_registry, classify, Direction};
-use wetechinetmon_protocol_ipfix::{decode_message, DecodedSet};
 
 pub use config::Config;
 pub use exporter::{AllowedNetwork, ExporterLimits, ExporterRegistry};
@@ -115,13 +115,13 @@ pub async fn run_until(
         for e in &errors {
             tracing::error!(error = %e, "invalid local-prefix configuration entry, ignoring it");
         }
-        wetechinetmon_classifier::build_registry(&[]).expect("empty prefix list always validates")
+        tidegard_classifier::build_registry(&[]).expect("empty prefix list always validates")
     });
     for warning in &prefix_report.warnings {
         tracing::warn!(message = %warning.message, "local-prefix overlap");
     }
 
-    let aggregator_config = wetechinetmon_aggregator::AggregatorConfig {
+    let aggregator_config = tidegard_aggregator::AggregatorConfig {
         max_hosts: config.max_hosts,
         max_networks: config.max_networks,
         max_hostgroups: config.max_hostgroups,
@@ -162,7 +162,7 @@ pub async fn run_until(
                         policy = %policy.id,
                         policy_window_secs = policy.window.as_secs_f64(),
                         collector_window_secs = config.detection_window_secs,
-                        "this policy will never be evaluated: its window differs from WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS"
+                        "this policy will never be evaluated: its window differs from TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS"
                     );
                 }
                 let extra_sinks = match &config.incident_database {
@@ -192,15 +192,15 @@ pub async fn run_until(
                         tracing::info!(path, policies = count, "detection engine enabled");
                         Some(detection::DetectionStage::new(
                             detection::DetectionStageConfig {
-                                window: wetechinetmon_detector::WindowConfig {
+                                window: tidegard_detector::WindowConfig {
                                     window: Duration::from_secs(config.detection_window_secs),
                                     max_hosts: config.detection_max_scopes,
                                     max_networks: config.detection_max_scopes,
                                     max_slash24: config.detection_max_scopes,
                                     max_hostgroups: config.max_hostgroups,
                                 },
-                                engine: wetechinetmon_detector::EngineConfig {
-                                    state: wetechinetmon_detector::StateTableConfig {
+                                engine: tidegard_detector::EngineConfig {
+                                    state: tidegard_detector::StateTableConfig {
                                         max_entries: config.detection_max_scopes,
                                         idle_ttl: Duration::from_secs(config.inactivity_ttl_secs),
                                         stale_after: Duration::from_secs(
@@ -249,7 +249,7 @@ pub async fn run_until(
 
     if config.exporters.allowed.is_empty() {
         tracing::warn!(
-            "WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS is not set: datagrams from any source are decoded; set it, or firewall the flow port to the routers"
+            "TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS is not set: datagrams from any source are decoded; set it, or firewall the flow port to the routers"
         );
     }
     let mut exporters = ExporterRegistry::with_limits(config.exporters.clone());
@@ -267,7 +267,7 @@ pub async fn run_until(
                     tracing::error!(url, error = %err, "ClickHouse cannot be reached; export disabled for this run");
                     None
                 }
-                Ok(client) => match wetechinetmon_storage::run_migrations(&client).await {
+                Ok(client) => match tidegard_storage::run_migrations(&client).await {
                     Ok(()) => {
                         tracing::info!(url, "ClickHouse export enabled, migrations applied");
                         Some(clickhouse_export::ClickHouseExporters::new(
@@ -407,10 +407,10 @@ fn start_incident_inbox(
     match incident_inbox::IncidentInbox::start(database, tenants, registry) {
         Ok((inbox, transport)) => {
             match transport {
-                wetechinetmon_incident_postgres::connect::Transport::VerifiedTls => {
+                tidegard_incident_postgres::connect::Transport::VerifiedTls => {
                     tracing::info!(tenants = count, "incident inbox enabled over verified TLS")
                 }
-                wetechinetmon_incident_postgres::connect::Transport::LoopbackPlaintext => {
+                tidegard_incident_postgres::connect::Transport::LoopbackPlaintext => {
                     tracing::warn!(
                         tenants = count,
                         "incident inbox enabled without TLS, allowed only because the database is on this host"
@@ -502,7 +502,7 @@ fn process_datagram(
     // Peek the header first (cheap — 16 bytes, no allocation) purely to
     // get the sequence number for restart detection *before* we hand the
     // (possibly stale) template cache to the full decoder.
-    let header = match wetechinetmon_protocol_ipfix::MessageHeader::parse(bytes) {
+    let header = match tidegard_protocol_ipfix::MessageHeader::parse(bytes) {
         Ok(h) => h,
         Err(err) => {
             metrics.parser_failures_total.inc();
@@ -580,7 +580,7 @@ fn process_datagram(
                                     }
                                     if matches!(
                                         outcome.flow.protocol,
-                                        Some(wetechinetmon_common::Protocol::Other(_))
+                                        Some(tidegard_common::Protocol::Other(_))
                                     ) {
                                         metrics.unsupported_protocol_fields_total.inc();
                                     }
@@ -679,7 +679,7 @@ fn process_datagram(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wetechinetmon_classifier::PrefixConfigEntry;
+    use tidegard_classifier::PrefixConfigEntry;
 
     /// Every metric is named once, under the product prefix, and the
     /// three groups (collector, detector, incident inbox) are all there.
@@ -688,11 +688,11 @@ mod tests {
         let names = metric_names();
         let unique: std::collections::BTreeSet<_> = names.iter().collect();
         assert_eq!(unique.len(), names.len(), "{names:?}");
-        assert!(names.iter().all(|name| name.starts_with("wetechinetmon_")));
+        assert!(names.iter().all(|name| name.starts_with("tidegard_")));
         for name in [
-            "wetechinetmon_collector_flow_datagrams_received_total",
-            "wetechinetmon_detector_scopes_in_state",
-            "wetechinetmon_collector_incident_inbox_queued",
+            "tidegard_collector_flow_datagrams_received_total",
+            "tidegard_detector_scopes_in_state",
+            "tidegard_collector_incident_inbox_queued",
         ] {
             assert!(names.iter().any(|n| n == name), "{name}");
         }
@@ -722,7 +722,7 @@ mod tests {
         .unwrap();
         Pipeline::new(
             report.registry,
-            wetechinetmon_aggregator::AggregatorConfig::default(),
+            tidegard_aggregator::AggregatorConfig::default(),
             SamplingConfig::default(),
             Instant::now(),
         )
@@ -850,7 +850,7 @@ mod tests {
     #[test]
     fn synthetic_ipfix_produces_a_dry_run_detection_event_end_to_end() {
         use std::sync::Arc;
-        use wetechinetmon_detector::{ActionTaken, ScopeType, TrafficDirection};
+        use tidegard_detector::{ActionTaken, ScopeType, TrafficDirection};
 
         const POLICY_DOC: &str = r#"{
           "schemaVersion": 1,
@@ -880,16 +880,16 @@ mod tests {
         let detector_metrics =
             Arc::new(detection::DetectionPrometheusMetrics::new(&registry).expect("registers"));
         let sink = Arc::new(detection::ClickHouseEventSink::new(64));
-        let policies = wetechinetmon_detector::load_policies(POLICY_DOC).expect("valid policies");
+        let policies = tidegard_detector::load_policies(POLICY_DOC).expect("valid policies");
 
         let start = Instant::now();
         let mut stage = detection::DetectionStage::new(
             detection::DetectionStageConfig {
-                window: wetechinetmon_detector::WindowConfig {
+                window: tidegard_detector::WindowConfig {
                     window: Duration::from_secs(1),
-                    ..wetechinetmon_detector::WindowConfig::default()
+                    ..tidegard_detector::WindowConfig::default()
                 },
-                engine: wetechinetmon_detector::EngineConfig::default(),
+                engine: tidegard_detector::EngineConfig::default(),
                 event_buffer: 64,
             },
             policies,
@@ -1016,20 +1016,20 @@ mod tests {
             .encode_to_string(&registry.gather())
             .expect("encodes");
         for expected in [
-            "wetechinetmon_detector_events_total{kind=\"started\"} 1",
-            "wetechinetmon_detector_events_published_total{kind=\"started\"} 1",
-            "wetechinetmon_detector_scopes_in_state{state=\"active\"} 1",
-            "wetechinetmon_detector_snapshots_evaluated_total{scope_type=\"host\"} 4",
-            "wetechinetmon_detector_state_transitions_total{from=\"pendingTrigger\",reason=\"triggerSustained\",to=\"active\"} 1",
+            "tidegard_detector_events_total{kind=\"started\"} 1",
+            "tidegard_detector_events_published_total{kind=\"started\"} 1",
+            "tidegard_detector_scopes_in_state{state=\"active\"} 1",
+            "tidegard_detector_snapshots_evaluated_total{scope_type=\"host\"} 4",
+            "tidegard_detector_state_transitions_total{from=\"pendingTrigger\",reason=\"triggerSustained\",to=\"active\"} 1",
         ] {
             assert!(text.contains(expected), "missing from /metrics: {expected}");
         }
         assert!(
-            !text.contains("wetechinetmon_detector_events_failed_total"),
+            !text.contains("tidegard_detector_events_failed_total"),
             "no publish should have failed"
         );
         assert!(
-            text.contains("wetechinetmon_collector_normalized_flows_total 4"),
+            text.contains("tidegard_collector_normalized_flows_total 4"),
             "the Phase 3 metrics must still be on the same endpoint"
         );
     }
@@ -1100,7 +1100,7 @@ mod tests {
         let mut exporters = ExporterRegistry::new();
         let mut pipeline = Pipeline::new(
             build_registry(&[]).unwrap().registry,
-            wetechinetmon_aggregator::AggregatorConfig::default(),
+            tidegard_aggregator::AggregatorConfig::default(),
             SamplingConfig::default(),
             Instant::now(),
         );

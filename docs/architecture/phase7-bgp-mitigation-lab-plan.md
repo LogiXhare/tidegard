@@ -26,7 +26,7 @@ pointed at a real network.
   incident can close while a mitigation is active, and the reverse.
 - **The detector and the incident domain stay as they are.** BGP and
   gRPC crates are allowed only in `crates/mitigator`. The
-  [dependency closure test](https://github.com/LogiXhare/wetechi-netmon/blob/main/crates/incident/tests/dependency_closure.rs)
+  [dependency closure test](https://github.com/LogiXhare/tidegard/blob/main/crates/incident/tests/dependency_closure.rs)
   is narrowed to say so, as it was for the notifier, never widened for
   the domain.
 - **No real network, ever.** Tests and examples use the documentation
@@ -103,7 +103,7 @@ The only code that speaks to GoBGP:
 - **Paths:** RTBH with the configured next hop and the `BLACKHOLE`
   community (RFC 7999) plus `NO_EXPORT`, parent-prefix announcements,
   and FlowSpec rules (RFC 8955) for discard and rate-limit.
-- **Ownership:** every path WetechiNetMon announces carries its own large
+- **Ownership:** every path Tidegard announces carries its own large
   community, so it can list exactly its own routes and never touch
   another's.
 - **Dry-run** builds the exact path and records it, and never calls
@@ -119,7 +119,7 @@ action is announced and withdrawn, and its attributes read back.
 
 ### 7D — The mitigator service
 
-`wetechinetmon-mitigator`, a process like the notifier:
+`tidegard-mitigator`, a process like the notifier:
 
 - Starts each approved mitigation, withdraws each one at its end, its
   maximum duration, or a withdrawal request.
@@ -137,14 +137,14 @@ action is announced and withdrawn, and its attributes read back.
 **Exit:** restart reconciliation, stale-route removal, the maximum
 duration and the kill switch are each proven against a real `gobgpd`.
 
-**Progress:** 7D ([ADR 0049](decisions/0049-phase7d-mitigator-service.md)) adds the `wetechinetmon-mitigator` binary: one active instance by advisory lock; no GoBGP connection with BGP off; each pass expires, announces (recording the exact route, dry-run or not), withdraws at the duration and under the kill switch, and finishes what a restart left half-way; reconciliation withdraws unclaimed owned routes and restores missing ones; proposals come from the incidents table. V20 adds the runtime kill switch (`mitigation.kill_switch.engage` from `noc_lead`, `release` for platform administrators) and `mitigations.route`. The guard refusing at the last moment now ends a mitigation as `failed`. `tests/mitigator_service.rs` proves all of it against PostgreSQL 15 to 18 and a real `gobgpd`.
+**Progress:** 7D ([ADR 0049](decisions/0049-phase7d-mitigator-service.md)) adds the `tidegard-mitigator` binary: one active instance by advisory lock; no GoBGP connection with BGP off; each pass expires, announces (recording the exact route, dry-run or not), withdraws at the duration and under the kill switch, and finishes what a restart left half-way; reconciliation withdraws unclaimed owned routes and restores missing ones; proposals come from the incidents table. V20 adds the runtime kill switch (`mitigation.kill_switch.engage` from `noc_lead`, `release` for platform administrators) and `mitigations.route`. The guard refusing at the last moment now ends a mitigation as `failed`. `tests/mitigator_service.rs` proves all of it against PostgreSQL 15 to 18 and a real `gobgpd`.
 
 ### 7E — API, CLI, UI and notifications
 
 - `/api/v1/mitigations` (list, get, request, approve, reject, withdraw),
   `/api/v1/bgp/peers` and `/api/v1/bgp/routes`, in the OpenAPI document
   and the tenant-isolation suite.
-- `wetechinetmonctl mitigations list|request|approve|withdraw`.
+- `tidegardctl mitigations list|request|approve|withdraw`.
 - A mitigations page in the NOC UI, with approval where the role allows.
 - Notifications for approval requested, mitigation started, failed and
   withdrawn, and BGP peer down (FR-7.3).
@@ -154,11 +154,11 @@ duration and the kill switch are each proven against a real `gobgpd`.
 **Exit:** the UI drives a mitigation from request to withdrawal against a
 real API and `gobgpd` in CI.
 
-**Progress:** 7E-1 ([ADR 0050](decisions/0050-phase7e-mitigation-api-cli-ui.md)) adds the API: eleven endpoints for mitigations, their history, the kill switch and BGP routes and peers, checked against the same guard file the mitigator can share; thirteen `mitigation.*` error codes; the tenant-isolation suite over every `{mitigation_id}` operation; releasing the kill switch only through `wetechinetmon-api kill-switch` on the host; peers recorded by the mitigator (V21); and the incident's `mitigation_status` and `notification_status` derived from the records (FU-64 done). FU-65 records that the deployment-wide controls are open to every tenant's leads until Phase 8. 7E-2 adds the CLI: `wetechinetmonctl mitigations list|show|history|request|approve|reject|withdraw`, `kill-switch status|engage` and `bgp routes|peers`. Approving, withdrawing and engaging the kill switch ask first. There are no route-attribute flags. `kill-switch release` points to the host command. An old peer snapshot is called out. 7E-3 adds the NOC UI's Mitigations page, covering requesting, approving, rejecting and withdrawing, the kill switch (engage only) and the peers. Its Playwright test drives a mitigation from request to withdrawal through the real API, the mitigator and `gobgpd` in CI. A senior operator requests and a NOC lead approves. This meets the 7E exit criterion. 7E-4 adds notifications for mitigations (`mitigation.<state>`), the kill switch and BGP sessions (`bgp.peer_down` and `bgp.peer_up`, written by the mitigator when its snapshot changes, under the `platform` tenant). Each has a fixed severity for routing. A mitigation's deliveries are recorded on its incident. Incident messages now give the real `mitigation_status`. 7E is complete.
+**Progress:** 7E-1 ([ADR 0050](decisions/0050-phase7e-mitigation-api-cli-ui.md)) adds the API: eleven endpoints for mitigations, their history, the kill switch and BGP routes and peers, checked against the same guard file the mitigator can share; thirteen `mitigation.*` error codes; the tenant-isolation suite over every `{mitigation_id}` operation; releasing the kill switch only through `tidegard-api kill-switch` on the host; peers recorded by the mitigator (V21); and the incident's `mitigation_status` and `notification_status` derived from the records (FU-64 done). FU-65 records that the deployment-wide controls are open to every tenant's leads until Phase 8. 7E-2 adds the CLI: `tidegardctl mitigations list|show|history|request|approve|reject|withdraw`, `kill-switch status|engage` and `bgp routes|peers`. Approving, withdrawing and engaging the kill switch ask first. There are no route-attribute flags. `kill-switch release` points to the host command. An old peer snapshot is called out. 7E-3 adds the NOC UI's Mitigations page, covering requesting, approving, rejecting and withdrawing, the kill switch (engage only) and the peers. Its Playwright test drives a mitigation from request to withdrawal through the real API, the mitigator and `gobgpd` in CI. A senior operator requests and a NOC lead approves. This meets the 7E exit criterion. 7E-4 adds notifications for mitigations (`mitigation.<state>`), the kill switch and BGP sessions (`bgp.peer_down` and `bgp.peer_up`, written by the mitigator when its snapshot changes, under the `platform` tenant). Each has a fixed severity for routing. A mitigation's deliveries are recorded on its incident. Incident messages now give the real `mitigation_status`. 7E is complete.
 
 ### 7F — The lab, hardening and Gate 2
 
-- **The lab:** CI starts two speakers, WetechiNetMon's `gobgpd` and a
+- **The lab:** CI starts two speakers, Tidegard's `gobgpd` and a
   second one standing in for the edge router, and proves what the router
   receives: the RTBH with its next hop and communities, the FlowSpec
   rule, and nothing after withdrawal.

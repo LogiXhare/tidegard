@@ -7,7 +7,7 @@
 //!   an event enqueued after shutdown stays pending.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -19,20 +19,20 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use support::{event, host_scope};
-use tokio_postgres::Client;
-use wetechinetmon_detector::{DetectionEvent, EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::{
+use tidegard_detector::{DetectionEvent, EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::TestIncidentGenerator;
-use wetechinetmon_incident_postgres::inbox::{enqueue, InboxPolicy, InboxWorker};
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::pool::{build_pool, PoolPolicy};
-use wetechinetmon_incident_postgres::retry::RetryPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::TestIncidentGenerator;
+use tidegard_incident_postgres::inbox::{enqueue, InboxPolicy, InboxWorker};
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::pool::{build_pool, PoolPolicy};
+use tidegard_incident_postgres::retry::RetryPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tokio_postgres::Client;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 async fn connect(url: &str) -> Client {
     let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls)
@@ -105,7 +105,7 @@ async fn the_worker_loop_processes_until_shutdown_and_survives_a_failing_databas
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .expect("migrations must apply");

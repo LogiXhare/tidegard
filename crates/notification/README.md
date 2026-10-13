@@ -1,6 +1,6 @@
 # Notifier
 
-`wetechinetmon-notifier` sends notifications through generic webhooks,
+`tidegard-notifier` sends notifications through generic webhooks,
 Slack, Microsoft Teams, Telegram and email
 ([ADR 0045](../../docs/architecture/decisions/0045-phase6e-notification-delivery.md)).
 It covers incidents and, since Phase 7E, mitigations, the kill switch and
@@ -21,11 +21,11 @@ incidents, mitigations, the kill switch and BGP peers.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `WETECHINETMON_NOTIFY_DATABASE_URL` | required | The incident database. Never logged. |
-| `WETECHINETMON_NOTIFY_DATABASE_CA_FILE` | unset | Database TLS, as for the incident manager |
-| `WETECHINETMON_NOTIFY_CONFIG` | required | The channels-and-routes file below |
-| `WETECHINETMON_NOTIFY_CONSUMER_ID` | `notifier-1` | This process's outbox lease name; one per process |
-| `WETECHINETMON_NOTIFY_METRICS_BIND` | `127.0.0.1:9093` | Prometheus metrics |
+| `TIDEGARD_NOTIFY_DATABASE_URL` | required | The incident database. Never logged. |
+| `TIDEGARD_NOTIFY_DATABASE_CA_FILE` | unset | Database TLS, as for the incident manager |
+| `TIDEGARD_NOTIFY_CONFIG` | required | The channels-and-routes file below |
+| `TIDEGARD_NOTIFY_CONSUMER_ID` | `notifier-1` | This process's outbox lease name; one per process |
+| `TIDEGARD_NOTIFY_METRICS_BIND` | `127.0.0.1:9093` | Prometheus metrics |
 
 Run the incident manager first: it applies the migrations.
 
@@ -51,7 +51,7 @@ and the webhook signing secret.
       "smtp_tls": "starttls",
       "username": "wnm-notifier",
       "password_file": "/run/secrets/smtp-password",
-      "from": "WetechiNetMon <noc@example.net>",
+      "from": "Tidegard <noc@example.net>",
       "to": ["oncall@example.net"]
     },
     "ticketing": {
@@ -153,7 +153,7 @@ secret.
 
 ## Metrics
 
-`wetechinetmon_notifier_notifications_total{result}`: `delivered`,
+`tidegard_notifier_notifications_total{result}`: `delivered`,
 `failed`, `refused`, `duplicate`, `rate_limited`.
-`wetechinetmon_notifier_messages_total{result}`: `published`, `retrying`,
+`tidegard_notifier_messages_total{result}`: `published`, `retrying`,
 `dead_lettered`.

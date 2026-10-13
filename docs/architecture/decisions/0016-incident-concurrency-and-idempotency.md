@@ -122,7 +122,7 @@ different-fingerprint rejection prevents an attacker replaying a captured
 key with modified content. Bounded key length prevents storage abuse
 through crafted keys. Covered by threat-model entries T-13 and T-14.
 
-**Operational.** `wetechinetmon_incident_command_conflicts_total` is a
+**Operational.** `tidegard_incident_command_conflicts_total` is a
 real signal: a sustained rise means either an integration retrying
 incorrectly or two operators repeatedly colliding, and both are worth
 knowing.
@@ -137,7 +137,7 @@ Accepted as implemented in Phase 5, with two differences:
   one. `incident.request_in_progress` was never needed and is not in the
   [error registry](../../api/error-codes.md).
 - **The conflict metric does not exist yet.**
-  `wetechinetmon_incident_command_conflicts_total` has not been built,
+  `tidegard_incident_command_conflicts_total` has not been built,
   because the API exports no metrics in Phase 5.
 
 Keys are 16–255 characters and are kept for 24 hours, as decided, and

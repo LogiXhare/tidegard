@@ -126,7 +126,7 @@ def main():
 
     ms = lambda value: "—" if value is None else f"{1000 * value:.1f} ms"
     lines = [
-        "## WetechiNetMon API latency (ADR 0054)",
+        "## Tidegard API latency (ADR 0054)",
         "",
         f"**{'PASS' if not reasons else 'FAIL'}**" + ("" if not reasons else ": " + "; ".join(reasons)),
         "",

@@ -32,8 +32,8 @@ table refuses new scopes and never drops an open detection to make room.
 ## Running them
 
 ```powershell
-cargo test -p wetechinetmon-detector
-cargo test -p wetechinetmon-detector --test detection_lifecycle
+cargo test -p tidegard-detector
+cargo test -p tidegard-detector --test detection_lifecycle
 cargo test --workspace
 ```
 
@@ -64,7 +64,7 @@ you control** — see [security-principles.md](../security-principles.md).
 | `ramp` | A detection opens when the rate crosses, not when it starts rising. |
 
 ```powershell
-cargo run -p wetechinetmon-flow-replay -- 127.0.0.1:2055 `
+cargo run -p tidegard-flow-replay -- 127.0.0.1:2055 `
   --pattern flood --duration-secs 40 --peak-bps 10000000
 ```
 
@@ -102,17 +102,17 @@ matching that convention:
 Run the collector with it:
 
 ```powershell
-$env:WETECHINETMON_COLLECTOR_LOCAL_PREFIXES = "10.0.0.0/8=lab"
-$env:WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE = "lab-policies.json"
-$env:WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS = "1"
-cargo run -p wetechinetmon-collector
+$env:TIDEGARD_COLLECTOR_LOCAL_PREFIXES = "10.0.0.0/8=lab"
+$env:TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE = "lab-policies.json"
+$env:TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS = "1"
+cargo run -p tidegard-collector
 ```
 
 Then send `--pattern flood` at it and watch the log. The detection
 appears as a `warn` line naming the target, the policy, and how far over
 threshold it was.
 
-**The window must match.** `WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS`
+**The window must match.** `TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS`
 and every policy's `window` have to agree, or nothing is evaluated —
 visible as `snapshots_ignored_total{reason="windowMismatch"}` climbing.
 

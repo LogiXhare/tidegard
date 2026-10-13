@@ -7,7 +7,7 @@
 //! ever logged.
 //!
 //! Like the other PostgreSQL tests, this connects only to the opt-in,
-//! throwaway database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! throwaway database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there.
 //! One test function, because it resets the `public` schema.
 
@@ -17,15 +17,15 @@ use std::sync::{Arc, Mutex};
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use serde_json::{json, Value};
+use tidegard_api::auth::Role;
+use tidegard_api::session::csrf_token;
+use tidegard_api::token_admin::{self, ActorType, NewToken};
+use tidegard_api::{router, AppState};
+use tidegard_incident_postgres::pool::PoolPolicy;
 use tokio_postgres::Client;
 use tower::ServiceExt;
-use wetechinetmon_api::auth::Role;
-use wetechinetmon_api::session::csrf_token;
-use wetechinetmon_api::token_admin::{self, ActorType, NewToken};
-use wetechinetmon_api::{router, AppState};
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 /// Everything logged at INFO and above.
 #[derive(Clone, Default)]
@@ -159,13 +159,13 @@ async fn sessions_sign_in_expire_end_and_refuse_forgery() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .unwrap();
     let (senior, senior_id) = token(&admin, "acme", Role::SeniorOperator).await;
     let (viewer, viewer_id) = token(&admin, "acme", Role::Viewer).await;
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {
@@ -328,7 +328,7 @@ async fn sessions_sign_in_expire_end_and_refuse_forgery() {
     assert_eq!(body["role"], "viewer");
 
     // --- Idle too long, or past the absolute expiry: refused ---
-    let hash = wetechinetmon_api::session::session_hash(&id);
+    let hash = tidegard_api::session::session_hash(&id);
     admin
         .execute(
             "UPDATE api_sessions SET created_at = now() - interval '31 minutes', \

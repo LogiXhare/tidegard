@@ -15,11 +15,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 use proptest::prelude::*;
-use wetechinetmon_classifier::{classify, PrefixRegistry};
-use wetechinetmon_common::{
+use tidegard_classifier::{classify, PrefixRegistry};
+use tidegard_common::{
     NormalizedFlow, NormalizedFlowBuilder, Protocol, SamplingRate, SamplingSource,
 };
-use wetechinetmon_detector::{
+use tidegard_detector::{
     load_policies, DetectionEngine, DetectionEvent, DetectionState, DetectionWindows, EngineConfig,
     EventKind, InMemorySink, PolicySet, ScopeType, StateTableConfig, ThresholdDetectionEngine,
     TrafficDirection, WindowConfig,

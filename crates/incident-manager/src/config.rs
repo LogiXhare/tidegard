@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::pool::PoolPolicy;
 
 const DEFAULT_METRICS_BIND: &str = "0.0.0.0:9091";
 const DEFAULT_WORKER_IDLE_MS: u64 = 1_000;
@@ -19,23 +19,20 @@ const DEFAULT_STATS_INTERVAL_SECS: u64 = 15;
 const DEFAULT_MAINTENANCE_INTERVAL_SECS: u64 = 60;
 const DEFAULT_RETENTION_INTERVAL_SECS: u64 = 3_600;
 
-pub const DATABASE_URL_ENV_VAR: &str = "WETECHINETMON_INCIDENT_DATABASE_URL";
-pub const DATABASE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_INCIDENT_DATABASE_CA_FILE";
-pub const DATABASE_CLIENT_CERT_FILE_ENV_VAR: &str =
-    "WETECHINETMON_INCIDENT_DATABASE_CLIENT_CERT_FILE";
-pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str =
-    "WETECHINETMON_INCIDENT_DATABASE_CLIENT_KEY_FILE";
-pub const POOL_MAX_SIZE_ENV_VAR: &str = "WETECHINETMON_INCIDENT_POOL_MAX_SIZE";
-pub const MIGRATE_ENV_VAR: &str = "WETECHINETMON_INCIDENT_MIGRATE";
-pub const METRICS_BIND_ENV_VAR: &str = "WETECHINETMON_INCIDENT_METRICS_BIND";
-pub const WORKER_ID_ENV_VAR: &str = "WETECHINETMON_INCIDENT_WORKER_ID";
-pub const WORKER_IDLE_MS_ENV_VAR: &str = "WETECHINETMON_INCIDENT_WORKER_IDLE_MS";
-pub const STATS_INTERVAL_SECS_ENV_VAR: &str = "WETECHINETMON_INCIDENT_STATS_INTERVAL_SECS";
-pub const MAINTENANCE_INTERVAL_SECS_ENV_VAR: &str =
-    "WETECHINETMON_INCIDENT_MAINTENANCE_INTERVAL_SECS";
-pub const RETENTION_INTERVAL_SECS_ENV_VAR: &str = "WETECHINETMON_INCIDENT_RETENTION_INTERVAL_SECS";
+pub const DATABASE_URL_ENV_VAR: &str = "TIDEGARD_INCIDENT_DATABASE_URL";
+pub const DATABASE_CA_FILE_ENV_VAR: &str = "TIDEGARD_INCIDENT_DATABASE_CA_FILE";
+pub const DATABASE_CLIENT_CERT_FILE_ENV_VAR: &str = "TIDEGARD_INCIDENT_DATABASE_CLIENT_CERT_FILE";
+pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str = "TIDEGARD_INCIDENT_DATABASE_CLIENT_KEY_FILE";
+pub const POOL_MAX_SIZE_ENV_VAR: &str = "TIDEGARD_INCIDENT_POOL_MAX_SIZE";
+pub const MIGRATE_ENV_VAR: &str = "TIDEGARD_INCIDENT_MIGRATE";
+pub const METRICS_BIND_ENV_VAR: &str = "TIDEGARD_INCIDENT_METRICS_BIND";
+pub const WORKER_ID_ENV_VAR: &str = "TIDEGARD_INCIDENT_WORKER_ID";
+pub const WORKER_IDLE_MS_ENV_VAR: &str = "TIDEGARD_INCIDENT_WORKER_IDLE_MS";
+pub const STATS_INTERVAL_SECS_ENV_VAR: &str = "TIDEGARD_INCIDENT_STATS_INTERVAL_SECS";
+pub const MAINTENANCE_INTERVAL_SECS_ENV_VAR: &str = "TIDEGARD_INCIDENT_MAINTENANCE_INTERVAL_SECS";
+pub const RETENTION_INTERVAL_SECS_ENV_VAR: &str = "TIDEGARD_INCIDENT_RETENTION_INTERVAL_SECS";
 
-pub use wetechinetmon_incident_postgres::connect::TlsFiles;
+pub use tidegard_incident_postgres::connect::TlsFiles;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Config {
@@ -82,8 +79,8 @@ impl std::fmt::Debug for Config {
 impl Config {
     /// Reads the process environment.
     pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_lookup(|var| match std::env::var(var) {
-            Ok(value) => Ok(Some(value)),
+        Self::from_lookup(|var| match tidegard_common::env::var(var) {
+            Ok(value) => Ok(value),
             Err(std::env::VarError::NotPresent) => Ok(None),
             Err(std::env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidValue {
                 var: var.to_string(),

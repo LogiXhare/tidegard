@@ -10,7 +10,7 @@
 //! dead-letter transition that claim timing cannot move.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -18,19 +18,19 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use tokio_postgres::types::ToSql;
-use tokio_postgres::Client;
-use wetechinetmon_incident::authorization::{
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::outbox::{
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::outbox::{
     ClaimedMessage, FailureOutcome, OutboxConsumer, OutboxPolicy,
 };
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::retry::RetryPolicy;
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::retry::RetryPolicy;
+use tokio_postgres::types::ToSql;
+use tokio_postgres::Client;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 /// A lease short enough to wait out, long enough that the checks made right
 /// after a claim land well inside it.
@@ -172,7 +172,7 @@ async fn outbox_claims_stay_disjoint_survive_crashes_and_count_attempts_once() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .expect("migrations must apply");

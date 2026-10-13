@@ -1,4 +1,4 @@
-# WetechiNetMon reference stack (ADR 0052): PostgreSQL, ClickHouse and
+# Tidegard reference stack (ADR 0052): PostgreSQL, ClickHouse and
 # the five services on one host. Run ./setup.sh once, as root, before the
 # first `docker compose up`: it makes the TLS certificates, the passwords
 # and .env. See README.md.
@@ -10,7 +10,7 @@
 # - Only the API, the collector's UDP port and the metrics endpoints are
 #   published, the metrics on loopback only.
 
-name: wetechinetmon
+name: tidegard
 
 x-service: &service
   restart: unless-stopped
@@ -24,7 +24,7 @@ x-service: &service
 x-tls: &tls
   type: bind
   source: ./tls/ca.pem
-  target: /etc/wetechinetmon/tls/ca.pem
+  target: /etc/tidegard/tls/ca.pem
   read_only: true
 
 services:
@@ -32,26 +32,26 @@ services:
     image: postgres:17.11-alpine3.23@sha256:9ea644da56f1a82283b173fa38a316636fe7c538991a8ae41998cd3765434991
     restart: unless-stopped
     environment:
-      POSTGRES_USER: wetechinetmon
-      POSTGRES_DB: wetechinetmon
-      POSTGRES_PASSWORD_FILE: /run/wetechinetmon/postgres-password
+      POSTGRES_USER: tidegard
+      POSTGRES_DB: tidegard
+      POSTGRES_PASSWORD_FILE: /run/tidegard/postgres-password
     command:
       - postgres
       - -c
       - ssl=on
       - -c
-      - ssl_cert_file=/etc/wetechinetmon/tls/postgres.crt
+      - ssl_cert_file=/etc/tidegard/tls/postgres.crt
       - -c
-      - ssl_key_file=/etc/wetechinetmon/tls/postgres.key
+      - ssl_key_file=/etc/tidegard/tls/postgres.key
       - -c
       - ssl_min_protocol_version=TLSv1.2
     volumes:
       - postgres:/var/lib/postgresql/data
-      - ./tls/postgres.crt:/etc/wetechinetmon/tls/postgres.crt:ro
-      - ./tls/postgres.key:/etc/wetechinetmon/tls/postgres.key:ro
-      - ./secrets/postgres-password:/run/wetechinetmon/postgres-password:ro
+      - ./tls/postgres.crt:/etc/tidegard/tls/postgres.crt:ro
+      - ./tls/postgres.key:/etc/tidegard/tls/postgres.key:ro
+      - ./secrets/postgres-password:/run/tidegard/postgres-password:ro
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "wetechinetmon", "-d", "wetechinetmon"]
+      test: ["CMD", "pg_isready", "-U", "tidegard", "-d", "tidegard"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -60,15 +60,15 @@ services:
     image: clickhouse/clickhouse-server:26.8.14.3@sha256:4769eec6a9b9842a7d102c8bdfca0400128bc6edf65dec4e19a7d3a2b25f32db
     restart: unless-stopped
     environment:
-      CLICKHOUSE_USER: wetechinetmon
-      CLICKHOUSE_PASSWORD_FILE: /run/wetechinetmon/clickhouse-password
+      CLICKHOUSE_USER: tidegard
+      CLICKHOUSE_PASSWORD_FILE: /run/tidegard/clickhouse-password
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     volumes:
       - clickhouse:/var/lib/clickhouse
-      - ./clickhouse-tls.xml:/etc/clickhouse-server/config.d/wetechinetmon-tls.xml:ro
-      - ./tls/clickhouse.crt:/etc/wetechinetmon/tls/clickhouse.crt:ro
-      - ./tls/clickhouse.key:/etc/wetechinetmon/tls/clickhouse.key:ro
-      - ./secrets/clickhouse-password:/run/wetechinetmon/clickhouse-password:ro
+      - ./clickhouse-tls.xml:/etc/clickhouse-server/config.d/tidegard-tls.xml:ro
+      - ./tls/clickhouse.crt:/etc/tidegard/tls/clickhouse.crt:ro
+      - ./tls/clickhouse.key:/etc/tidegard/tls/clickhouse.key:ro
+      - ./secrets/clickhouse-password:/run/tidegard/clickhouse-password:ro
     ulimits:
       nofile: { soft: 262144, hard: 262144 }
     healthcheck:
@@ -81,10 +81,10 @@ services:
 
   incident-manager:
     <<: *service
-    image: ${WETECHINETMON_IMAGE_PREFIX:-ghcr.io/logixhare/wetechinetmon-}incident-manager:${WETECHINETMON_VERSION:?set WETECHINETMON_VERSION in .env}
+    image: ${TIDEGARD_IMAGE_PREFIX:-ghcr.io/logixhare/tidegard-}incident-manager:${TIDEGARD_VERSION:?set TIDEGARD_VERSION in .env}
     environment:
-      WETECHINETMON_INCIDENT_DATABASE_URL: ${WETECHINETMON_DATABASE_URL:?run setup.sh first}
-      WETECHINETMON_INCIDENT_DATABASE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
+      TIDEGARD_INCIDENT_DATABASE_URL: ${TIDEGARD_DATABASE_URL:?run setup.sh first}
+      TIDEGARD_INCIDENT_DATABASE_CA_FILE: /etc/tidegard/tls/ca.pem
     volumes:
       - *tls
     ports:
@@ -92,82 +92,82 @@ services:
 
   collector:
     <<: *service
-    image: ${WETECHINETMON_IMAGE_PREFIX:-ghcr.io/logixhare/wetechinetmon-}collector:${WETECHINETMON_VERSION:?set WETECHINETMON_VERSION in .env}
+    image: ${TIDEGARD_IMAGE_PREFIX:-ghcr.io/logixhare/tidegard-}collector:${TIDEGARD_VERSION:?set TIDEGARD_VERSION in .env}
     depends_on:
       postgres:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
     environment:
-      WETECHINETMON_COLLECTOR_LOCAL_PREFIXES: ${WETECHINETMON_LOCAL_PREFIXES:-192.0.2.0/24@default}
+      TIDEGARD_COLLECTOR_LOCAL_PREFIXES: ${TIDEGARD_LOCAL_PREFIXES:-192.0.2.0/24@default}
       # Your routers (ADR 0056). Empty accepts any source, with a warning.
-      WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS: ${WETECHINETMON_ALLOWED_EXPORTERS:-}
-      WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE: /etc/wetechinetmon/detection-policy.json
+      TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS: ${TIDEGARD_ALLOWED_EXPORTERS:-}
+      TIDEGARD_COLLECTOR_DETECTION_POLICY_FILE: /etc/tidegard/detection-policy.json
       # Must equal every policy's "window".
-      WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS: ${WETECHINETMON_DETECTION_WINDOW_SECS:-5}
-      WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL: ${WETECHINETMON_DATABASE_URL:?run setup.sh first}
-      WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
-      WETECHINETMON_COLLECTOR_CLICKHOUSE_URL: https://clickhouse:8443
-      WETECHINETMON_COLLECTOR_CLICKHOUSE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
-      WETECHINETMON_COLLECTOR_CLICKHOUSE_USER: wetechinetmon
-      WETECHINETMON_COLLECTOR_CLICKHOUSE_PASSWORD_FILE: /run/wetechinetmon/clickhouse-password
+      TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS: ${TIDEGARD_DETECTION_WINDOW_SECS:-5}
+      TIDEGARD_COLLECTOR_INCIDENT_DATABASE_URL: ${TIDEGARD_DATABASE_URL:?run setup.sh first}
+      TIDEGARD_COLLECTOR_INCIDENT_DATABASE_CA_FILE: /etc/tidegard/tls/ca.pem
+      TIDEGARD_COLLECTOR_CLICKHOUSE_URL: https://clickhouse:8443
+      TIDEGARD_COLLECTOR_CLICKHOUSE_CA_FILE: /etc/tidegard/tls/ca.pem
+      TIDEGARD_COLLECTOR_CLICKHOUSE_USER: tidegard
+      TIDEGARD_COLLECTOR_CLICKHOUSE_PASSWORD_FILE: /run/tidegard/clickhouse-password
     volumes:
       - *tls
-      - ${WETECHINETMON_DETECTION_POLICY:-../config/detection-policy.json}:/etc/wetechinetmon/detection-policy.json:ro
-      - ./secrets/clickhouse-password:/run/wetechinetmon/clickhouse-password:ro
+      - ${TIDEGARD_DETECTION_POLICY:-../config/detection-policy.json}:/etc/tidegard/detection-policy.json:ro
+      - ./secrets/clickhouse-password:/run/tidegard/clickhouse-password:ro
     ports:
-      - "${WETECHINETMON_FLOW_PUBLISH:-2055}:2055/udp"
+      - "${TIDEGARD_FLOW_PUBLISH:-2055}:2055/udp"
       - "127.0.0.1:9090:9090"
 
   api:
     <<: *service
-    image: ${WETECHINETMON_IMAGE_PREFIX:-ghcr.io/logixhare/wetechinetmon-}api:${WETECHINETMON_VERSION:?set WETECHINETMON_VERSION in .env}
+    image: ${TIDEGARD_IMAGE_PREFIX:-ghcr.io/logixhare/tidegard-}api:${TIDEGARD_VERSION:?set TIDEGARD_VERSION in .env}
     environment:
       # Off loopback, so TLS (ADR 0038), with the stack's certificate.
-      WETECHINETMON_API_BIND: 0.0.0.0:8443
-      WETECHINETMON_API_TLS_CERT_FILE: /etc/wetechinetmon/tls/api.crt
-      WETECHINETMON_API_TLS_KEY_FILE: /etc/wetechinetmon/tls/api.key
-      WETECHINETMON_API_DATABASE_URL: ${WETECHINETMON_DATABASE_URL:?run setup.sh first}
-      WETECHINETMON_API_DATABASE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
-      WETECHINETMON_API_MITIGATION_GUARD_FILE: /etc/wetechinetmon/guard.json
-      WETECHINETMON_API_TRAFFIC_TENANT: ${WETECHINETMON_TRAFFIC_TENANT:-default}
-      WETECHINETMON_API_CLICKHOUSE_URL: https://clickhouse:8443
-      WETECHINETMON_API_CLICKHOUSE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
-      WETECHINETMON_API_CLICKHOUSE_USER: wetechinetmon
-      WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE: /run/wetechinetmon/clickhouse-password
+      TIDEGARD_API_BIND: 0.0.0.0:8443
+      TIDEGARD_API_TLS_CERT_FILE: /etc/tidegard/tls/api.crt
+      TIDEGARD_API_TLS_KEY_FILE: /etc/tidegard/tls/api.key
+      TIDEGARD_API_DATABASE_URL: ${TIDEGARD_DATABASE_URL:?run setup.sh first}
+      TIDEGARD_API_DATABASE_CA_FILE: /etc/tidegard/tls/ca.pem
+      TIDEGARD_API_MITIGATION_GUARD_FILE: /etc/tidegard/guard.json
+      TIDEGARD_API_TRAFFIC_TENANT: ${TIDEGARD_TRAFFIC_TENANT:-default}
+      TIDEGARD_API_CLICKHOUSE_URL: https://clickhouse:8443
+      TIDEGARD_API_CLICKHOUSE_CA_FILE: /etc/tidegard/tls/ca.pem
+      TIDEGARD_API_CLICKHOUSE_USER: tidegard
+      TIDEGARD_API_CLICKHOUSE_PASSWORD_FILE: /run/tidegard/clickhouse-password
     volumes:
       - *tls
-      - ./tls/api.crt:/etc/wetechinetmon/tls/api.crt:ro
-      - ./tls/api.key:/etc/wetechinetmon/tls/api.key:ro
-      - ../config/guard.json:/etc/wetechinetmon/guard.json:ro
-      - ./secrets/clickhouse-password:/run/wetechinetmon/clickhouse-password:ro
+      - ./tls/api.crt:/etc/tidegard/tls/api.crt:ro
+      - ./tls/api.key:/etc/tidegard/tls/api.key:ro
+      - ../config/guard.json:/etc/tidegard/guard.json:ro
+      - ./secrets/clickhouse-password:/run/tidegard/clickhouse-password:ro
     ports:
-      - "${WETECHINETMON_API_PUBLISH:-127.0.0.1:8443}:8443"
+      - "${TIDEGARD_API_PUBLISH:-127.0.0.1:8443}:8443"
 
   notifier:
     <<: *service
-    image: ${WETECHINETMON_IMAGE_PREFIX:-ghcr.io/logixhare/wetechinetmon-}notifier:${WETECHINETMON_VERSION:?set WETECHINETMON_VERSION in .env}
+    image: ${TIDEGARD_IMAGE_PREFIX:-ghcr.io/logixhare/tidegard-}notifier:${TIDEGARD_VERSION:?set TIDEGARD_VERSION in .env}
     environment:
-      WETECHINETMON_NOTIFY_CONFIG: /etc/wetechinetmon/notifier.json
-      WETECHINETMON_NOTIFY_DATABASE_URL: ${WETECHINETMON_DATABASE_URL:?run setup.sh first}
-      WETECHINETMON_NOTIFY_DATABASE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
+      TIDEGARD_NOTIFY_CONFIG: /etc/tidegard/notifier.json
+      TIDEGARD_NOTIFY_DATABASE_URL: ${TIDEGARD_DATABASE_URL:?run setup.sh first}
+      TIDEGARD_NOTIFY_DATABASE_CA_FILE: /etc/tidegard/tls/ca.pem
     volumes:
       - *tls
-      - ${WETECHINETMON_NOTIFIER_CONFIG:-../config/notifier.json}:/etc/wetechinetmon/notifier.json:ro
+      - ${TIDEGARD_NOTIFIER_CONFIG:-../config/notifier.json}:/etc/tidegard/notifier.json:ro
     ports:
       - "127.0.0.1:9093:9093"
 
   mitigator:
     <<: *service
-    image: ${WETECHINETMON_IMAGE_PREFIX:-ghcr.io/logixhare/wetechinetmon-}mitigator:${WETECHINETMON_VERSION:?set WETECHINETMON_VERSION in .env}
+    image: ${TIDEGARD_IMAGE_PREFIX:-ghcr.io/logixhare/tidegard-}mitigator:${TIDEGARD_VERSION:?set TIDEGARD_VERSION in .env}
     environment:
-      WETECHINETMON_MITIGATOR_CONFIG: /etc/wetechinetmon/mitigator.json
-      WETECHINETMON_MITIGATOR_DATABASE_URL: ${WETECHINETMON_DATABASE_URL:?run setup.sh first}
-      WETECHINETMON_MITIGATOR_DATABASE_CA_FILE: /etc/wetechinetmon/tls/ca.pem
+      TIDEGARD_MITIGATOR_CONFIG: /etc/tidegard/mitigator.json
+      TIDEGARD_MITIGATOR_DATABASE_URL: ${TIDEGARD_DATABASE_URL:?run setup.sh first}
+      TIDEGARD_MITIGATOR_DATABASE_CA_FILE: /etc/tidegard/tls/ca.pem
     volumes:
       - *tls
-      - ../config/mitigator.json:/etc/wetechinetmon/mitigator.json:ro
-      - ../config/guard.json:/etc/wetechinetmon/guard.json:ro
+      - ../config/mitigator.json:/etc/tidegard/mitigator.json:ro
+      - ../config/guard.json:/etc/tidegard/guard.json:ro
     ports:
       - "127.0.0.1:9094:9094"
 

@@ -1,13 +1,13 @@
 [package]
-name = "wetechinetmon-incident"
-description = "WetechiNetMon Incident Management domain — Phase 5A: dependency-free, database-independent, HTTP-independent."
+name = "tidegard-incident"
+description = "Tidegard Incident Management domain — Phase 5A: dependency-free, database-independent, HTTP-independent."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-wetechinetmon-detector = { path = "../detector" }
+tidegard-detector = { path = "../detector" }
 thiserror.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

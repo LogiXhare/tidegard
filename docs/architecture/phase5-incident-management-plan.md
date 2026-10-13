@@ -49,7 +49,7 @@ mitigate. See [ADR 0011](decisions/0011-incident-domain-boundary.md).
 | [Incident persistence](incident-persistence.md) | PostgreSQL schema, transactions, ClickHouse boundary |
 | [Incident security model](incident-security-model.md) | Tenancy, permissions, concurrency, idempotency |
 | [Incident API plan](incident-api-plan.md) | REST resources, request/response, pagination |
-| [Incident CLI plan](incident-cli-plan.md) | The `wetechinetmonctl incidents` command tree |
+| [Incident CLI plan](incident-cli-plan.md) | The `tidegardctl incidents` command tree |
 | [Incident observability](incident-observability.md) | Metrics, logs, capacity bounds |
 | [Incident testing plan](incident-testing-plan.md) | What must be proven before Phase 5 ships |
 | [Incident threat model](../security/incident-threat-model.md) | 24 threats, controls, residual risk |

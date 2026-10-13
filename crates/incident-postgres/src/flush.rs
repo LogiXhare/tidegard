@@ -9,11 +9,11 @@
 
 use std::collections::HashMap;
 
+use tidegard_detector::DetectionEvent;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::incident::Incident;
 use tokio_postgres::GenericClient;
-use wetechinetmon_detector::DetectionEvent;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::incident::Incident;
 
 use crate::error::PersistError;
 use crate::fault::{self, FlushPoint};

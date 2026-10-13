@@ -5,7 +5,7 @@ Last updated: 2026-08-20
 
 ## 1. Statement of Independence
 
-WetechiNetMon is an independently engineered clean-room implementation. It
+Tidegard is an independently engineered clean-room implementation. It
 is built from public specifications, public documentation, and
 independently designed schemas and interfaces. It is not a derivative,
 port, clone, or reverse-engineered edition of any proprietary product,
@@ -52,7 +52,7 @@ notifications.
 
 All product-facing text must use:
 
-> "WetechiNetMon is an independently engineered open network telemetry,
+> "Tidegard is an independently engineered open network telemetry,
 > DDoS detection, traffic analytics, and policy-controlled mitigation
 > platform."
 
@@ -90,7 +90,7 @@ distribution until resolved.
   this document (checklist to be added to the PR template in Phase 1).
 - Any contributor (human or agent) who has had direct access to proprietary
   FastNetMon Advanced source, configuration, or confidential documentation
-  must not author WetechiNetMon protocol, detection, dashboard, or CLI code.
+  must not author Tidegard protocol, detection, dashboard, or CLI code.
   This charter assumes no such access has occurred or will occur; if that
   assumption is ever false, treat it as a blocking legal question, not an
   engineering one.

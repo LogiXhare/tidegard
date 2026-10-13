@@ -16,7 +16,7 @@
 //! incident's life without splitting it.
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_detector::{AddressFamily, ScopeId, ScopeType, TrafficDirection};
+use tidegard_detector::{AddressFamily, ScopeId, ScopeType, TrafficDirection};
 
 use crate::id::IncidentId;
 

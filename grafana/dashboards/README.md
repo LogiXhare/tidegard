@@ -1,6 +1,6 @@
 # Grafana Dashboards
 
-Original dashboards for WetechiNetMon, designed for this project (see
+Original dashboards for Tidegard, designed for this project (see
 the [clean-room boundary](../../docs/clean-room-boundary.md)).
 
 | File | UID | Datasources | Shows |
@@ -17,7 +17,7 @@ deployment-wide.
 
 **Every change is checked** ([ADR 0041](../../docs/architecture/decisions/0041-phase6a-grafana-dashboards-as-code.md)):
 
-- `cargo test -p wetechinetmon-dashboard-check` refuses a panel that
+- `cargo test -p tidegard-dashboard-check` refuses a panel that
   queries a metric no module registers or a table the schema does not
   create, a hard-coded datasource, or a bad UID.
 - The CI job **Grafana dashboards** loads them into a real Grafana with

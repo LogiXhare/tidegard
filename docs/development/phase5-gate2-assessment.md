@@ -66,7 +66,7 @@ request:
 | `mitigation_status` and `notification_status` are `none` | Met | Constants in the API; `get_incident.rs` |
 | Phase 4 detector behaviour is unmodified | Met | `git diff d1d5f2c..main -- crates/detector` is empty. `d1d5f2c` is the first Phase 5 commit |
 | ClickHouse stays on `0.13` | Met | `Cargo.lock`: `clickhouse 0.13.3` |
-| No Dependabot PR merged as part of Phase 5 | **Deviation, ratified** | Two Dependabot PRs were merged on 2026-10-05, outside the rule: [#52](https://github.com/LogiXhare/wetechi-netmon/pull/52), seven GitHub Actions updates, and [#53](https://github.com/LogiXhare/wetechi-netmon/pull/53), patch updates to `thiserror` 2.0.21, `uuid` 1.26.1 and `rustls` 0.23.45. Every check passed on both, everything since has been tested on top of them, and neither touches ClickHouse. **The owner ratified both on 2026-10-05: they stay.** The Dependabot PRs opened since (#82, #83, #84, and #21 for ClickHouse) stay unmerged until Phase 5 closes |
+| No Dependabot PR merged as part of Phase 5 | **Deviation, ratified** | Two Dependabot PRs were merged on 2026-10-05, outside the rule: [#52](https://github.com/LogiXhare/tidegard/pull/52), seven GitHub Actions updates, and [#53](https://github.com/LogiXhare/tidegard/pull/53), patch updates to `thiserror` 2.0.21, `uuid` 1.26.1 and `rustls` 0.23.45. Every check passed on both, everything since has been tested on top of them, and neither touches ClickHouse. **The owner ratified both on 2026-10-05: they stay.** The Dependabot PRs opened since (#82, #83, #84, and #21 for ClickHouse) stay unmerged until Phase 5 closes |
 
 ## Process
 

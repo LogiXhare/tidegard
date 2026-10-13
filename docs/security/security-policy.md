@@ -2,7 +2,7 @@
 
 Status: summary page. The authoritative document is `SECURITY.md` at the
 repository root —
-[read it on GitHub](https://github.com/badshashorif/wetechi-netmon/blob/main/SECURITY.md).
+[read it on GitHub](https://github.com/LogiXhare/tidegard/blob/main/SECURITY.md).
 This page exists so the documentation site can link to the reporting
 process without pointing outside the documentation tree.
 
@@ -10,7 +10,7 @@ process without pointing outside the documentation tree.
 
 **Do not open a public GitHub issue for a suspected security
 vulnerability.** Report it privately, either through GitHub's
-[private vulnerability reporting](https://github.com/badshashorif/wetechi-netmon/security/advisories/new)
+[private vulnerability reporting](https://github.com/LogiXhare/tidegard/security/advisories/new)
 on this repository, or by contacting the repository owner
 (`badshashorif`) through GitHub until a dedicated security contact is
 published.

@@ -1,10 +1,10 @@
 {
   "id": null,
   "uid": "wnm-collector",
-  "title": "WetechiNetMon — Collector",
+  "title": "Tidegard — Collector",
   "description": "Health of the flow collector and its aggregation pipeline, from Prometheus.",
   "tags": [
-    "wetechinetmon"
+    "tidegard"
   ],
   "editable": true,
   "graphTooltip": 1,
@@ -32,10 +32,10 @@
     {
       "type": "dashboards",
       "tags": [
-        "wetechinetmon"
+        "tidegard"
       ],
       "asDropdown": true,
-      "title": "WetechiNetMon",
+      "title": "Tidegard",
       "includeVars": false,
       "keepTime": true
     }
@@ -100,7 +100,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_active_exporters)",
+          "expr": "sum(tidegard_collector_active_exporters)",
           "instant": true,
           "legendFormat": "Active exporters"
         }
@@ -156,7 +156,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_template_cache_size)",
+          "expr": "sum(tidegard_collector_template_cache_size)",
           "instant": true,
           "legendFormat": "Templates cached"
         }
@@ -212,7 +212,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_queue_depth)",
+          "expr": "sum(tidegard_collector_queue_depth)",
           "instant": true,
           "legendFormat": "Queue depth"
         }
@@ -268,7 +268,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_incident_inbox_queued)",
+          "expr": "sum(tidegard_collector_incident_inbox_queued)",
           "instant": true,
           "legendFormat": "Inbox queued"
         }
@@ -323,7 +323,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_flow_datagrams_received_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_flow_datagrams_received_total[$__rate_interval]))",
           "legendFormat": "datagrams",
           "range": true
         },
@@ -333,7 +333,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_parsed_flow_records_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_parsed_flow_records_total[$__rate_interval]))",
           "legendFormat": "records",
           "range": true
         },
@@ -343,7 +343,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_normalized_flows_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_normalized_flows_total[$__rate_interval]))",
           "legendFormat": "normalized",
           "range": true
         }
@@ -398,7 +398,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_parser_failures_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_parser_failures_total[$__rate_interval]))",
           "legendFormat": "parser failures",
           "range": true
         },
@@ -408,7 +408,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_unknown_templates_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_unknown_templates_total[$__rate_interval]))",
           "legendFormat": "unknown templates",
           "range": true
         },
@@ -418,7 +418,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_reserved_set_id_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_reserved_set_id_total[$__rate_interval]))",
           "legendFormat": "reserved set id",
           "range": true
         },
@@ -428,7 +428,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_incomplete_records_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_incomplete_records_total[$__rate_interval]))",
           "legendFormat": "incomplete records",
           "range": true
         },
@@ -438,7 +438,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_sampling_errors_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_sampling_errors_total[$__rate_interval]))",
           "legendFormat": "sampling errors",
           "range": true
         }
@@ -493,7 +493,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (direction) (rate(wetechinetmon_collector_classified_flows_by_direction_total[$__rate_interval]))",
+          "expr": "sum by (direction) (rate(tidegard_collector_classified_flows_by_direction_total[$__rate_interval]))",
           "legendFormat": "{{direction}}",
           "range": true
         }
@@ -548,7 +548,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (kind) (rate(wetechinetmon_collector_sets_by_kind_total[$__rate_interval]))",
+          "expr": "sum by (kind) (rate(tidegard_collector_sets_by_kind_total[$__rate_interval]))",
           "legendFormat": "{{kind}}",
           "range": true
         }
@@ -603,7 +603,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(wetechinetmon_collector_aggregation_latency_seconds_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(tidegard_collector_aggregation_latency_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p50",
           "range": true
         },
@@ -613,7 +613,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(wetechinetmon_collector_aggregation_latency_seconds_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(tidegard_collector_aggregation_latency_seconds_bucket[$__rate_interval])))",
           "legendFormat": "p99",
           "range": true
         }
@@ -668,7 +668,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_active_hosts)",
+          "expr": "sum(tidegard_collector_active_hosts)",
           "legendFormat": "hosts",
           "range": true
         },
@@ -678,7 +678,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_active_networks)",
+          "expr": "sum(tidegard_collector_active_networks)",
           "legendFormat": "networks",
           "range": true
         },
@@ -688,7 +688,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_active_hostgroups)",
+          "expr": "sum(tidegard_collector_active_hostgroups)",
           "legendFormat": "hostgroups",
           "range": true
         },
@@ -698,7 +698,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_collector_active_asns)",
+          "expr": "sum(tidegard_collector_active_asns)",
           "legendFormat": "asns",
           "range": true
         }
@@ -753,7 +753,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_clickhouse_rows_written_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_clickhouse_rows_written_total[$__rate_interval]))",
           "legendFormat": "rows written",
           "range": true
         },
@@ -763,7 +763,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_clickhouse_write_failures_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_clickhouse_write_failures_total[$__rate_interval]))",
           "legendFormat": "write failures",
           "range": true
         },
@@ -773,7 +773,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_clickhouse_retry_queue_dropped_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_clickhouse_retry_queue_dropped_total[$__rate_interval]))",
           "legendFormat": "dropped",
           "range": true
         }
@@ -828,7 +828,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_incident_inbox_written_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_incident_inbox_written_total[$__rate_interval]))",
           "legendFormat": "written",
           "range": true
         },
@@ -838,7 +838,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_incident_inbox_write_failures_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_incident_inbox_write_failures_total[$__rate_interval]))",
           "legendFormat": "write failures",
           "range": true
         }
@@ -893,7 +893,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(increase(wetechinetmon_collector_exporter_restarts_total[$__rate_interval]))",
+          "expr": "sum(increase(tidegard_collector_exporter_restarts_total[$__rate_interval]))",
           "legendFormat": "restarts",
           "range": true
         }
@@ -948,7 +948,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_expired_entries_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_expired_entries_total[$__rate_interval]))",
           "legendFormat": "expired",
           "range": true
         },
@@ -958,7 +958,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_collector_evicted_entries_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_collector_evicted_entries_total[$__rate_interval]))",
           "legendFormat": "evicted",
           "range": true
         }

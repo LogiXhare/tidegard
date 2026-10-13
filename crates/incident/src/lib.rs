@@ -1,4 +1,4 @@
-//! WetechiNetMon's Incident Management domain — Phase 5A.
+//! Tidegard's Incident Management domain — Phase 5A.
 //!
 //! Dependency-free beyond the workspace, database-independent,
 //! HTTP-independent, notification-independent, mitigation-independent.
@@ -7,8 +7,8 @@
 //!
 //! # The detector import boundary
 //!
-//! This crate depends on `wetechinetmon-detector` for exactly one
-//! reason: to read [`wetechinetmon_detector::DetectionEvent`] and reuse
+//! This crate depends on `tidegard-detector` for exactly one
+//! reason: to read [`tidegard_detector::DetectionEvent`] and reuse
 //! its `Clock` trait. The **only** items imported from that crate,
 //! anywhere in this one, are:
 //!
@@ -24,7 +24,7 @@
 //! `config` — the detector's mutable engine machinery, as opposed to its
 //! published event vocabulary. [ADR 0011](../../../docs/architecture/decisions/0011-incident-domain-boundary.md)
 //! states this as a rule; **nothing enforces it mechanically today**,
-//! because `wetechinetmon-detector`'s `lib.rs` re-exports both the event
+//! because `tidegard-detector`'s `lib.rs` re-exports both the event
 //! vocabulary and the engine internals as public items at the same crate
 //! root — Cargo's dependency graph cannot express "may import module A
 //! but not module B of the same crate." A grep-based or `cargo-deny`-style

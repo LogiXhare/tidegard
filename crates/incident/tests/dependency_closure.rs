@@ -53,12 +53,12 @@ const ALLOWED: &[&str] = &[
     "tracing-serde",
     "tracing-subscriber",
     "unicode-ident",
-    "wetechinetmon-aggregator",
-    "wetechinetmon-classifier",
-    "wetechinetmon-common",
-    "wetechinetmon-detector",
-    "wetechinetmon-incident",
-    "wetechinetmon-mitigation",
+    "tidegard-aggregator",
+    "tidegard-classifier",
+    "tidegard-common",
+    "tidegard-detector",
+    "tidegard-incident",
+    "tidegard-mitigation",
     "windows-link",
     "windows-sys",
     "zmij",
@@ -77,12 +77,12 @@ const DELIVERY: &[&str] = &[
     "serenity", "webhook",
 ];
 
-const NOTIFIER: &str = "wetechinetmon-notification";
+const NOTIFIER: &str = "tidegard-notification";
 
 /// gRPC: the mitigator's way to GoBGP, nobody else's.
 const GRPC: &[&str] = &["tonic", "prost", "grpc", "h2"];
 
-const MITIGATOR: &str = "wetechinetmon-mitigator";
+const MITIGATOR: &str = "tidegard-mitigator";
 
 /// The crate names in the normal-dependency closure that `args` selects.
 fn closure(args: &[&str]) -> BTreeSet<String> {
@@ -123,19 +123,19 @@ fn assert_allowed(package: &str) {
 
 #[test]
 fn the_detector_depends_only_on_reviewed_crates() {
-    assert_allowed("wetechinetmon-detector");
+    assert_allowed("tidegard-detector");
 }
 
 #[test]
 fn the_incident_domain_depends_only_on_reviewed_crates() {
-    assert_allowed("wetechinetmon-incident");
+    assert_allowed("tidegard-incident");
 }
 
 /// The mitigation domain (ADR 0046) is as pure as the incident domain:
 /// GoBGP and gRPC belong to the mitigator alone.
 #[test]
 fn the_mitigation_domain_depends_only_on_reviewed_crates() {
-    assert_allowed("wetechinetmon-mitigation");
+    assert_allowed("tidegard-mitigation");
 }
 
 fn carrying<'a>(names: &'a BTreeSet<String>, fragments: &[&str]) -> Vec<&'a String> {

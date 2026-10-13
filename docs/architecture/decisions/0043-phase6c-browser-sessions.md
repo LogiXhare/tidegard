@@ -48,7 +48,7 @@ only (ADR 0038), where browsers treat the origin as secure anyway.
 requests. The API does not rely on that alone. A request authenticated by
 the cookie that is not `GET`, `HEAD` or `OPTIONS` must carry
 `X-WNM-CSRF`, equal to a value derived from the session id
-(`SHA-256("wetechinetmon csrf" ‖ id)`). The page learns it from
+(`SHA-256("tidegard csrf" ‖ id)`). The page learns it from
 `POST /api/v1/session` and `GET /api/v1/session`. A cross-site page can
 neither read those answers nor compute the value, since the cookie is
 `HttpOnly`. A missing or wrong header is `403 api.csrf_rejected`,

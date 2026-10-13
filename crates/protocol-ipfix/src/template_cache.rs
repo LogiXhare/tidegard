@@ -40,7 +40,7 @@ const IE_SAMPLING_ALGORITHM: u16 = 35;
 ///
 /// One `TemplateCache` corresponds to one (exporter, observation domain
 /// ID) pair — template IDs are only meaningful within that scope (RFC
-/// 7011 §8.1). The caller (`wetechinetmon-collector`) owns one instance
+/// 7011 §8.1). The caller (`tidegard-collector`) owns one instance
 /// per exporter/domain and is responsible for evicting caches for
 /// exporters that have gone quiet, and for detecting exporter restarts
 /// (a sequence-number reset) and clearing the affected cache — this
@@ -131,7 +131,7 @@ impl TemplateCache {
     /// sampling Information Elements and updates the cached
     /// `SamplingInfo` accordingly. Fields this cache doesn't recognize
     /// are ignored, not treated as an error — an Options Template can
-    /// legitimately carry many fields WetechiNetMon doesn't interpret
+    /// legitimately carry many fields Tidegard doesn't interpret
     /// yet.
     pub fn observe_options_data(&mut self, record: &DataRecord) {
         for field in &record.fields {

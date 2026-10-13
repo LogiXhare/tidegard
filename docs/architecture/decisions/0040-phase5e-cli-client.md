@@ -6,7 +6,7 @@ Deciders: Repository owner
 
 ## Context
 
-Milestone 5E builds `wetechinetmonctl`, the incident CLI described in the
+Milestone 5E builds `tidegardctl`, the incident CLI described in the
 [CLI plan](../incident-cli-plan.md). The CLI is an API client and nothing
 more. It holds no business logic and never touches the database, so
 authorization and audit cannot be bypassed by using it.
@@ -62,16 +62,16 @@ API's refusal of unknown fields.
 **Credentials never come from a flag,** because flags land in shell
 history:
 
-- The token comes from `WETECHINETMON_API_TOKEN` or from a profile in the
+- The token comes from `TIDEGARD_API_TOKEN` or from a profile in the
   config file.
 - The config file is JSON, because `serde_json` is already in the tree
   and no TOML or YAML crate is (see [ADR 0008](0008-detection-policy-configuration.md)).
-- The file is at `$WETECHINETMON_CONFIG`, or by default at
-  `~/.config/wetechinetmon/cli.json` (`%APPDATA%\wetechinetmon\cli.json`
+- The file is at `$TIDEGARD_CONFIG`, or by default at
+  `~/.config/tidegard/cli.json` (`%APPDATA%\tidegard\cli.json`
   on Windows).
 - `--profile` picks a profile in the file.
 - The endpoint and the CA bundle may also come from the environment
-  (`WETECHINETMON_API_URL`, `WETECHINETMON_API_CA_FILE`).
+  (`TIDEGARD_API_URL`, `TIDEGARD_API_CA_FILE`).
 - The environment overrides the file.
 
 **Incident numbers are resolved through the API.** `GET /api/v1/incidents`
@@ -89,8 +89,8 @@ exits `4`. The CLI does not re-read and re-issue; the plan explains why.
 
 ## Consequences
 
-- `apps/cli` becomes the workspace member `wetechinetmon-cli`, with the
-  binary `wetechinetmonctl`.
+- `apps/cli` becomes the workspace member `tidegard-cli`, with the
+  binary `tidegardctl`.
 - No licence-matrix rows and no NOTICE entries are added.
 - Using a public CA from Windows or macOS needs an exported PEM bundle
   until FU-57 lands.

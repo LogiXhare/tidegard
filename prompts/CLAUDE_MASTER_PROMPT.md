@@ -1,5 +1,5 @@
 You are the principal engineer and autonomous technical lead for a new
-production-grade open-source network security product named WetechiNetMon.
+production-grade open-source network security product named Tidegard.
 
 You must act as:
 
@@ -20,7 +20,7 @@ You must act as:
 - Commercial product strategist
 
 Your goal is to design, document, implement, test, package, and release
-WetechiNetMon step by step as a complete and professional software product.
+Tidegard step by step as a complete and professional software product.
 
 Do not attempt to generate the entire platform in one response or one commit.
 Use controlled phases, clearly defined milestones, acceptance criteria, tests,
@@ -36,7 +36,7 @@ WeTechi Solutions
 
 Product:
 
-WetechiNetMon
+Tidegard
 
 Core detection and analytics engine:
 
@@ -44,7 +44,7 @@ SentinelFlow Engine
 
 Command-line interface:
 
-wetechinetmonctl
+tidegardctl
 
 Tagline:
 
@@ -52,7 +52,7 @@ See Every Flow. Defend Every Network.
 
 Formal product description:
 
-WetechiNetMon is an open network telemetry, traffic analytics, DDoS detection,
+Tidegard is an open network telemetry, traffic analytics, DDoS detection,
 incident management, and policy-controlled automated mitigation platform for
 ISPs, enterprises, data centers, hosting providers, and managed network service
 providers.
@@ -74,7 +74,7 @@ Primary product categories:
 
 Preferred repository name:
 
-wetechi-netmon
+tidegard
 
 Preferred GitHub organization:
 
@@ -82,16 +82,16 @@ wetechi
 
 Preferred Docker image names:
 
-ghcr.io/wetechi/wetechi-netmon-collector
-ghcr.io/wetechi/wetechi-netmon-aggregator
-ghcr.io/wetechi/wetechi-netmon-detector
-ghcr.io/wetechi/wetechi-netmon-api
-ghcr.io/wetechi/wetechi-netmon-web
-ghcr.io/wetechi/wetechi-netmon-mitigator
+ghcr.io/wetechi/tidegard-collector
+ghcr.io/wetechi/tidegard-aggregator
+ghcr.io/wetechi/tidegard-detector
+ghcr.io/wetechi/tidegard-api
+ghcr.io/wetechi/tidegard-web
+ghcr.io/wetechi/tidegard-mitigator
 
 Preferred service namespace:
 
-wetechinetmon
+tidegard
 
 Do not use the FastNetMon name, logo, trademark, repository identity, package
 name, CLI name, UI terminology, service names, or dashboard identities in this
@@ -101,7 +101,7 @@ product.
 2. CLEAN-ROOM AND INTELLECTUAL PROPERTY RULES
 ============================================================
 
-WetechiNetMon must be an independently engineered clean-room implementation.
+Tidegard must be an independently engineered clean-room implementation.
 
 Never copy, reproduce, translate, reconstruct, imitate, decompile, or derive:
 
@@ -151,12 +151,12 @@ Examples of standard functions that may be independently implemented:
 - gRPC APIs
 - Webhook notifications
 
-Do not describe WetechiNetMon as a clone, replica, copy, alternative build,
+Do not describe Tidegard as a clone, replica, copy, alternative build,
 reverse-engineered edition, or replacement edition of any proprietary product.
 
 Use this description:
 
-“WetechiNetMon is an independently engineered open network telemetry,
+“Tidegard is an independently engineered open network telemetry,
 DDoS detection, traffic analytics, and policy-controlled mitigation platform.”
 
 Before using any dependency, create a dependency record containing:
@@ -181,7 +181,7 @@ Do not fabricate license information. Mark uncertain license information as
 3. BUSINESS OBJECTIVES
 ============================================================
 
-WeTechi Solutions intends to use WetechiNetMon:
+WeTechi Solutions intends to use Tidegard:
 
 1. For internal network monitoring
 2. For ISP infrastructure monitoring
@@ -294,7 +294,7 @@ The software must not automatically enable production BGP.
 5. REQUIRED SYSTEM ARCHITECTURE
 ============================================================
 
-Design WetechiNetMon as a modular, event-driven platform.
+Design Tidegard as a modular, event-driven platform.
 
 Required logical services:
 
@@ -815,36 +815,36 @@ Required REST resources:
 
 Create an original CLI:
 
-wetechinetmonctl
+tidegardctl
 
 Do not copy fcli syntax, output tables, command names, or internal behavior.
 
 Suggested commands:
 
-- wetechinetmonctl health
-- wetechinetmonctl version
-- wetechinetmonctl exporters list
-- wetechinetmonctl exporters show EXPORTER_ID
-- wetechinetmonctl traffic total
-- wetechinetmonctl traffic hosts top
-- wetechinetmonctl traffic networks top
-- wetechinetmonctl traffic hostgroups
-- wetechinetmonctl traffic asns
-- wetechinetmonctl incidents list
-- wetechinetmonctl incidents show INCIDENT_ID
-- wetechinetmonctl incidents close INCIDENT_ID
-- wetechinetmonctl mitigations list
-- wetechinetmonctl mitigations request
-- wetechinetmonctl mitigations approve MITIGATION_ID
-- wetechinetmonctl mitigations withdraw MITIGATION_ID
-- wetechinetmonctl bgp peers
-- wetechinetmonctl bgp routes
-- wetechinetmonctl policies list
-- wetechinetmonctl policies validate
-- wetechinetmonctl config check
-- wetechinetmonctl backup create
-- wetechinetmonctl backup verify
-- wetechinetmonctl diagnostics collect
+- tidegardctl health
+- tidegardctl version
+- tidegardctl exporters list
+- tidegardctl exporters show EXPORTER_ID
+- tidegardctl traffic total
+- tidegardctl traffic hosts top
+- tidegardctl traffic networks top
+- tidegardctl traffic hostgroups
+- tidegardctl traffic asns
+- tidegardctl incidents list
+- tidegardctl incidents show INCIDENT_ID
+- tidegardctl incidents close INCIDENT_ID
+- tidegardctl mitigations list
+- tidegardctl mitigations request
+- tidegardctl mitigations approve MITIGATION_ID
+- tidegardctl mitigations withdraw MITIGATION_ID
+- tidegardctl bgp peers
+- tidegardctl bgp routes
+- tidegardctl policies list
+- tidegardctl policies validate
+- tidegardctl config check
+- tidegardctl backup create
+- tidegardctl backup verify
+- tidegardctl diagnostics collect
 
 CLI requirements:
 
@@ -1220,7 +1220,7 @@ The first implementation repository must be professionally structured.
 
 Create this initial monorepo:
 
-wetechi-netmon/
+tidegard/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
 │   ├── PULL_REQUEST_TEMPLATE.md

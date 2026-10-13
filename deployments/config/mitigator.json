@@ -1,5 +1,5 @@
 {
-  "guard_file": "/etc/wetechinetmon/guard.json",
+  "guard_file": "/etc/tidegard/guard.json",
   "routes": {
     "local_asn": 64512,
     "rtbh_next_hop_ipv4": "192.0.2.1",

@@ -295,12 +295,12 @@ mod tests {
 
     /// The real payoff of a synthetic-fixture module: round-trip it
     /// through the actual decoder and confirm the values come back out
-    /// unchanged. This exercises `wetechinetmon-protocol-ipfix` the same
+    /// unchanged. This exercises `tidegard-protocol-ipfix` the same
     /// way a live exporter's traffic would, without ever touching a real
     /// network capture.
     #[test]
     fn round_trips_ipv4_through_the_real_ipfix_decoder() {
-        use wetechinetmon_protocol_ipfix::{decode_message, DecodedSet, TemplateCache};
+        use tidegard_protocol_ipfix::{decode_message, DecodedSet, TemplateCache};
 
         let mut cache = TemplateCache::new();
 
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn round_trips_ipv6_through_the_real_ipfix_decoder() {
-        use wetechinetmon_protocol_ipfix::{decode_message, DecodedSet, TemplateCache};
+        use tidegard_protocol_ipfix::{decode_message, DecodedSet, TemplateCache};
 
         let mut cache = TemplateCache::new();
         decode_message(&template_message_ipv6(1, 7), &mut cache).unwrap();
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn options_template_and_data_round_trip_and_populate_sampling_info() {
-        use wetechinetmon_protocol_ipfix::{decode_message, TemplateCache};
+        use tidegard_protocol_ipfix::{decode_message, TemplateCache};
 
         let mut cache = TemplateCache::new();
         decode_message(&options_template_message(1, 7), &mut cache).unwrap();

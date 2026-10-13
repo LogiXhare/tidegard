@@ -23,7 +23,7 @@ and [ADR 0003](../../docs/architecture/decisions/0003-in-memory-aggregation-stru
 ## Testing
 
 ```bash
-cargo test -p wetechinetmon-aggregator
+cargo test -p tidegard-aggregator
 ```
 
 26 tests: bounded-map eviction/expiration, per-dimension aggregation

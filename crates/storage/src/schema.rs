@@ -1,4 +1,4 @@
-//! Original ClickHouse row types and table DDL for WetechiNetMon
+//! Original ClickHouse row types and table DDL for Tidegard
 //! analytics. Table names, columns, and layout are designed
 //! independently for this project — see docs/clean-room-boundary.md. Do
 //! not copy any proprietary product's table names or definitions.
@@ -262,8 +262,8 @@ pub struct CounterFields {
     pub dropped_packets: u64,
 }
 
-impl From<wetechinetmon_aggregator::TrafficCounters> for CounterFields {
-    fn from(c: wetechinetmon_aggregator::TrafficCounters) -> Self {
+impl From<tidegard_aggregator::TrafficCounters> for CounterFields {
+    fn from(c: tidegard_aggregator::TrafficCounters) -> Self {
         CounterFields {
             bytes: c.bytes,
             packets: c.packets,
@@ -473,8 +473,8 @@ fn from_unix_millis(millis: u64) -> time::OffsetDateTime {
         .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
 }
 
-impl From<&wetechinetmon_detector::DetectionEvent> for DetectionEventRow {
-    fn from(event: &wetechinetmon_detector::DetectionEvent) -> Self {
+impl From<&tidegard_detector::DetectionEvent> for DetectionEventRow {
+    fn from(event: &tidegard_detector::DetectionEvent) -> Self {
         // The worst crossing of the whole detection, which is what a
         // dashboard sorts by. Falls back to the current crossings when a
         // detection has no recorded peak yet.
@@ -504,8 +504,8 @@ impl From<&wetechinetmon_detector::DetectionEvent> for DetectionEventRow {
             target: event.target.display.clone(),
             direction: event.target.direction.as_str().to_string(),
             family: match event.target.address_family {
-                wetechinetmon_detector::AddressFamily::Ipv4 => 4,
-                wetechinetmon_detector::AddressFamily::Ipv6 => 6,
+                tidegard_detector::AddressFamily::Ipv4 => 4,
+                tidegard_detector::AddressFamily::Ipv6 => 6,
             },
             previous_state: event.previous_state.as_str().to_string(),
             state: event.state.as_str().to_string(),
@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn a_detection_event_becomes_a_row() {
         use std::collections::BTreeMap;
-        use wetechinetmon_detector::{
+        use tidegard_detector::{
             ActionTaken, AddressFamily, DataCompleteness, DetectionEvent, DetectionState,
             EventKind, EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates,
             SamplingStatus, ScopeId, ScopeType, Severity, TrafficDirection, TransitionReason,
@@ -750,7 +750,7 @@ mod tests {
 
     #[test]
     fn counter_fields_convert_from_aggregator_traffic_counters() {
-        let counters = wetechinetmon_aggregator::TrafficCounters {
+        let counters = tidegard_aggregator::TrafficCounters {
             bytes: 100,
             packets: 10,
             flows: 1,

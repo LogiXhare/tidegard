@@ -3,7 +3,7 @@
 Status: **Planning only.** Part of the
 [Phase 5 plan](phase5-incident-management-plan.md). No CLI exists.
 
-`wetechinetmonctl` is an API client. It holds no business logic, talks to
+`tidegardctl` is an API client. It holds no business logic, talks to
 no database, and every command maps to an endpoint in the
 [API plan](incident-api-plan.md). A second implementation of the state
 machine living in a CLI is a guarantee that the two will disagree.
@@ -14,7 +14,7 @@ model rather than borrowed from another product's syntax.
 ## Shape
 
 ```text
-wetechinetmonctl incidents <verb> [INCIDENT] [flags]
+tidegardctl incidents <verb> [INCIDENT] [flags]
 ```
 
 `INCIDENT` accepts either the internal ID or the human number, so an
@@ -68,7 +68,7 @@ one for CLI output would contradict that on weaker grounds. If FU-15 ever
 lands a maintained crate, `--output yaml` becomes trivial.
 
 ```text
-$ wetechinetmonctl incidents list --state open,acknowledged --severity critical
+$ tidegardctl incidents list --state open,acknowledged --severity critical
 
 NUMBER            SEVERITY  PRI  STATE         TARGET         CATEGORY     AGE    ASSIGNED
 WNM-2026-000123   critical  P1   acknowledged  203.0.113.7    udp_flood    6m     j.rahman
@@ -118,7 +118,7 @@ from "your input is wrong" (`2`, `4`) without parsing text.
 ## Errors
 
 ```text
-$ wetechinetmonctl incidents close WNM-2026-000123
+$ tidegardctl incidents close WNM-2026-000123
 Error: the incident was modified by another actor (incident.version_conflict)
 
   expected version 6, current version 8
@@ -126,7 +126,7 @@ Error: the incident was modified by another actor (incident.version_conflict)
   last updated by: u_5190 at 14:22:07Z
 
 Re-read the incident and try again:
-  wetechinetmonctl incidents show WNM-2026-000123
+  tidegardctl incidents show WNM-2026-000123
 ```
 
 Errors name the stable `error` code, state what was expected against what

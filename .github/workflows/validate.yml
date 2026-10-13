@@ -97,12 +97,12 @@ jobs:
       # per supported PostgreSQL version. Here they would only skip.
       - name: Unit + property tests (the GoBGP labs must not skip)
         env:
-          WETECHINETMON_GOBGP_TEST_ENDPOINT: http://127.0.0.1:50051
-          WETECHINETMON_GOBGP_LAB_SPEAKER: http://127.0.0.1:50061
-          WETECHINETMON_GOBGP_LAB_EDGE: http://127.0.0.1:50062
+          TIDEGARD_GOBGP_TEST_ENDPOINT: http://127.0.0.1:50051
+          TIDEGARD_GOBGP_LAB_SPEAKER: http://127.0.0.1:50061
+          TIDEGARD_GOBGP_LAB_EDGE: http://127.0.0.1:50062
         run: |
           set -euo pipefail
-          cargo test --workspace --exclude wetechinetmon-incident-postgres -- --nocapture 2>&1 | tee unit-test.log
+          cargo test --workspace --exclude tidegard-incident-postgres -- --nocapture 2>&1 | tee unit-test.log
           for lab in gobgp_lab two_speaker_lab; do
             if grep -q "skipping $lab:" unit-test.log; then
               echo "The $lab test skipped even though its gobgpd is up — failing."
@@ -149,15 +149,15 @@ jobs:
       postgres:
         image: postgres:${{ matrix.postgres }}-alpine
         env:
-          POSTGRES_USER: wetechinetmon_test
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon_incident_test
+          POSTGRES_USER: tidegard_test
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard_incident_test
           PGDATA: /var/lib/postgresql/ci-data
         ports:
           - 55432:5432
         options: >-
           --tmpfs /var/lib/postgresql
-          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-cmd "pg_isready -U tidegard_test -d tidegard_incident_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
@@ -166,8 +166,8 @@ jobs:
       clickhouse:
         image: clickhouse/clickhouse-server:26.8.24.9
         env:
-          CLICKHOUSE_USER: wetechinetmon_test
-          CLICKHOUSE_PASSWORD: wetechinetmon_test_only
+          CLICKHOUSE_USER: tidegard_test
+          CLICKHOUSE_PASSWORD: tidegard_test_only
           CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
         ports:
           - 58123:8123
@@ -183,7 +183,7 @@ jobs:
       - name: Server version
         run: |
           docker exec "${{ job.services.postgres.id }}" \
-            psql -U wetechinetmon_test -d wetechinetmon_incident_test -tAc "SHOW server_version"
+            psql -U tidegard_test -d tidegard_incident_test -tAc "SHOW server_version"
       # ADR 0023: tests/tls_connector.rs needs a server with TLS on. A
       # throwaway CA and a server certificate naming only `localhost` are
       # generated per run under RUNNER_TEMP and die with the runner; a
@@ -197,7 +197,7 @@ jobs:
           mkdir -p "$dir"
           cd "$dir"
           for ca in ca other-ca; do
-            openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=wetechinetmon CI $ca" \
+            openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=tidegard CI $ca" \
               -addext "basicConstraints=critical,CA:TRUE" \
               -addext "keyUsage=critical,keyCertSign,cRLSign" \
               -keyout "$ca.key" -out "$ca.pem"
@@ -213,19 +213,19 @@ jobs:
           docker exec -i "$id" sh -c "cat > /var/lib/postgresql/tls/server.crt" < server.crt
           docker exec -i "$id" sh -c "cat > /var/lib/postgresql/tls/server.key" < server.key
           docker exec "$id" sh -c 'chown -R postgres:postgres /var/lib/postgresql/tls && chmod 600 /var/lib/postgresql/tls/server.key'
-          docker exec "$id" psql -U wetechinetmon_test -d wetechinetmon_incident_test \
+          docker exec "$id" psql -U tidegard_test -d tidegard_incident_test \
             -c "ALTER SYSTEM SET ssl_cert_file = '/var/lib/postgresql/tls/server.crt'" \
             -c "ALTER SYSTEM SET ssl_key_file = '/var/lib/postgresql/tls/server.key'" \
             -c "ALTER SYSTEM SET ssl = on" \
             -c "SELECT pg_reload_conf()"
           for attempt in $(seq 1 20); do
-            state=$(docker exec "$id" psql -U wetechinetmon_test -d wetechinetmon_incident_test -tAc "SHOW ssl")
+            state=$(docker exec "$id" psql -U tidegard_test -d tidegard_incident_test -tAc "SHOW ssl")
             [ "$state" = "on" ] && break
             sleep 0.5
           done
           [ "$state" = "on" ] || { echo "TLS did not turn on"; docker logs "$id" | tail -20; exit 1; }
-          echo "WETECHINETMON_INCIDENT_POSTGRES_TEST_TLS_CA=$dir/ca.pem" >> "$GITHUB_ENV"
-          echo "WETECHINETMON_INCIDENT_POSTGRES_TEST_TLS_OTHER_CA=$dir/other-ca.pem" >> "$GITHUB_ENV"
+          echo "TIDEGARD_INCIDENT_POSTGRES_TEST_TLS_CA=$dir/ca.pem" >> "$GITHUB_ENV"
+          echo "TIDEGARD_INCIDENT_POSTGRES_TEST_TLS_OTHER_CA=$dir/other-ca.pem" >> "$GITHUB_ENV"
       # The PostgreSQL tests skip (and pass) when their URL variable is
       # unset, so a green run alone would not prove they ran. Run them with
       # output uncaptured, and fail if any skipped. The pattern matches the
@@ -241,19 +241,19 @@ jobs:
           bash scripts/start-gobgp-lab.sh
       - name: PostgreSQL tests (must not skip)
         env:
-          WETECHINETMON_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
-          WETECHINETMON_CLICKHOUSE_TEST_URL: http://127.0.0.1:58123
-          WETECHINETMON_CLICKHOUSE_TEST_USER: wetechinetmon_test
-          WETECHINETMON_CLICKHOUSE_TEST_PASSWORD: wetechinetmon_test_only
-          WETECHINETMON_GOBGP_TEST_ENDPOINT: http://127.0.0.1:50051
-          WETECHINETMON_GOBGP_LAB_SPEAKER: http://127.0.0.1:50061
-          WETECHINETMON_GOBGP_LAB_EDGE: http://127.0.0.1:50062
+          TIDEGARD_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test"
+          TIDEGARD_CLICKHOUSE_TEST_URL: http://127.0.0.1:58123
+          TIDEGARD_CLICKHOUSE_TEST_USER: tidegard_test
+          TIDEGARD_CLICKHOUSE_TEST_PASSWORD: tidegard_test_only
+          TIDEGARD_GOBGP_TEST_ENDPOINT: http://127.0.0.1:50051
+          TIDEGARD_GOBGP_LAB_SPEAKER: http://127.0.0.1:50061
+          TIDEGARD_GOBGP_LAB_EDGE: http://127.0.0.1:50062
         run: |
           set -euo pipefail
-          cargo test -p wetechinetmon-incident-postgres -p wetechinetmon-incident-manager -p wetechinetmon-collector -p wetechinetmon-api -p wetechinetmon-notification -p wetechinetmon-mitigator -- --nocapture 2>&1 | tee pg-test.log
+          cargo test -p tidegard-incident-postgres -p tidegard-incident-manager -p tidegard-collector -p tidegard-api -p tidegard-notification -p tidegard-mitigator -- --nocapture 2>&1 | tee pg-test.log
           # Every ClickHouse row type, against the service container (ADR 0053).
-          cargo test -p wetechinetmon-storage --test clickhouse_integration -- --nocapture 2>&1 | tee -a pg-test.log
-          if grep -qE "skipping [a-z_]+: WETECHINETMON_[A-Z_]+ (or WETECHINETMON_[A-Z_]+ )?is not set" pg-test.log; then
+          cargo test -p tidegard-storage --test clickhouse_integration -- --nocapture 2>&1 | tee -a pg-test.log
+          if grep -qE "skipping [a-z_]+: TIDEGARD_[A-Z_]+ (or TIDEGARD_[A-Z_]+ )?is not set" pg-test.log; then
             echo "A PostgreSQL test skipped even though the service container is up — failing."
             exit 1
           fi
@@ -263,7 +263,7 @@ jobs:
       # they match the server version under test.
       - name: Backup and restore drill
         env:
-          WETECHINETMON_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+          TIDEGARD_INCIDENT_POSTGRES_TEST_URL: "host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test"
           DRILL_PG_TOOL: docker exec -i ${{ job.services.postgres.id }}
           DRILL_WORK_DIR: ${{ runner.temp }}/backup-drill
         run: bash scripts/postgres-backup-restore-drill.sh
@@ -290,7 +290,7 @@ jobs:
           dir="$RUNNER_TEMP/ch-tls"
           mkdir -p "$dir"
           for ca in ca other-ca; do
-            openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=wetechinetmon CI $ca" \
+            openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=tidegard CI $ca" \
               -addext "basicConstraints=critical,CA:TRUE" \
               -addext "keyUsage=critical,keyCertSign,cRLSign" \
               -keyout "$dir/$ca.key" -out "$dir/$ca.pem"
@@ -324,11 +324,11 @@ jobs:
           printf '%s\n' '<clickhouse><backups><allowed_path>/backups/</allowed_path></backups></clickhouse>' \
             > "$dir/backups.xml"
           {
-            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_URL=https://localhost:8443"
-            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_CA=$dir/ca.pem"
-            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_OTHER_CA=$dir/other-ca.pem"
-            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_USER=$CLICKHOUSE_USER"
-            echo "WETECHINETMON_CLICKHOUSE_TLS_TEST_PASSWORD_FILE=$dir/password"
+            echo "TIDEGARD_CLICKHOUSE_TLS_TEST_URL=https://localhost:8443"
+            echo "TIDEGARD_CLICKHOUSE_TLS_TEST_CA=$dir/ca.pem"
+            echo "TIDEGARD_CLICKHOUSE_TLS_TEST_OTHER_CA=$dir/other-ca.pem"
+            echo "TIDEGARD_CLICKHOUSE_TLS_TEST_USER=$CLICKHOUSE_USER"
+            echo "TIDEGARD_CLICKHOUSE_TLS_TEST_PASSWORD_FILE=$dir/password"
           } >> "$GITHUB_ENV"
           docker network create wnm
           docker run -d --name clickhouse --network wnm -p 127.0.0.1:8123:8123 \
@@ -349,7 +349,7 @@ jobs:
       - name: Create the ClickHouse schema (the first run on a real server)
         run: |
           set -euo pipefail
-          cargo run --quiet -p wetechinetmon-dashboard-check --bin clickhouse-schema > schema.sql
+          cargo run --quiet -p tidegard-dashboard-check --bin clickhouse-schema > schema.sql
           while IFS= read -r statement; do
             curl -sS --fail-with-body --user "$CLICKHOUSE_USER:$CLICKHOUSE_PASSWORD" \
               --data-binary "$statement" http://127.0.0.1:8123/
@@ -363,17 +363,17 @@ jobs:
         run: |
           set -euo pipefail
           for _ in $(seq 30); do
-            curl -sf --cacert "$WETECHINETMON_CLICKHOUSE_TLS_TEST_CA" https://localhost:8443/ping >/dev/null && break
+            curl -sf --cacert "$TIDEGARD_CLICKHOUSE_TLS_TEST_CA" https://localhost:8443/ping >/dev/null && break
             sleep 1
           done
-          cargo test -p wetechinetmon-storage --test clickhouse_tls -- --nocapture 2>&1 | tee tls-test.log
+          cargo test -p tidegard-storage --test clickhouse_tls -- --nocapture 2>&1 | tee tls-test.log
           ! grep -q "skipping exports_over_verified_tls_with_credentials" tls-test.log
           grep -q "test exports_over_verified_tls_with_credentials ... ok" tls-test.log
       - name: ClickHouse backup and restore drill (ADR 0055)
         env:
           CLICKHOUSE_URL: http://127.0.0.1:8123
           DRILL_WORK_DIR: ${{ runner.temp }}/clickhouse-drill
-          DRILL_BACKUP_NAME: wetechinetmon-drill.zip
+          DRILL_BACKUP_NAME: tidegard-drill.zip
         run: bash scripts/clickhouse-backup-restore-drill.sh
       # What the disaster recovery job restores (ADR 0055).
       - name: Keep the ClickHouse backup for the disaster recovery drill
@@ -381,7 +381,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/dr-clickhouse"
           # ClickHouse wrote the archive as its own user.
-          sudo cp "$RUNNER_TEMP/ch-backups/wetechinetmon-drill.zip" "$RUNNER_TEMP/dr-clickhouse/"
+          sudo cp "$RUNNER_TEMP/ch-backups/tidegard-drill.zip" "$RUNNER_TEMP/dr-clickhouse/"
           sudo chown -R "$(id -u)" "$RUNNER_TEMP/dr-clickhouse"
           cp "$RUNNER_TEMP/clickhouse-drill/before.txt" "$RUNNER_TEMP/dr-clickhouse/"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -427,7 +427,7 @@ jobs:
             -e CLICKHOUSE_USER -e CLICKHOUSE_PASSWORD \
             -v "$PWD/ci-datasources:/etc/grafana/provisioning/datasources:ro" \
             -v "$PWD/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro" \
-            -v "$PWD/grafana/dashboards:/var/lib/grafana/dashboards/wetechinetmon:ro" \
+            -v "$PWD/grafana/dashboards:/var/lib/grafana/dashboards/tidegard:ro" \
             grafana/grafana:13.2.3
           for _ in $(seq 120); do
             curl -sf "$GRAFANA_URL/api/health" >/dev/null && break
@@ -495,18 +495,18 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon_test
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon_incident_test
+          POSTGRES_USER: tidegard_test
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard_incident_test
         ports:
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_incident_test"
+          --health-cmd "pg_isready -U tidegard_test -d tidegard_incident_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
     env:
-      DATABASE: "host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test"
+      DATABASE: "host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test"
       E2E_BASE_URL: http://127.0.0.1:8080
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -514,7 +514,7 @@ jobs:
         with:
           node-version: "22"
       - name: Build the API, the incident manager and the mitigator
-        run: cargo build -p wetechinetmon-api -p wetechinetmon-incident-manager -p wetechinetmon-mitigator
+        run: cargo build -p tidegard-api -p tidegard-incident-manager -p tidegard-mitigator
       # The BGP lab (ADR 0048): gobgpd's API on loopback, its BGP port
       # closed, so no route leaves the runner.
       - name: Start GoBGP for the mitigator
@@ -531,23 +531,23 @@ jobs:
           # The incident manager applies the migrations, then keeps running.
           # It reports ready once its first correlation batch succeeds, so
           # after the migrations (ADR 0052).
-          WETECHINETMON_INCIDENT_DATABASE_URL="$DATABASE" \
-            WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
-            target/debug/wetechinetmon-incident-manager > manager.log 2>&1 &
+          TIDEGARD_INCIDENT_DATABASE_URL="$DATABASE" \
+            TIDEGARD_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
+            target/debug/tidegard-incident-manager > manager.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf http://127.0.0.1:9091/readyz >/dev/null && break
             sleep 1
           done
           curl -sS --fail-with-body http://127.0.0.1:9091/readyz
           curl -sS --fail-with-body http://127.0.0.1:9091/healthz
-          token=$(WETECHINETMON_API_DATABASE_URL="$DATABASE" target/debug/wetechinetmon-api \
+          token=$(TIDEGARD_API_DATABASE_URL="$DATABASE" target/debug/tidegard-api \
             token create --tenant acme --actor-id e2e-lead --role noc_lead --days 1 \
             | awk '/^token:/ {print $2}')
           [ -n "$token" ] || { echo "no token was created"; exit 1; }
           echo "::add-mask::$token"
           echo "E2E_TOKEN=$token" >> "$GITHUB_ENV"
           # A second person, for the four-eyes rule: requests, never approves.
-          operator=$(WETECHINETMON_API_DATABASE_URL="$DATABASE" target/debug/wetechinetmon-api \
+          operator=$(TIDEGARD_API_DATABASE_URL="$DATABASE" target/debug/tidegard-api \
             token create --tenant acme --actor-id e2e-operator --role senior_operator --days 1 \
             | awk '/^token:/ {print $2}')
           [ -n "$operator" ] || { echo "no operator token was created"; exit 1; }
@@ -566,13 +566,13 @@ jobs:
            "gobgp": {"url": "http://127.0.0.1:50051"},
            "poll_interval_ms": 500, "reconcile_interval_seconds": 5}
           JSON
-          WETECHINETMON_MITIGATOR_DATABASE_URL="$DATABASE" \
-            WETECHINETMON_MITIGATOR_CONFIG="$RUNNER_TEMP/mitigator.json" \
-            target/debug/wetechinetmon-mitigator > mitigator.log 2>&1 &
-          WETECHINETMON_API_DATABASE_URL="$DATABASE" \
-            WETECHINETMON_API_WEB_ROOT=apps/web/dist \
-            WETECHINETMON_API_MITIGATION_GUARD_FILE="$RUNNER_TEMP/guard.json" \
-            target/debug/wetechinetmon-api > api.log 2>&1 &
+          TIDEGARD_MITIGATOR_DATABASE_URL="$DATABASE" \
+            TIDEGARD_MITIGATOR_CONFIG="$RUNNER_TEMP/mitigator.json" \
+            target/debug/tidegard-mitigator > mitigator.log 2>&1 &
+          TIDEGARD_API_DATABASE_URL="$DATABASE" \
+            TIDEGARD_API_WEB_ROOT=apps/web/dist \
+            TIDEGARD_API_MITIGATION_GUARD_FILE="$RUNNER_TEMP/guard.json" \
+            target/debug/tidegard-api > api.log 2>&1 &
           for _ in $(seq 60); do
             curl -sf "$E2E_BASE_URL/readyz" >/dev/null && break
             sleep 1
@@ -622,14 +622,14 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon
+          POSTGRES_USER: tidegard
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard
         ports:
           - 55432:5432
         options: >-
           --tmpfs /var/lib/postgresql/data
-          --health-cmd "pg_isready -U wetechinetmon -d wetechinetmon"
+          --health-cmd "pg_isready -U tidegard -d tidegard"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
@@ -677,26 +677,26 @@ jobs:
       - name: Install from the tarball, as an operator would
         run: |
           set -euo pipefail
-          tar -xzf dist/wetechinetmon-*.tar.gz -C "$RUNNER_TEMP"
-          unpacked=$(echo "$RUNNER_TEMP"/wetechinetmon-*/)
+          tar -xzf dist/tidegard-*.tar.gz -C "$RUNNER_TEMP"
+          unpacked=$(echo "$RUNNER_TEMP"/tidegard-*/)
           sudo "$unpacked/install.sh"
           # A second run keeps every installed setting.
           sudo "$unpacked/install.sh" | tee second-run.log
-          grep -q "kept     /etc/wetechinetmon/guard.json" second-run.log
+          grep -q "kept     /etc/tidegard/guard.json" second-run.log
           ! grep -q "^created" second-run.log
           # Secrets are root's alone; each JSON file is its reader's.
-          sudo stat -c '%a %U %G %n' /etc/wetechinetmon/* | tee modes.log
+          sudo stat -c '%a %U %G %n' /etc/tidegard/* | tee modes.log
           [ "$(grep -c '^600 root root .*\.env$' modes.log)" -eq 5 ]
-          grep -q '^640 root wetechinetmon-guard /etc/wetechinetmon/guard.json$' modes.log
-          id wetechinetmon-api | grep -q wetechinetmon-guard
+          grep -q '^640 root tidegard-guard /etc/tidegard/guard.json$' modes.log
+          id tidegard-api | grep -q tidegard-guard
           # FU-53: every third-party licence ships, BSD notices included.
-          grep -q "Copyright (c) 2013, Julien Schmidt" /opt/wetechinetmon/THIRD-PARTY-NOTICES.txt
-          grep -q "^react@" /opt/wetechinetmon/THIRD-PARTY-NOTICES-WEB.txt
-          sudo systemd-analyze verify /etc/systemd/system/wetechinetmon-*.service
+          grep -q "Copyright (c) 2013, Julien Schmidt" /opt/tidegard/THIRD-PARTY-NOTICES.txt
+          grep -q "^react@" /opt/tidegard/THIRD-PARTY-NOTICES-WEB.txt
+          sudo systemd-analyze verify /etc/systemd/system/tidegard-*.service
           # Point every service at the CI database.
           sudo sed -i \
-            's/host=127.0.0.1 user=wetechinetmon password=CHANGE_ME/host=127.0.0.1 port=55432 user=wetechinetmon password=wetechinetmon_test_only/' \
-            /etc/wetechinetmon/*.env
+            's/host=127.0.0.1 user=tidegard password=CHANGE_ME/host=127.0.0.1 port=55432 user=tidegard password=tidegard_test_only/' \
+            /etc/tidegard/*.env
       - name: Start every service and wait until each is ready
         run: |
           set -euo pipefail
@@ -708,44 +708,44 @@ jobs:
             curl -sS --fail-with-body "http://127.0.0.1:$1/readyz"
           }
           # The incident manager applies the migrations first.
-          sudo systemctl start wetechinetmon-incident-manager
+          sudo systemctl start tidegard-incident-manager
           ready 9091
-          sudo systemctl start wetechinetmon-api wetechinetmon-collector \
-            wetechinetmon-notifier wetechinetmon-mitigator
+          sudo systemctl start tidegard-api tidegard-collector \
+            tidegard-notifier tidegard-mitigator
           for port in 8080 9090 9093 9094; do ready "$port"; done
           curl -sf http://127.0.0.1:9090/healthz
           # The NOC UI is served from the installed share/web.
-          curl -sf http://127.0.0.1:8080/ | grep -q '<title>WetechiNetMon NOC</title>'
+          curl -sf http://127.0.0.1:8080/ | grep -q '<title>Tidegard NOC</title>'
           # The packaged mitigator runs dry-run with BGP off.
-          sudo journalctl -u wetechinetmon-mitigator --no-pager \
+          sudo journalctl -u tidegard-mitigator --no-pager \
             | grep '"the mitigator is active"' | grep -q 'bgp_enabled.*false'
           # The CLI reaches the API with a token the host command issued.
-          token=$(sudo env WETECHINETMON_API_DATABASE_URL="host=127.0.0.1 port=55432 user=wetechinetmon password=wetechinetmon_test_only dbname=wetechinetmon" \
-            /opt/wetechinetmon/bin/wetechinetmon-api token create --tenant default \
+          token=$(sudo env TIDEGARD_API_DATABASE_URL="host=127.0.0.1 port=55432 user=tidegard password=tidegard_test_only dbname=tidegard" \
+            /opt/tidegard/bin/tidegard-api token create --tenant default \
             --actor-id ci-viewer --role viewer --days 1 | awk '/^token:/ {print $2}')
           [ -n "$token" ]
           echo "::add-mask::$token"
-          WETECHINETMON_API_URL=http://127.0.0.1:8080 WETECHINETMON_API_TOKEN="$token" \
-            /opt/wetechinetmon/bin/wetechinetmonctl incidents list
+          TIDEGARD_API_URL=http://127.0.0.1:8080 TIDEGARD_API_TOKEN="$token" \
+            /opt/tidegard/bin/tidegardctl incidents list
       # ADR 0052: one image per service, built from the tarball just
       # installed, so what is scanned is what ships.
       - name: Build the images from the tarball
         run: |
           set -euo pipefail
-          unpacked=$(echo "$RUNNER_TEMP"/wetechinetmon-*/)
+          unpacked=$(echo "$RUNNER_TEMP"/tidegard-*/)
           for target in collector incident-manager api notifier mitigator; do
             docker build -q -f deployments/docker/Dockerfile --target "$target" \
               --build-arg VERSION="0.0.0-ci.${GITHUB_SHA::12}" \
-              -t "wetechinetmon-$target:ci" "$unpacked"
-            user=$(docker image inspect -f '{{.Config.User}}' "wetechinetmon-$target:ci")
+              -t "tidegard-$target:ci" "$unpacked"
+            user=$(docker image inspect -f '{{.Config.User}}' "tidegard-$target:ci")
             [ "$user" = "65532:65532" ] || { echo "$target runs as '$user'"; exit 1; }
           done
-          docker image ls 'wetechinetmon-*'
+          docker image ls 'tidegard-*'
       - name: Run an image with a read-only root filesystem
         run: |
           set -euo pipefail
           docker run -d --name ci-collector --read-only --cap-drop ALL \
-            --security-opt no-new-privileges -p 127.0.0.1:19090:9090 wetechinetmon-collector:ci
+            --security-opt no-new-privileges -p 127.0.0.1:19090:9090 tidegard-collector:ci
           for _ in $(seq 30); do
             curl -sf http://127.0.0.1:19090/readyz >/dev/null && break
             sleep 1
@@ -767,7 +767,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP" trivy
           for target in collector incident-manager api notifier mitigator; do
             "$RUNNER_TEMP/trivy" image --quiet --scanners vuln --ignore-unfixed \
-              --severity CRITICAL,HIGH --exit-code 1 "wetechinetmon-$target:ci"
+              --severity CRITICAL,HIGH --exit-code 1 "tidegard-$target:ci"
           done
       # ADR 0052: the reference stack from the images just built, TLS
       # between every container, and synthetic flows (flow-replay's local
@@ -777,8 +777,8 @@ jobs:
         run: |
           set -euo pipefail
           # The systemd install above holds the same ports.
-          sudo systemctl stop wetechinetmon-collector wetechinetmon-incident-manager \
-            wetechinetmon-api wetechinetmon-notifier wetechinetmon-mitigator
+          sudo systemctl stop tidegard-collector tidegard-incident-manager \
+            tidegard-api tidegard-notifier tidegard-mitigator
           sudo ./setup.sh ci
           cat > "$RUNNER_TEMP/ci-policy.json" <<'JSON'
           {"schemaVersion": 1,
@@ -789,10 +789,10 @@ jobs:
              "cooldown": "10s", "severity": "critical", "executionMode": "dryRun"}]}
           JSON
           {
-            echo "WETECHINETMON_IMAGE_PREFIX=wetechinetmon-"
-            echo "WETECHINETMON_LOCAL_PREFIXES=10.0.0.0/8@default"
-            echo "WETECHINETMON_DETECTION_WINDOW_SECS=1"
-            echo "WETECHINETMON_DETECTION_POLICY=$RUNNER_TEMP/ci-policy.json"
+            echo "TIDEGARD_IMAGE_PREFIX=tidegard-"
+            echo "TIDEGARD_LOCAL_PREFIXES=10.0.0.0/8@default"
+            echo "TIDEGARD_DETECTION_WINDOW_SECS=1"
+            echo "TIDEGARD_DETECTION_POLICY=$RUNNER_TEMP/ci-policy.json"
           } >> .env
           stat -c '%a %U %n' .env tls/*.key secrets/*
           docker compose up -d --wait --wait-timeout 180 postgres clickhouse
@@ -816,9 +816,9 @@ jobs:
               echo "ClickHouse listens on plaintext port $port"; exit 1
             fi
           done
-          cargo run -q -p wetechinetmon-flow-replay -- 127.0.0.1:2055 \
+          cargo run -q -p tidegard-flow-replay -- 127.0.0.1:2055 \
             --pattern flood --duration-secs 20 --peak-bps 20000000
-          token=$(docker compose exec -T api wetechinetmon-api token create --tenant default \
+          token=$(docker compose exec -T api tidegard-api token create --tenant default \
             --actor-id ci-viewer --role viewer --days 1 | awk '/^token:/ {print $2}')
           [ -n "$token" ]
           echo "::add-mask::$token"
@@ -844,16 +844,16 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dr-tarball
-          path: dist/wetechinetmon-*.tar.gz
+          path: dist/tidegard-*.tar.gz
           retention-days: 1
       - name: systemd's exposure rating for each unit
         run: |
           for service in collector incident-manager api notifier mitigator; do
-            systemd-analyze security --no-pager "wetechinetmon-$service.service" | tail -n 1
+            systemd-analyze security --no-pager "tidegard-$service.service" | tail -n 1
           done
       - name: Logs on failure
         if: failure()
-        run: sudo journalctl -u 'wetechinetmon-*' --no-pager -n 200 || true
+        run: sudo journalctl -u 'tidegard-*' --no-pager -n 200 || true
 
   upgrade:
     name: Upgrade from v0.9.0 and rollback (ADR 0055)
@@ -864,20 +864,20 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: wetechinetmon_test
-          POSTGRES_PASSWORD: wetechinetmon_test_only
-          POSTGRES_DB: wetechinetmon_upgrade_test
+          POSTGRES_USER: tidegard_test
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard_upgrade_test
         ports:
           - 55432:5432
         options: >-
-          --health-cmd "pg_isready -U wetechinetmon_test -d wetechinetmon_upgrade_test"
+          --health-cmd "pg_isready -U tidegard_test -d tidegard_upgrade_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the candidate
-        run: cargo build -p wetechinetmon-collector -p wetechinetmon-incident-manager -p wetechinetmon-api -p wetechinetmon-flow-replay
+        run: cargo build -p tidegard-collector -p tidegard-incident-manager -p tidegard-api -p tidegard-flow-replay
       - name: Build v0.9.0
         run: |
           set -euo pipefail
@@ -894,9 +894,9 @@ jobs:
           PG_TOOL: docker exec -i ${{ job.services.postgres.id }}
           PG_HOST: 127.0.0.1
           PG_PORT: "55432"
-          PG_USER: wetechinetmon_test
-          PG_PASSWORD: wetechinetmon_test_only
-          PG_DB: wetechinetmon_upgrade_test
+          PG_USER: tidegard_test
+          PG_PASSWORD: tidegard_test_only
+          PG_DB: tidegard_upgrade_test
           WORK: ${{ runner.temp }}/upgrade-drill
         run: bash scripts/upgrade-rollback-drill.sh
       - name: Keep the PostgreSQL backup for the disaster recovery drill
@@ -938,7 +938,7 @@ jobs:
       - name: Logs on failure
         if: failure()
         run: |
-          sudo journalctl -u 'wetechinetmon-*' --no-pager -n 100 || true
+          sudo journalctl -u 'tidegard-*' --no-pager -n 100 || true
           docker logs dr-clickhouse 2>&1 | tail -n 30 || true
 
   docs:

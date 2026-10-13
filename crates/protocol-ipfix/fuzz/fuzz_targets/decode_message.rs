@@ -1,4 +1,4 @@
-//! cargo-fuzz target for `wetechinetmon_protocol_ipfix::decode_message`.
+//! cargo-fuzz target for `tidegard_protocol_ipfix::decode_message`.
 //!
 //! This is the coverage-guided complement to the `proptest` properties
 //! in `crates/protocol-ipfix/src/lib.rs` — same "never panics on
@@ -13,7 +13,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use wetechinetmon_protocol_ipfix::{decode_message, TemplateCache};
+use tidegard_protocol_ipfix::{decode_message, TemplateCache};
 
 fuzz_target!(|data: &[u8]| {
     let mut cache = TemplateCache::new();

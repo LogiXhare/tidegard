@@ -43,7 +43,7 @@ an open architectural question (**FU-25**, **FU-26**).
 
 **No database. No API. No dependencies beyond the workspace.**
 
-New crate `wetechinetmon-incident`. Domain types from the
+New crate `tidegard-incident`. Domain types from the
 [domain model](../architecture/incident-domain-model.md); the state
 machine with a guard refusing illegal edges; correlation key construction
 and canonicalisation; category derivation; the `Clock` seam reused from
@@ -70,8 +70,8 @@ attention goes to the rules rather than to wiring.
 **Status: merged to `main`** (PR #16, merge commit `2cd116d`,
 2026-08-24), superseding the "not yet merged" note this paragraph
 originally carried.
-New crate `wetechinetmon-incident`, dependency-free beyond the workspace
-(a path dependency on `wetechinetmon-detector` for its published event
+New crate `tidegard-incident`, dependency-free beyond the workspace
+(a path dependency on `tidegard-detector` for its published event
 vocabulary and clock trait only — see the crate's `lib.rs` module doc for
 the exact import boundary and **FU-29** for its current lack of
 mechanical enforcement). Covers domain identities, the seven-state
@@ -299,7 +299,7 @@ Outbox producer on the detector side; the correlation worker; retry,
 backoff, dead-letter; the staleness sweep; recovery and auto-close
 timers; Prometheus metrics; structured logging.
 
-**Progress:** the detection-event inbox, with its enqueue, claim, ingest and dead-letter paths, follows [ADR 0035](../architecture/decisions/0035-phase5c-detection-event-inbox.md) (migration V14). The detector-side sink and drain task are in `src/producer.rs`; the worker loop and its shutdown drain are `InboxWorker::run`. The staleness sweep, recovery confirmation and automatic closure are `run_maintenance` (FU-40 closed). The worker, the timers and retention run on a schedule in the `wetechinetmon-incident-manager` binary ([ADR 0036](../architecture/decisions/0036-phase5c-incident-manager-process.md)), with structured logs and allowlisted metrics. The collector attaches the producer to its detection stage when `WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL` is set: one queue and drain task per policy tenant. `crates/collector/tests/incident_end_to_end.rs` runs both real processes on PostgreSQL: synthetic IPFIX over UDP becomes one incident, nothing is published from the outbox, every event is a dry run whose action was not executed, and replaying the events (again, and after the inbox rows are gone) changes nothing. With the label allowlist test in `crates/incident-manager`, that meets the exit criteria below.
+**Progress:** the detection-event inbox, with its enqueue, claim, ingest and dead-letter paths, follows [ADR 0035](../architecture/decisions/0035-phase5c-detection-event-inbox.md) (migration V14). The detector-side sink and drain task are in `src/producer.rs`; the worker loop and its shutdown drain are `InboxWorker::run`. The staleness sweep, recovery confirmation and automatic closure are `run_maintenance` (FU-40 closed). The worker, the timers and retention run on a schedule in the `tidegard-incident-manager` binary ([ADR 0036](../architecture/decisions/0036-phase5c-incident-manager-process.md)), with structured logs and allowlisted metrics. The collector attaches the producer to its detection stage when `TIDEGARD_COLLECTOR_INCIDENT_DATABASE_URL` is set: one queue and drain task per policy tenant. `crates/collector/tests/incident_end_to_end.rs` runs both real processes on PostgreSQL: synthetic IPFIX over UDP becomes one incident, nothing is published from the outbox, every event is a dry run whose action was not executed, and replaying the events (again, and after the inbox rows are gone) changes nothing. With the label allowlist test in `crates/incident-manager`, that meets the exit criteria below.
 
 Tests: duplicate, late, and out-of-order events; poison event handling;
 replay safety; the five distinct end reasons; detector restart producing
@@ -341,7 +341,7 @@ Gate 8 closed on 2026-10-05 with the dependency probe in `apps/api`:
 
 Endpoints may now be written.
 
-**Progress:** the API foundation is `apps/api` (`wetechinetmon-api`):
+**Progress:** the API foundation is `apps/api` (`tidegard-api`):
 
 - RFC 9457 errors behind an `ErrorCode` registry that `docs/api/error-codes.md` must match;
 - a UUIDv7 request id;
@@ -355,7 +355,7 @@ Authentication is in place:
 - `api_tokens` (migration V15) stores SHA-256 only and forbids `platform_admin`;
 - the `Authenticator` seam with the token-table implementation;
 - the bearer middleware: one `401` for every failure, per-address failure limiting, and `503` on an outage;
-- the `wetechinetmon-api token create|revoke|list` subcommand.
+- the `tidegard-api token create|revoke|list` subcommand.
 
 The first incident endpoint is `GET /api/v1/incidents/{id}`. It goes through `incident_postgres::queries`, which checks `incident.read` and scopes the read to the caller's tenant in one read-only snapshot. Another tenant's incident returns the same 404 as a missing one, and a PostgreSQL test proves it. The representation follows the API plan, with the gaps recorded as FU-54.
 
@@ -409,12 +409,12 @@ matching the implementation.
 
 ## Milestone 5E — CLI
 
-`wetechinetmonctl incidents` per the
+`tidegardctl incidents` per the
 [CLI plan](../architecture/incident-cli-plan.md); table, JSON, and wide
 output; exit codes; confirmations; per-command idempotency keys reused
 across retries.
 
-**Progress:** `apps/cli` is `wetechinetmonctl` ([ADR 0040](../architecture/decisions/0040-phase5e-cli-client.md)). It adds no new crates: hyper and tokio-rustls, which are already in the tree, and a hand-written parser. 5E-1 adds the read commands:
+**Progress:** `apps/cli` is `tidegardctl` ([ADR 0040](../architecture/decisions/0040-phase5e-cli-client.md)). It adds no new crates: hyper and tokio-rustls, which are already in the tree, and a hand-written parser. 5E-1 adds the read commands:
 
 - `list`, `show`, `timeline`, `detections`, `audit`, `note list`;
 - table, wide and verbatim JSON output;
@@ -423,7 +423,7 @@ across retries.
 - credentials never accepted as flags, and plaintext only to loopback;
 - an incident number resolved through the API's new exact `incident_number` filter.
 
-The RFC 3339 helpers moved to `wetechinetmon_common::rfc3339`, so the API and the CLI share them. 5E-2 adds the commands that change an incident: every transition, assignment, severity, priority and notes. Each change:
+The RFC 3339 helpers moved to `tidegard_common::rfc3339`, so the API and the CLI share them. 5E-2 adds the commands that change an incident: every transition, assignment, severity, priority and notes. Each change:
 
 - reads the version first, unless `--expected-version` pins it;
 - sends one UUIDv7 `Idempotency-Key`, reused on every retry;

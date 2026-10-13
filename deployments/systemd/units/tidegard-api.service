@@ -1,17 +1,17 @@
-# WetechiNetMon BGP mitigator (ADR 0052), installed by install.sh. Settings live in
-# /etc/wetechinetmon/mitigator.env, which only root reads.
+# Tidegard API and NOC UI (ADR 0052), installed by install.sh. Settings live in
+# /etc/tidegard/api.env, which only root reads.
 [Unit]
-Description=WetechiNetMon BGP mitigator
-Documentation=https://github.com/LogiXhare/wetechi-netmon
-After=network-online.target wetechinetmon-incident-manager.service
+Description=Tidegard API and NOC UI
+Documentation=https://github.com/LogiXhare/tidegard
+After=network-online.target tidegard-incident-manager.service
 Wants=network-online.target
 
 [Service]
 Type=exec
-User=wetechinetmon-mitigator
-Group=wetechinetmon-mitigator
-EnvironmentFile=/etc/wetechinetmon/mitigator.env
-ExecStart=/opt/wetechinetmon/bin/wetechinetmon-mitigator
+User=tidegard-api
+Group=tidegard-api
+EnvironmentFile=/etc/tidegard/api.env
+ExecStart=/opt/tidegard/bin/tidegard-api
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s

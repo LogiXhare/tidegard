@@ -1,7 +1,7 @@
 # API Reference
 
 Status: **Milestone 5D, in progress.** The incident REST API
-(`wetechinetmon-api`, in `apps/api`) serves liveness and readiness. The
+(`tidegard-api`, in `apps/api`) serves liveness and readiness. The
 incident endpoints are being built on it.
 
 - [OpenAPI document](openapi.json): generated from the handlers and

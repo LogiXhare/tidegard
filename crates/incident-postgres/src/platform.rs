@@ -15,8 +15,8 @@
 //! These operations are not audited yet, because the audit table has no
 //! actor type for a platform actor (FU-48).
 
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
-use wetechinetmon_incident::error::IncidentError;
+use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
+use tidegard_incident::error::IncidentError;
 
 /// Proof that the caller was authorized for cross-tenant maintenance.
 #[derive(Debug, Clone)]
@@ -44,8 +44,8 @@ impl PlatformAuthority {
 
 #[cfg(test)]
 mod tests {
-    use wetechinetmon_incident::authorization::{FixedBundleResolver, PermissionResolver};
-    use wetechinetmon_incident::correlation::TenantId;
+    use tidegard_incident::authorization::{FixedBundleResolver, PermissionResolver};
+    use tidegard_incident::correlation::TenantId;
 
     use super::*;
 

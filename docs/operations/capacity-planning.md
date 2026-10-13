@@ -20,9 +20,9 @@ written before the first run
 Two runs on GitHub's `ubuntu-latest` runner (BQ-3): AMD EPYC 7763,
 4 cores, 15.6 GiB, image `ubuntu24 20261004.327.1`, kernel
 6.17.0-1022-azure. Run
-[38295046486](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38295046486),
+[38295046486](https://github.com/LogiXhare/tidegard/actions/runs/38295046486),
 repeated from
-[38293786205](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38293786205)
+[38293786205](https://github.com/LogiXhare/tidegard/actions/runs/38293786205)
 with the same results. Each step lasted 60 seconds.
 
 | Records/s | Sent | Parsed | Loss | Classified incoming | Hosts tracked | Peak RSS | CPU (cores) |
@@ -54,12 +54,12 @@ What the run was, so it is not read as more:
   dropped before the collector read it.
 - **A floor, not a promise** for other hardware. Measure your own with
   `scripts/load_test.py`, as the
-  [benchmark workflow](https://github.com/LogiXhare/wetechi-netmon/blob/main/.github/workflows/benchmark.yml)
+  [benchmark workflow](https://github.com/LogiXhare/tidegard/blob/main/.github/workflows/benchmark.yml)
   does.
 
 ## API latency, measured
 
-Run [38298540619](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38298540619)
+Run [38298540619](https://github.com/LogiXhare/tidegard/actions/runs/38298540619)
 on the same runner type, 2026-10-13 (ADR 0054, 9B-2). The database held
 10,000 incidents, made by the pipeline itself: a flood to 10,000 hosts
 through the collector, the inbox and the incident manager. Sixteen
@@ -78,7 +78,7 @@ the API's ceiling; PostgreSQL ran beside the API on the same machine.
 
 ## Soak, measured
 
-Run [38298282358](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38298282358)
+Run [38298282358](https://github.com/LogiXhare/tidegard/actions/runs/38298282358)
 on the same runner type, 2026-10-12 to 13 (ADR 0054, 9B-3): the
 collector, with detection, ClickHouse export and the incident manager,
 took 50,000 records a second for five hours.
@@ -121,7 +121,7 @@ allocations — a real memory-under-load measurement is part of the Phase
 
 ## Queue Memory
 
-`WETECHINETMON_COLLECTOR_QUEUE_CAPACITY` (default 10,000) bounds the
+`TIDEGARD_COLLECTOR_QUEUE_CAPACITY` (default 10,000) bounds the
 in-process channel between UDP receive and classify/aggregate. Each
 queued item is a raw datagram (`Vec<u8>`, up to `MAX_DATAGRAM_SIZE` =
 65,535 bytes) plus a `SocketAddr`. Worst case: 10,000 × ~65KB ≈ 640MB if
@@ -158,7 +158,7 @@ operational alerting during an outage.
 ## Incident persistence, measured
 
 Measured 2026-10-05 by the Benchmark workflow,
-[run 37316065893](https://github.com/LogiXhare/wetechi-netmon/actions/runs/37316065893),
+[run 37316065893](https://github.com/LogiXhare/tidegard/actions/runs/37316065893),
 at commit `0f0dd71`. The harness is
 `crates/incident-postgres/tests/benchmark.rs`. Anyone can rerun it from
 the Actions tab.
@@ -236,7 +236,7 @@ summary.
 ### How far to trust them
 
 - **Shared runners vary.** An earlier run of the same code on another
-  runner ([run 37314862055](https://github.com/LogiXhare/wetechi-netmon/actions/runs/37314862055))
+  runner ([run 37314862055](https://github.com/LogiXhare/tidegard/actions/runs/37314862055))
   was 30–40% faster on writes: about 5–7 ms at p50, with 149–186
   incidents/s. Read the numbers as an order of magnitude and as a
   baseline for regressions, not as a guarantee.

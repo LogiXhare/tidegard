@@ -1,5 +1,5 @@
 //! The mitigator (Phase 7, ADRs 0048 and 0049): the only code in
-//! WetechiNetMon that speaks to GoBGP. It carries approved mitigations to
+//! Tidegard that speaks to GoBGP. It carries approved mitigations to
 //! GoBGP and takes them down again, under the safety guard, and it never
 //! approves anything itself.
 
@@ -19,12 +19,12 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use wetechinetmon_common::metrics_server::Readiness;
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::mitigation::MitigationStore;
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
+use tidegard_common::metrics_server::Readiness;
+use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::mitigation::MitigationStore;
+use tidegard_incident_postgres::platform::PlatformAuthority;
 
 pub use config::Config;
 
@@ -68,22 +68,20 @@ pub async fn run(
     let readiness = Readiness::new();
     let served = readiness.clone();
     let server = tokio::spawn(async move {
-        if let Err(error) =
-            wetechinetmon_common::metrics_server::serve(bind, registry, served).await
-        {
+        if let Err(error) = tidegard_common::metrics_server::serve(bind, registry, served).await {
             tracing::error!(error = %error, "the metrics server stopped");
         }
     });
-    let tls = wetechinetmon_incident_postgres::connect::TlsFiles::from_paths(
+    let tls = tidegard_incident_postgres::connect::TlsFiles::from_paths(
         config.database_ca_file.clone(),
         None,
         None,
     )
     .map_err(|detail| StartupError::Database(detail.to_string()))?;
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &config.database_url,
         tls.as_ref(),
-        wetechinetmon_incident_postgres::pool::PoolPolicy::starting_default(),
+        tidegard_incident_postgres::pool::PoolPolicy::starting_default(),
     )
     .map_err(|error| StartupError::Database(error.to_string()))?;
 
@@ -91,7 +89,7 @@ pub async fn run(
     // One mitigator acts at a time; another waits here as a standby. The
     // lock lives as long as this connection.
     let lock = loop {
-        match wetechinetmon_incident_postgres::pool::acquire(&pool).await {
+        match tidegard_incident_postgres::pool::acquire(&pool).await {
             Ok(client) => {
                 let held: bool = client
                     .query_one("SELECT pg_try_advisory_lock($1)", &[&SINGLE_MITIGATOR_LOCK])

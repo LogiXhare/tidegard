@@ -8,8 +8,8 @@ use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::Serialize;
+use tidegard_incident::authorization::Actor;
 use utoipa::ToSchema;
-use wetechinetmon_incident::authorization::Actor;
 
 use crate::auth::Principal;
 use crate::incidents::limit;

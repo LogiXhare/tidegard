@@ -2,8 +2,8 @@
 //! install from it is dry-run with BGP off, and the mitigator accepts it
 //! as shipped (the Phase 9 "Defaults" criterion).
 
-use wetechinetmon_mitigation::{Guard, GuardConfig};
-use wetechinetmon_mitigator::config::parse_file;
+use tidegard_mitigation::{Guard, GuardConfig};
+use tidegard_mitigator::config::parse_file;
 
 const GUARD: &str = include_str!("../../../deployments/config/guard.json");
 const MITIGATOR: &str = include_str!("../../../deployments/config/mitigator.json");
@@ -23,7 +23,7 @@ fn the_shipped_mitigator_file_shares_the_guard_and_proposes_nothing() {
     let file = parse_file(MITIGATOR).expect("mitigator.json is accepted");
     assert_eq!(
         file.guard_file.as_deref(),
-        Some(std::path::Path::new("/etc/wetechinetmon/guard.json"))
+        Some(std::path::Path::new("/etc/tidegard/guard.json"))
     );
     assert_eq!(file.guard, GuardConfig::default(), "no inline guard");
     assert!(

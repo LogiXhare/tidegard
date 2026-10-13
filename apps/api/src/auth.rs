@@ -33,9 +33,9 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use deadpool_postgres::Pool;
 use sha2::{Digest, Sha256};
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, PermissionResolver};
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::pool::acquire;
+use tidegard_incident::authorization::{Actor, AuthorizationContext, PermissionResolver};
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::pool::acquire;
 
 use crate::problem::{ErrorCode, Problem};
 use crate::rate_limit::{Quota, RateLimiter};

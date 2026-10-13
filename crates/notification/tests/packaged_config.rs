@@ -1,7 +1,7 @@
 //! The notifier file the release tarball installs (ADR 0052) is accepted
 //! as shipped, and sends nothing until an operator adds a channel.
 
-use wetechinetmon_notification::config::parse_file;
+use tidegard_notification::config::parse_file;
 
 const NOTIFIER: &str = include_str!("../../../deployments/config/notifier.json");
 

@@ -17,17 +17,17 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_detector::DetectionEvent;
-use wetechinetmon_incident::audit::{AttemptedResource, AuditEntry, AuditOutcome};
-use wetechinetmon_incident::correlation::{CorrelationConflict, TenantId};
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::evidence::EvidenceLinkType;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::idempotency::StoredOutcome;
-use wetechinetmon_incident::incident::Incident;
-use wetechinetmon_incident::outbox::OutboxMessage;
-use wetechinetmon_incident::state::IncidentState;
-use wetechinetmon_incident::timeline::TimelineEntry;
+use tidegard_detector::DetectionEvent;
+use tidegard_incident::audit::{AttemptedResource, AuditEntry, AuditOutcome};
+use tidegard_incident::correlation::{CorrelationConflict, TenantId};
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::evidence::EvidenceLinkType;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::idempotency::StoredOutcome;
+use tidegard_incident::incident::Incident;
+use tidegard_incident::outbox::OutboxMessage;
+use tidegard_incident::state::IncidentState;
+use tidegard_incident::timeline::TimelineEntry;
 
 use crate::error::PersistError;
 use crate::row::{actor_columns, severity_text, ActorColumns};
@@ -448,9 +448,9 @@ fn from_json<T: serde::de::DeserializeOwned>(
 
 #[cfg(test)]
 mod tests {
-    use wetechinetmon_incident::authorization::{Actor, Permission};
-    use wetechinetmon_incident::id::{IncidentGenerator, TestIncidentGenerator};
-    use wetechinetmon_incident::idempotency::{IdempotencyKey, RequestFingerprint};
+    use tidegard_incident::authorization::{Actor, Permission};
+    use tidegard_incident::id::{IncidentGenerator, TestIncidentGenerator};
+    use tidegard_incident::idempotency::{IdempotencyKey, RequestFingerprint};
 
     use super::*;
 

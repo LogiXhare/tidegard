@@ -52,7 +52,7 @@ decisions. Nothing here is installed or vendored in Phase 0.
 - gRPC: `tonic`
 - OpenAPI generation: `utoipa` or hand-maintained spec — TBD Phase 1
 
-## CLI (`wetechinetmonctl`)
+## CLI (`tidegardctl`)
 
 - `clap` for argument parsing, `serde`/`serde_json`/`serde_yaml` for
   output formats

@@ -23,12 +23,12 @@ use std::future::Future;
 use std::time::Duration;
 
 use deadpool_postgres::Pool;
+use tidegard_detector::DetectionEvent;
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::unit_of_work::IngestOutcomeKind;
 use tokio_postgres::{Client, GenericClient, IsolationLevel, Row};
-use wetechinetmon_detector::DetectionEvent;
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::unit_of_work::IngestOutcomeKind;
 
 use crate::error::PersistError;
 use crate::outbox::{micros, FailureOutcome, OutboxPolicy};

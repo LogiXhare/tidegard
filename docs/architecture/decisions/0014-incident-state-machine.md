@@ -198,7 +198,7 @@ the capability an attacker with a foothold would want.
 
 **Operational impact.** A resolved-but-unclosed queue now exists and must
 be visible; the existing list filters already answer it, and
-`wetechinetmon_incidents_active{state="resolved"}` makes it alertable.
+`tidegard_incidents_active{state="resolved"}` makes it alertable.
 
 **This is Community behaviour.** A correctness and safety default is not
 an Enterprise feature, and
@@ -250,7 +250,7 @@ incoming and outgoing separate; IPv4 and IPv6 separate. A detector
 restart mints a new `detection_id` and must not prevent recurrence
 correlating — the key is semantic, never detection-derived.
 
-**Observability.** `wetechinetmon_incidents_reopened_total` by severity,
+**Observability.** `tidegard_incidents_reopened_total` by severity,
 and the close-to-recurrence gap distribution (**FU-28**) so the value can
 eventually be chosen from evidence rather than judgement.
 

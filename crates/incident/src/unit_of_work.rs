@@ -35,7 +35,7 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use wetechinetmon_detector::{DetectionEvent, EventKind, MetricKind};
+use tidegard_detector::{DetectionEvent, EventKind, MetricKind};
 
 use crate::assignment::Assignee;
 use crate::audit::{AttemptedResource, AuditEntry};
@@ -354,7 +354,7 @@ impl IncidentUnitOfWork {
         // traffic (ADR 0007, ADR 0011), so an event reporting an executed
         // action is forged or corrupt: quarantined, never linked, so no
         // incident ever holds one (Gate 2).
-        if event.schema_version > wetechinetmon_detector::EVENT_SCHEMA_VERSION || event.executed {
+        if event.schema_version > tidegard_detector::EVENT_SCHEMA_VERSION || event.executed {
             return Ok(IngestResult {
                 outcome_kind: IngestOutcomeKind::Quarantined,
                 incident_id: None,
@@ -371,8 +371,7 @@ impl IncidentUnitOfWork {
         }
 
         // 3. Mode gate — Observe events never open or change an incident.
-        if !event.is_publishable() && event.action == wetechinetmon_detector::ActionTaken::Observed
-        {
+        if !event.is_publishable() && event.action == tidegard_detector::ActionTaken::Observed {
             return Ok(IngestResult {
                 outcome_kind: IngestOutcomeKind::ObserveOnly,
                 incident_id: None,
@@ -402,13 +401,13 @@ impl IncidentUnitOfWork {
             // expected and silently ignored rather than propagated.
             if event.kind == EventKind::Ended && result.outcome_kind == IngestOutcomeKind::Updated {
                 let reason = match event.reason {
-                    wetechinetmon_detector::TransitionReason::Stale => {
+                    tidegard_detector::TransitionReason::Stale => {
                         transition::DetectionEndReason::DetectorStale
                     }
-                    wetechinetmon_detector::TransitionReason::PolicyWithdrawn => {
+                    tidegard_detector::TransitionReason::PolicyWithdrawn => {
                         transition::DetectionEndReason::PolicyWithdrawn
                     }
-                    wetechinetmon_detector::TransitionReason::ManualReset => {
+                    tidegard_detector::TransitionReason::ManualReset => {
                         transition::DetectionEndReason::DetectorReset
                     }
                     _ => transition::DetectionEndReason::TrafficCleared,
@@ -582,7 +581,7 @@ impl IncidentUnitOfWork {
             state: IncidentState::Open,
             severity: request.severity,
             severity_source: SeveritySource::Operator,
-            ever_critical: request.severity == wetechinetmon_detector::Severity::Critical,
+            ever_critical: request.severity == tidegard_detector::Severity::Critical,
             maximum_detected_severity: request.severity,
             priority: request
                 .priority
@@ -779,7 +778,7 @@ impl IncidentUnitOfWork {
             state: IncidentState::Open,
             severity: event.severity,
             severity_source: SeveritySource::Detection,
-            ever_critical: event.severity == wetechinetmon_detector::Severity::Critical,
+            ever_critical: event.severity == tidegard_detector::Severity::Critical,
             maximum_detected_severity: event.severity,
             priority: Priority::default_for(event.severity),
             closure_reason: None,
@@ -2102,7 +2101,7 @@ impl IncidentUnitOfWork {
         &mut self,
         auth: &AuthorizationContext,
         incident_id: IncidentId,
-        new_severity: wetechinetmon_detector::Severity,
+        new_severity: tidegard_detector::Severity,
         reason: Option<String>,
     ) -> Result<u64, IncidentError> {
         let now = self.decision_time()?;
@@ -2126,7 +2125,7 @@ impl IncidentUnitOfWork {
         incident.severity = new_severity;
         // Latches on reaching Critical; never cleared by an ordinary
         // severity change — see the field's doc on `Incident`.
-        if new_severity == wetechinetmon_detector::Severity::Critical {
+        if new_severity == tidegard_detector::Severity::Critical {
             incident.ever_critical = true;
         }
         incident.severity_source = SeveritySource::Operator;
@@ -2560,7 +2559,7 @@ mod tests {
     use crate::number::InMemoryNumberAllocator;
     use std::collections::BTreeMap as StdBTreeMap;
     use std::net::{IpAddr, Ipv4Addr};
-    use wetechinetmon_detector::{
+    use tidegard_detector::{
         ActionTaken, AddressFamily, DataCompleteness, DetectionState, EventTarget, ExecutionMode,
         MatchedReason, MetricRates, SamplingStatus, ScopeId, ScopeType, Severity, TrafficDirection,
         TransitionReason,
@@ -2598,7 +2597,7 @@ mod tests {
 
     fn event(detection_id: &str, sequence: u64, addr: IpAddr, observed: u64) -> DetectionEvent {
         DetectionEvent {
-            schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+            schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
             event_id: format!("{detection_id}-{sequence}"),
             detection_id: detection_id.to_string(),
             sequence,

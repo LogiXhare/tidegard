@@ -50,7 +50,7 @@ two-sided, which downstream analytics queries rely on.
 
 ### Option B — The detector keeps its own counters
 
-`wetechinetmon-detector` maintains direction-aware, scope-keyed,
+`tidegard-detector` maintains direction-aware, scope-keyed,
 windowed counters, reusing the aggregator's **public** `BoundedMap` and
 `TrafficCounters` types. Phase 3 is not modified at all.
 

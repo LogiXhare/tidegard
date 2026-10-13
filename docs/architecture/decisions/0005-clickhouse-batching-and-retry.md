@@ -69,8 +69,8 @@ silently dropping fresh data.
 ## Consequences
 
 - ClickHouse write failures are visible via Prometheus metrics
-  (`wetechinetmon_storage_clickhouse_write_failures_total`,
-  `wetechinetmon_storage_clickhouse_retry_queue_dropped_total`), not
+  (`tidegard_storage_clickhouse_write_failures_total`,
+  `tidegard_storage_clickhouse_retry_queue_dropped_total`), not
   silent.
 - Data loss is possible under prolonged ClickHouse outages by design —
   this must be called out in operator-facing documentation

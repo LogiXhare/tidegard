@@ -19,7 +19,7 @@ export function App() {
   return (
     <div className="shell">
       <header className="top">
-        <h1>WetechiNetMon NOC</h1>
+        <h1>Tidegard NOC</h1>
         <nav aria-label="Main">
           <NavLink to="/" end>
             Overview

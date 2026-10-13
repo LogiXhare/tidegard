@@ -26,9 +26,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use deadpool_postgres::Pool;
+use tidegard_detector::{DetectionEvent, DetectionEventSink, SinkError};
+use tidegard_incident::correlation::TenantId;
 use tokio_postgres::GenericClient;
-use wetechinetmon_detector::{DetectionEvent, DetectionEventSink, SinkError};
-use wetechinetmon_incident::correlation::TenantId;
 
 use crate::error::PersistError;
 use crate::inbox::enqueue;

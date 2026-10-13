@@ -1,20 +1,20 @@
 [package]
-name = "wetechinetmon-mitigator"
-description = "WetechiNetMon mitigator — Phase 7C: the only code that speaks to GoBGP, over its gRPC API (BQ-13, ADR 0048)."
+name = "tidegard-mitigator"
+description = "Tidegard mitigator — Phase 7C: the only code that speaks to GoBGP, over its gRPC API (BQ-13, ADR 0048)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "wetechinetmon-mitigator"
+name = "tidegard-mitigator"
 path = "src/main.rs"
 
 [dependencies]
-wetechinetmon-common = { path = "../common", features = ["metrics-server"] }
-wetechinetmon-incident = { path = "../incident" }
-wetechinetmon-incident-postgres = { path = "../incident-postgres" }
-wetechinetmon-mitigation = { path = "../mitigation" }
+tidegard-common = { path = "../common", features = ["metrics-server"] }
+tidegard-incident = { path = "../incident" }
+tidegard-incident-postgres = { path = "../incident-postgres" }
+tidegard-mitigation = { path = "../mitigation" }
 deadpool-postgres.workspace = true
 tokio-postgres.workspace = true
 tracing.workspace = true
@@ -32,7 +32,7 @@ serde_json = "1"
 
 [dev-dependencies]
 # tests/mitigator_service.rs opens an incident from a detection event.
-wetechinetmon-detector = { path = "../detector" }
+tidegard-detector = { path = "../detector" }
 
 [build-dependencies]
 # Compiles the vendored GoBGP .proto files in pure Rust: no protoc binary

@@ -3,21 +3,21 @@
 
 #[tokio::main]
 async fn main() {
-    wetechinetmon_common::logging::init();
-    let config = wetechinetmon_mitigator::Config::from_env().unwrap_or_else(|error| {
+    tidegard_common::logging::init();
+    let config = tidegard_mitigator::Config::from_env().unwrap_or_else(|error| {
         tracing::error!(error = %error, "invalid configuration");
         std::process::exit(1);
     });
     tracing::info!(
         consumer_id = %config.consumer_id,
         metrics_bind = %config.metrics_bind,
-        "starting wetechinetmon-mitigator"
+        "starting tidegard-mitigator"
     );
-    if let Err(error) = wetechinetmon_mitigator::run(config, shutdown_signal()).await {
-        tracing::error!(error = %error, "wetechinetmon-mitigator could not start");
+    if let Err(error) = tidegard_mitigator::run(config, shutdown_signal()).await {
+        tracing::error!(error = %error, "tidegard-mitigator could not start");
         std::process::exit(1);
     }
-    tracing::info!("wetechinetmon-mitigator stopped");
+    tracing::info!("tidegard-mitigator stopped");
 }
 
 /// Ctrl+C, or SIGTERM on Unix (what systemd and containers send).

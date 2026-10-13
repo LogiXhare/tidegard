@@ -17,12 +17,12 @@
 //!   the V16 indexes serve, so a page is a bounded index range however
 //!   much history the tenant has.
 
+use tidegard_incident::authorization::{AuthorizationContext, Permission};
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::incident::Incident;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::{Client, GenericClient, IsolationLevel, Row};
-use wetechinetmon_incident::authorization::{AuthorizationContext, Permission};
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::incident::Incident;
 
 use crate::error::PersistError;
 use crate::service::Outcome;
@@ -631,8 +631,8 @@ fn summary_from_row(row: &Row) -> Result<IncidentSummary, PersistError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wetechinetmon_incident::authorization::Actor;
-    use wetechinetmon_incident::correlation::TenantId;
+    use tidegard_incident::authorization::Actor;
+    use tidegard_incident::correlation::TenantId;
 
     fn auth() -> AuthorizationContext {
         AuthorizationContext::new(

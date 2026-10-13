@@ -17,11 +17,11 @@ answers are stale routes (R26) and an announcement nobody approved.
 
 ## Decision
 
-### `wetechinetmon-mitigator`
+### `tidegard-mitigator`
 
 A binary in `crates/mitigator`, like the notifier: the environment says
-where the database is (`WETECHINETMON_MITIGATOR_DATABASE_URL`, with an
-optional CA file) and where its file is (`WETECHINETMON_MITIGATOR_CONFIG`).
+where the database is (`TIDEGARD_MITIGATOR_DATABASE_URL`, with an
+optional CA file) and where its file is (`TIDEGARD_MITIGATOR_CONFIG`).
 The file holds the guard (ADR 0047), the route attributes and the GoBGP
 endpoint (ADR 0048), the proposal policy and two intervals. Unknown keys
 are errors. Metrics on `127.0.0.1:9094` by default, with closed label

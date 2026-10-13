@@ -35,7 +35,7 @@ export function SignIn() {
 
   return (
     <main className="sign-in">
-      <h1>WetechiNetMon NOC</h1>
+      <h1>Tidegard NOC</h1>
       <form onSubmit={(event) => void submit(event)}>
         <label htmlFor="token">API token</label>
         <input

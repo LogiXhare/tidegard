@@ -16,7 +16,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
-use wetechinetmon_detector::{AddressFamily, ScopeId, ScopeType, Severity, TrafficDirection};
+use tidegard_detector::{AddressFamily, ScopeId, ScopeType, Severity, TrafficDirection};
 
 use crate::assignment::Assignment;
 use crate::authorization::Actor;

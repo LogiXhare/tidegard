@@ -103,7 +103,7 @@ permissions are what the code checks.
 | `mitigation.propose` | Propose a mitigation for an incident — the mitigator only, never a human role |
 | `mitigation.execute` | Announce, withdraw and end mitigations — the mitigator only, never a human role |
 | `mitigation.kill_switch.engage` | Turn on the deployment-wide kill switch ([ADR 0049](decisions/0049-phase7d-mitigator-service.md)) |
-| `mitigation.kill_switch.release` | Turn it off again — platform administrators only, and no API token carries it: `wetechinetmon-api kill-switch release` on the host ([ADR 0050](decisions/0050-phase7e-mitigation-api-cli-ui.md)) |
+| `mitigation.kill_switch.release` | Turn it off again — platform administrators only, and no API token carries it: `tidegard-api kill-switch release` on the host ([ADR 0050](decisions/0050-phase7e-mitigation-api-cli-ui.md)) |
 
 Suggested bundles, deployment-configurable:
 

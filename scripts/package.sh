@@ -7,7 +7,7 @@
 # 22.04 so the binaries need nothing newer than glibc 2.35. Needs cargo,
 # npm and cargo-about 0.9.2 (on PATH, or named by CARGO_ABOUT), which
 # writes the third-party licence notices (FU-53). Writes
-# wetechinetmon-<version>-linux-<arch>.tar.gz.
+# tidegard-<version>-linux-<arch>.tar.gz.
 set -euo pipefail
 
 version=${1:?usage: scripts/package.sh <version> [output directory]}
@@ -26,23 +26,23 @@ case "$arch" in
   x86_64 | aarch64) ;;
   *) echo "unsupported architecture: $arch" >&2; exit 1 ;;
 esac
-name="wetechinetmon-$version-linux-$arch"
+name="tidegard-$version-linux-$arch"
 
 packages=(
-  wetechinetmon-collector
-  wetechinetmon-incident-manager
-  wetechinetmon-api
-  wetechinetmon-notification
-  wetechinetmon-mitigator
-  wetechinetmon-cli
+  tidegard-collector
+  tidegard-incident-manager
+  tidegard-api
+  tidegard-notification
+  tidegard-mitigator
+  tidegard-cli
 )
 binaries=(
-  wetechinetmon-collector
-  wetechinetmon-incident-manager
-  wetechinetmon-api
-  wetechinetmon-notifier
-  wetechinetmon-mitigator
-  wetechinetmonctl
+  tidegard-collector
+  tidegard-incident-manager
+  tidegard-api
+  tidegard-notifier
+  tidegard-mitigator
+  tidegardctl
 )
 
 cd "$root"
@@ -59,7 +59,7 @@ for binary in "${binaries[@]}"; do
 done
 cp -R apps/web/dist "$dir/share/web"
 install -m 0644 deployments/systemd/units/*.service "$dir/share/systemd/"
-install -m 0644 deployments/systemd/wetechinetmon.sysusers "$dir/share/sysusers.d/wetechinetmon.conf"
+install -m 0644 deployments/systemd/tidegard.sysusers "$dir/share/sysusers.d/tidegard.conf"
 install -m 0644 deployments/systemd/env/*.env deployments/config/*.json "$dir/etc/"
 install -m 0755 deployments/systemd/install.sh "$dir/"
 install -m 0644 LICENSE NOTICE CHANGELOG.md "$dir/"

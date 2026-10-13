@@ -20,7 +20,7 @@ parameters from Options Template data (`SamplingInfo`).
   raw bytes) — full IE-by-IE typing is deferred to whichever later phase
   needs it (see crate-level docs in `src/lib.rs`).
 - Sequence-number-based exporter-restart detection (in
-  `wetechinetmon-collector`, which owns per-exporter `TemplateCache`
+  `tidegard-collector`, which owns per-exporter `TemplateCache`
   instances) does not handle 32-bit wraparound specially.
 - True coverage-guided fuzzing (`cargo-fuzz`/libFuzzer) requires a nightly
   Rust toolchain, not installed in this environment. Property-based tests
@@ -33,7 +33,7 @@ parameters from Options Template data (`SamplingInfo`).
 ## Testing
 
 ```bash
-cargo test -p wetechinetmon-protocol-ipfix
+cargo test -p tidegard-protocol-ipfix
 ```
 
 34 tests: unit tests per module (header/template/record/template_cache/

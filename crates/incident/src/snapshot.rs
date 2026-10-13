@@ -50,7 +50,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use wetechinetmon_detector::{
+use tidegard_detector::{
     AddressFamily, MetricKind, ScopeId, ScopeType, Severity, TrafficDirection,
 };
 
@@ -242,7 +242,7 @@ impl Incident {
 mod tests {
     use super::*;
     use crate::test_fixtures::valid_incident;
-    use wetechinetmon_detector::MetricKind;
+    use tidegard_detector::MetricKind;
 
     /// Every state, not just one: the state-dependent fields
     /// (`closure_reason`, `state_before_recovering`, `resolved_at`,

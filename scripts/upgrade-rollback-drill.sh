@@ -69,18 +69,22 @@ migrated() {
   exit 1
 }
 
-# start <bin dir> <label>: the incident manager, the API and the collector.
+# start <bin dir> <label> <binary prefix>: the incident manager, the API
+# and the collector. v0.9.0 calls them wetechinetmon-*, the candidate
+# tidegard-* (ADR 0058). Every setting goes by its old name, which v0.9.0
+# reads and the candidate still accepts, so the drill also proves that a
+# settings file written for v0.9.0 keeps working after the upgrade.
 start() {
-  local bin=$1 label=$2
+  local bin=$1 label=$2 name=$3
   WETECHINETMON_INCIDENT_DATABASE_URL="$database" \
     WETECHINETMON_INCIDENT_METRICS_BIND=127.0.0.1:9091 \
-    "$bin/wetechinetmon-incident-manager" > "$work/$label-manager.log" 2>&1 &
+    "$bin/$name-incident-manager" > "$work/$label-manager.log" 2>&1 &
   pids+=($!)
   ready http://127.0.0.1:9091
   migrated
   WETECHINETMON_API_DATABASE_URL="$database" \
     WETECHINETMON_API_MITIGATION_GUARD_FILE="$work/guard.json" \
-    "$bin/wetechinetmon-api" > "$work/$label-api.log" 2>&1 &
+    "$bin/$name-api" > "$work/$label-api.log" 2>&1 &
   pids+=($!)
   ready "$api"
   WETECHINETMON_COLLECTOR_BIND=127.0.0.1:2055 \
@@ -89,14 +93,14 @@ start() {
     WETECHINETMON_COLLECTOR_DETECTION_POLICY_FILE="$work/policy.json" \
     WETECHINETMON_COLLECTOR_DETECTION_WINDOW_SECS=1 \
     WETECHINETMON_COLLECTOR_INCIDENT_DATABASE_URL="$database" \
-    "$bin/wetechinetmon-collector" > "$work/$label-collector.log" 2>&1 &
+    "$bin/$name-collector" > "$work/$label-collector.log" 2>&1 &
   pids+=($!)
   ready http://127.0.0.1:9090
 }
 
-token() { # token <bin dir> <role> <actor>
-  WETECHINETMON_API_DATABASE_URL="$database" "$1/wetechinetmon-api" token create \
-    --tenant default --actor-id "$3" --role "$2" --days 1 | awk '/^token:/ {print $2}'
+token() { # token <bin dir> <binary prefix> <role> <actor>
+  WETECHINETMON_API_DATABASE_URL="$database" "$1/$2-api" token create \
+    --tenant default --actor-id "$4" --role "$3" --days 1 | awk '/^token:/ {print $2}'
 }
 
 # call <token> <method> <path> [body]. A body goes with a content type and
@@ -168,11 +172,11 @@ cat > "$work/guard.json" <<'JSON'
 JSON
 
 echo "drill: v0.9.0 fills the database"
-start "$OLD_BIN" old
+start "$OLD_BIN" old wetechinetmon
 "$REPLAY" 127.0.0.1:2055 --rate 20000 --hosts 200 --duration-secs 10 > /dev/null
 incidents_after 0
-lead=$(token "$OLD_BIN" noc_lead drill-lead)
-operator=$(token "$OLD_BIN" senior_operator drill-operator)
+lead=$(token "$OLD_BIN" wetechinetmon noc_lead drill-lead)
+operator=$(token "$OLD_BIN" wetechinetmon senior_operator drill-operator)
 first=$(call "$lead" GET "/api/v1/incidents?limit=1" | python3 -c 'import json,sys; print(json.load(sys.stdin)["items"][0]["incident_id"])')
 version=$(call "$lead" GET "/api/v1/incidents/$first" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')
 call "$lead" POST "/api/v1/incidents/$first/acknowledge" "{\"expected_version\": $version}" > /dev/null
@@ -190,13 +194,13 @@ pg pg_dump -U "$PG_USER" -d "$PG_DB" --format=custom --no-owner > "$work/pre-upg
 test -s "$work/pre-upgrade.dump"
 
 echo "drill: upgrading to the candidate"
-start "$NEW_BIN" new
+start "$NEW_BIN" new tidegard
 fingerprint > "$work/upgraded.txt"
 if ! diff -u "$work/v090.txt" "$work/upgraded.txt"; then
   echo "drill: the upgrade changed what v0.9.0 wrote"
   exit 1
 fi
-new_lead=$(token "$NEW_BIN" noc_lead drill-lead-2)
+new_lead=$(token "$NEW_BIN" tidegard noc_lead drill-lead-2)
 call "$new_lead" GET "/api/v1/incidents/$first" | grep -q '"state":"acknowledged"'
 call "$new_lead" GET "/api/v1/incidents/$first/notes" | grep -q 'written by v0.9.0'
 call "$new_lead" GET "/api/v1/mitigations/$mitigation" | grep -q '"state":"requested"'
@@ -219,7 +223,7 @@ pg psql -X -v ON_ERROR_STOP=1 -U "$PG_USER" -d postgres \
   -c "DROP DATABASE $PG_DB WITH (FORCE)" -c "CREATE DATABASE $PG_DB"
 pg pg_restore -U "$PG_USER" -d "$PG_DB" --no-owner --exit-on-error --single-transaction \
   < "$work/pre-upgrade.dump"
-start "$OLD_BIN" rolled-back
+start "$OLD_BIN" rolled-back wetechinetmon
 fingerprint > "$work/rolled-back.txt"
 if ! diff -u "$work/v090.txt" "$work/rolled-back.txt"; then
   echo "drill: the rollback does not match what v0.9.0 had"

@@ -183,8 +183,8 @@ loopback-only PostgreSQL 17 instance with no persistent volume:
 ```sh
 docker compose -f crates/incident-postgres/docker-compose.yml up -d --wait
 
-WETECHINETMON_INCIDENT_POSTGRES_TEST_URL="host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test" \
-    cargo test -p wetechinetmon-incident-postgres --test migration_smoke_test
+TIDEGARD_INCIDENT_POSTGRES_TEST_URL="host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test" \
+    cargo test -p tidegard-incident-postgres --test migration_smoke_test
 
 docker compose -f crates/incident-postgres/docker-compose.yml down -v
 ```
@@ -194,7 +194,7 @@ second run is a no-op, and checks the resulting schema shape (every
 table exists, the three active-incident partial unique indexes exist,
 the durable-identity columns are real `GENERATED ALWAYS AS IDENTITY`
 columns, and the `wetechinetmon_app` role exists without `BYPASSRLS`).
-Without `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL` set, this test skips
+Without `TIDEGARD_INCIDENT_POSTGRES_TEST_URL` set, this test skips
 itself with an explanatory message rather than failing — an environment
 with no Docker/PostgreSQL available must still be able to run `cargo
 test --workspace` cleanly.
@@ -205,7 +205,7 @@ PostgreSQL version
 [ADR 0025](../../docs/architecture/decisions/0025-phase5b-postgresql-version-support.md)
 supports: 15, 16, 17 and 18. Each run gets an ephemeral
 `postgres:<version>-alpine` service container and sets
-`WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`. The job fails if any test
+`TIDEGARD_INCIDENT_POSTGRES_TEST_URL`. The job fails if any test
 prints its skip message, so a skip cannot pass silently there. Every PR
 therefore runs every PostgreSQL test against all four versions.
 

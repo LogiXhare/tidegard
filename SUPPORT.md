@@ -2,7 +2,7 @@
 
 ## Current Status
 
-WetechiNetMon is in Phase 1 (repository and documentation foundation) of
+Tidegard is in Phase 1 (repository and documentation foundation) of
 its development roadmap — see [ROADMAP.md](ROADMAP.md). No software has
 shipped yet, so support today is limited to documentation, planning, and
 early design feedback.

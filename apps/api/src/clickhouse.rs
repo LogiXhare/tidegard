@@ -32,7 +32,7 @@ const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 
 // Shared with the collector, so the plaintext rule is written once
 // (ADR 0053).
-pub use wetechinetmon_common::http_endpoint::{is_loopback, parse_url, Scheme};
+pub use tidegard_common::http_endpoint::{is_loopback, parse_url, Scheme};
 
 /// Where ClickHouse is, and how to prove who we are.
 #[derive(Clone, PartialEq, Eq)]

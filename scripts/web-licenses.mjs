@@ -36,7 +36,7 @@ for (const path of paths) {
 
 const out = [
   "THIRD-PARTY SOFTWARE NOTICES",
-  "WetechiNetMon NOC UI (share/web)",
+  "Tidegard NOC UI (share/web)",
   "",
   "The NOC UI's bundle is built from the following third-party packages.",
   "Each package's licence is reproduced as its terms require.",

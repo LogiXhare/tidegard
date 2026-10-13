@@ -1,13 +1,13 @@
 [package]
-name = "wetechinetmon-api"
-description = "WetechiNetMon incident REST API (Phase 5D): axum, RFC 9457 errors, OpenAPI from code (ADR 0037, ADR 0038)."
+name = "tidegard-api"
+description = "Tidegard incident REST API (Phase 5D): axum, RFC 9457 errors, OpenAPI from code (ADR 0037, ADR 0038)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "wetechinetmon-api"
+name = "tidegard-api"
 path = "src/main.rs"
 
 [dependencies]
@@ -39,14 +39,14 @@ hyper-util = { version = "0.1.20", default-features = false, features = ["tokio"
 http-body-util = "0.1.5"
 bytes = "1.12.1"
 # Workspace crates and existing workspace dependencies.
-wetechinetmon-common = { path = "../../crates/common" }
-wetechinetmon-incident = { path = "../../crates/incident" }
+tidegard-common = { path = "../../crates/common" }
+tidegard-incident = { path = "../../crates/incident" }
 # The target vocabulary a manual incident names (ADR 0039).
-wetechinetmon-detector = { path = "../../crates/detector" }
-wetechinetmon-incident-postgres = { path = "../../crates/incident-postgres" }
+tidegard-detector = { path = "../../crates/detector" }
+tidegard-incident-postgres = { path = "../../crates/incident-postgres" }
 # Mitigation records and the safety guard (ADR 0050). The API never
 # speaks to GoBGP: the mitigator alone does.
-wetechinetmon-mitigation = { path = "../../crates/mitigation" }
+tidegard-mitigation = { path = "../../crates/mitigation" }
 deadpool-postgres.workspace = true
 tokio-postgres.workspace = true
 uuid.workspace = true
@@ -64,4 +64,4 @@ proptest.workspace = true
 # tests/threats.rs captures log output to prove no note body is logged (T-23).
 tracing-subscriber.workspace = true
 # tests/traffic.rs seeds a real ClickHouse with the collector's schema.
-wetechinetmon-storage = { path = "../../crates/storage" }
+tidegard-storage = { path = "../../crates/storage" }

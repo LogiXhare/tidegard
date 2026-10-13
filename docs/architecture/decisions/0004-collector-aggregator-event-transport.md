@@ -8,7 +8,7 @@ Deciders: WeTechi Solutions (badshashorif)
 
 [docs/architecture-options.md §2](../../architecture-options.md) recorded
 a Phase 0 "leaning" toward NATS JetStream as the event transport between
-WetechiNetMon services, to be formalized as an ADR "before Phase 3
+Tidegard services, to be formalized as an ADR "before Phase 3
 (aggregation, first real consumer of the transport) begins." This ADR is
 that formalization — but the decision reached is narrower than the
 original leaning, for reasons specific to what Phase 3 actually needs.
@@ -45,7 +45,7 @@ publish decoded/normalized flows to a stream that the Aggregator
 ### Option B — In-process bounded channel (`tokio::sync::mpsc`)
 
 Collector, Classifier, and Aggregator run inside the same
-`wetechinetmon-collector` binary for Phase 3, connected by a bounded
+`tidegard-collector` binary for Phase 3, connected by a bounded
 in-process channel. `crates/aggregator` and `crates/classifier` are
 still independent, unit-testable crates with no dependency on how
 messages reach them — only the wiring inside the binary is in-process.
@@ -64,7 +64,7 @@ messages reach them — only the wiring inside the binary is in-process.
 
 **Option B for Phase 3**: an in-process, bounded `tokio::sync::mpsc`
 channel connects the Collector's decode loop to the Classifier and
-Aggregator, all within the `wetechinetmon-collector` binary. NATS
+Aggregator, all within the `tidegard-collector` binary. NATS
 JetStream remains the recorded direction for when the Aggregator (or any
 other service) needs to run as an independently deployable, horizontally
 scaled process — tracked explicitly below, not silently dropped.

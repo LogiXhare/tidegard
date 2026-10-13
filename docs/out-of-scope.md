@@ -52,7 +52,7 @@ scope creep and gives each a home to be picked up deliberately later.
   — ADR required before Phase 3.
 - Mitigation Controller implementation language (Rust vs. Go) — ADR
   required before Phase 7.
-- WetechiNetMon's own open-source license — blocking question, see
+- Tidegard's own open-source license — blocking question, see
   [blocking-questions.md](blocking-questions.md).
 - Recharts vs. Apache ECharts for the web UI — lightweight ADR before
   Phase 6.

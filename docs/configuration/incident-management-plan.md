@@ -6,7 +6,7 @@ Status: **Planning only.** Part of the
 is read by any binary at `3f0cf3e`.
 
 Phase 5 follows the configuration conventions the collector already uses:
-environment variables, a `WETECHINETMON_` prefix, no hardcoded hosts or
+environment variables, a `TIDEGARD_` prefix, no hardcoded hosts or
 credentials, and a startup failure rather than a silent fallback when a
 value is invalid.
 
@@ -18,7 +18,7 @@ value is invalid.
 | `INCIDENT_DB_MAX_CONNECTIONS` | `16` | Pool ceiling |
 | `INCIDENT_DB_CONNECT_TIMEOUT_SECS` | `10` | |
 | `INCIDENT_DB_STATEMENT_TIMEOUT_SECS` | `30` | Bounds a runaway query |
-| `INCIDENT_DB_APPLICATION_NAME` | `wetechinetmon-incident` | Shows in `pg_stat_activity` |
+| `INCIDENT_DB_APPLICATION_NAME` | `tidegard-incident` | Shows in `pg_stat_activity` |
 
 The credential belongs in the URL, and the URL belongs in the
 environment — never in a committed file, never on a command line where it
@@ -118,7 +118,7 @@ incident that closed when they expected it not to.
 
 `INCIDENT_MAX_TIMELINE_ENTRIES` is an **alert threshold, not a truncation
 point**. The timeline is never truncated; reaching this number raises
-`wetechinetmon_incident_timeline_pressure`.
+`tidegard_incident_timeline_pressure`.
 
 ## Retention
 

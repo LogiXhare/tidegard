@@ -12,7 +12,7 @@ design artefacts for review, not files in a migrations directory.
 
 **This document describes the target schema, not the current
 implementation seam.** Verified against actual Phase 5A source
-(2026-08-24): `wetechinetmon-incident` has no repository trait a
+(2026-08-24): `tidegard-incident` has no repository trait a
 PostgreSQL implementation could satisfy today —
 `IncidentUnitOfWork` is a concrete struct, not an interface, and
 `Incident` cannot be reconstituted from outside the crate. Phase 5B's
