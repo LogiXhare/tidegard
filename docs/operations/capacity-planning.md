@@ -76,6 +76,30 @@ Every p99 is under ADR 0054's 250 ms, with no error response. The
 request rate is what the quota allows 16 actors, about 32 a second, not
 the API's ceiling; PostgreSQL ran beside the API on the same machine.
 
+## Soak, measured
+
+Run [38298282358](https://github.com/LogiXhare/wetechi-netmon/actions/runs/38298282358)
+on the same runner type, 2026-10-12 to 13 (ADR 0054, 9B-3): the
+collector, with detection, ClickHouse export and the incident manager,
+took 50,000 records a second for five hours.
+
+| Measure | Result | ADR 0054 limit |
+|---|---:|---:|
+| Records sent / parsed | 899,999,914 / 899,999,914 | — |
+| Loss | 0.000% | ≤ 0.1% |
+| Deepest queue | 57 of 10,000 | below capacity |
+| Mean RSS, hour 1 → hour 5 | 11.16 → 11.55 MiB (+3.5%) | ≤ +10% |
+| Peak RSS | 11.6 MiB | — |
+| Error lines in the log, restarts | 0, 0 | 0 |
+
+| Hour | 1 | 2 | 3 | 4 | 5 |
+|---|---:|---:|---:|---:|---:|
+| Mean RSS (MiB) | 11.16 | 11.38 | 11.51 | 11.55 | 11.55 |
+
+Memory rose by 0.4 MiB over the first three hours and then stayed flat:
+caches filling, not a leak. One shape of traffic again (one exporter,
+1,000 hosts), and five hours, not the weeks a production collector runs.
+
 ## Memory Sizing (Aggregator)
 
 Each aggregation dimension's worst-case memory is bounded by
@@ -265,9 +289,8 @@ defines what will actually be measured at Milestone 5B-5.
   Many exporters, small datagrams, IPv6 and high host cardinality are
   not yet.
 - API latency **is** measured, above, at the request rate the quotas
-  allow. The five-hour soak (9B-3) is reported when it has run.
+  allow.
+- The soak **is** measured, above, for five hours at half the target
+  rate. Runs of days or weeks are not.
 - PostgreSQL latency and throughput for the incident database **are**
-  measured, above. Index growth beyond 10,000 incidents, and latency
-  through the HTTP API, are not.
-
-The soak is the remaining Phase 9B measurement.
+  measured, above. Index growth beyond 10,000 incidents is not.
