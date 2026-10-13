@@ -41,7 +41,8 @@ cp -R "$here/share/web" "$PREFIX/share/web.new"
 rm -rf "$PREFIX/share/web"
 mv "$PREFIX/share/web.new" "$PREFIX/share/web"
 chmod -R u=rwX,go=rX "$PREFIX/share/web"
-install -m 0644 "$here/LICENSE" "$here/NOTICE" "$PREFIX/"
+install -m 0644 "$here/LICENSE" "$here/NOTICE" "$here/THIRD-PARTY-NOTICES.txt" \
+  "$here/THIRD-PARTY-NOTICES-WEB.txt" "$PREFIX/"
 
 # Users.
 install -D -m 0644 "$here/share/sysusers.d/wetechinetmon.conf" /etc/sysusers.d/wetechinetmon.conf
