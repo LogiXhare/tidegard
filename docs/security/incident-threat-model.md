@@ -1,15 +1,18 @@
 # Incident Management Threat Model
 
-Status: **Implemented and tested** through Phase 7, 2026-10-12. Written
-as the [Phase 5 plan](../architecture/phase5-incident-management-plan.md)'s
+Status: **Implemented and tested** through Phase 7, 2026-10-12; Phase 9D
+threats added 2026-10-13. Written as the
+[Phase 5 plan](../architecture/phase5-incident-management-plan.md)'s
 threat model; each threat's test is mapped in the
 [threat tests](incident-threat-tests.md).
 
-Forty-eight threats: twenty-four from Phase 5 planning, five added
+Fifty-seven threats: twenty-four from Phase 5 planning, five added
 2026-08-24 during Phase 5B PostgreSQL-persistence planning (T-25 through
 T-29), twelve added in Phase 6 for the UI, sessions, traffic and
-notifications (T-30 through T-41), and seven added in Phase 7 for BGP
-mitigation (T-42 through T-48). Each names the asset, the attacker,
+notifications (T-30 through T-41), seven added in Phase 7 for BGP
+mitigation (T-42 through T-48), and nine added in Phase 9D for the
+collector's input, ClickHouse, packaging and the supply chain (T-49
+through T-57). Each names the asset, the attacker,
 the path, a preventive control, a detective control, the test, and the
 residual risk that remains after both controls.
 
@@ -803,6 +806,199 @@ Another tenant's mitigation is `404`.
 **Test** `crates/mitigation/tests/unauthorized_prefixes.rs`
 `another_tenants_space_is_refused_with_the_same_answer_as_nobodys`;
 `apps/api/tests/tenant_isolation.rs` (every `{mitigation_id}` operation).
+
+## Phase 9D additions (2026-10-13)
+
+Phase 9 makes WetechiNetMon something an operator installs and runs: a
+collector on a UDP port, ClickHouse, packages, images and a release. The
+9D review extended this model to those parts. Two of its threats
+(T-49, T-50) were found open by the review and fixed during it; the
+[security review](security-review.md) lists every finding.
+
+## T-49 Hostile flow datagram
+
+**Asset** the collector's availability · **Attacker** EXT (anyone who
+can send to the flow port)
+
+**Path** A crafted IPFIX message makes the decoder panic, loop or
+allocate without bound. The review found one: a template whose records
+were zero bytes long made the decoder produce empty records until the
+process ran out of memory, from 46 bytes.
+
+**Prevent** Every malformed case is a `DecodeError`, never a panic. A
+template of zero-length records is refused, a record that consumes no
+bytes stops decoding, a field-less template record is a withdrawal
+(RFC 7011 §8.1), and a template reserves only what its bytes can hold.
+**Detect** `parser_failures_total`, and the fuzzer: `cargo fuzz` over
+`decode_message` weekly and on every pull request that touches the
+decoder. **Test** `crates/protocol-ipfix/src/lib.rs`
+`decode_message_never_panics` and its two siblings (proptest);
+`crates/protocol-ipfix/src/decoder.rs`
+`the_fuzzer_s_out_of_memory_input_ends`,
+`a_template_of_zero_length_records_is_refused`,
+`a_huge_field_count_in_a_short_record_is_truncated`. **Residual** A
+parser bug the fuzzer has not reached. NetFlow v5/v9 and sFlow are not
+implemented, so they add no parser.
+
+## T-50 Memory exhaustion through spoofed exporters and templates
+
+**Asset** the collector's memory · **Attacker** EXT
+
+**Path** UDP is unauthenticated. Datagrams from spoofed sources each
+created an exporter state that was never forgotten, and one exporter
+could cache every template ID with thousands of fields.
+
+**Prevent** `WETECHINETMON_COLLECTOR_ALLOWED_EXPORTERS` drops datagrams
+from outside the routers' networks before parsing. At most
+`MAX_EXPORTERS` (1,000) exporters are tracked, silent ones are forgotten
+after an hour, and each template cache holds at most 512 templates and
+8,192 fields: about 125 MiB in all, whatever is sent
+([ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md)).
+**Detect** `datagrams_refused_total{reason}`, `active_exporters`,
+`template_cache_size`; a startup warning when no allowlist is set.
+**Test** `crates/collector/src/exporter.rs`
+`a_new_exporter_past_the_limit_is_refused_until_one_goes_idle`,
+`the_allowlist_admits_its_networks_only`;
+`crates/collector/src/lib.rs`
+`datagrams_outside_the_exporter_limits_are_refused_before_decoding`;
+`crates/protocol-ipfix/src/template_cache.rs`
+`a_template_past_the_count_limit_is_refused_and_the_cache_kept`,
+`templates_past_the_field_limit_are_refused`. **Residual** Without an
+allowlist, spoofed exporters can fill the 1,000 places and keep a new
+router out until they go idle. Set the allowlist and firewall the port.
+
+## T-51 Flow flood
+
+**Asset** the collector's memory and its view of traffic ·
+**Attacker** EXT, or a real attack's own volume
+
+**Path** More datagrams than the pipeline can process, or traffic to so
+many distinct hosts that the aggregation tables grow without end.
+
+**Prevent** A bounded queue between the socket and the pipeline
+(`QUEUE_CAPACITY`, ADR 0004): when it is full the kernel drops
+datagrams, and memory does not grow. Every aggregation table has a
+maximum (`MAX_HOSTS` and the others) and evicts the least recently
+updated entry; detection has `DETECTION_MAX_SCOPES`. **Detect**
+`queue_depth`, `evicted_entries_total`. **Test**
+`crates/aggregator/src/bounded_map.rs`
+`evicts_least_recently_updated_entry_when_at_capacity`; the load test
+took 200,000 records a second without loss, and the five-hour soak held
+memory flat ([capacity planning](../operations/capacity-planning.md)).
+**Residual** A flood past the measured rate loses datagrams, and a
+flood of distinct local hosts evicts the least recently updated.
+
+## T-52 Forged flows that trigger detection
+
+**Asset** an innocent host's reachability · **Attacker** EXT inside an
+allowed exporter network, or a compromised router
+
+**Path** Forged records describe an attack on a host that is not under
+attack, to open an incident and get it blackholed.
+
+**Prevent** Nothing is mitigated automatically in v1.0.0 (BQ-17): every
+mitigation needs a person's request and, by default, a second person's
+approval (T-45), within the guard's allowlist (T-43), and the mitigator
+starts in dry-run with BGP off. The exporter allowlist (T-50) narrows
+who can send flows at all. **Detect** The detection event records how many
+exporters contributed (`exporters_observed`), but not which: a Low
+finding of the review. **Test** As T-45 and T-50. **Residual** A false
+incident costs an operator's attention; forged flows from an allowed
+router's address can only be stopped at the network edge (BCP 38).
+
+## T-53 ClickHouse credential or data exposure
+
+**Asset** flow history and the collector's ClickHouse credential ·
+**Attacker** EXT on the network path, INS reading logs
+
+**Path** The export travels in plaintext, the password rides in a URL
+that reaches a log, or a server certificate from any public CA is
+accepted.
+
+**Prevent** Plain HTTP is refused except to loopback; HTTPS trusts only
+the configured CA bundle; the password comes from a file, and a URL
+carrying credentials or a path is refused; logs show scheme, host and
+port only
+([ADR 0053](../architecture/decisions/0053-phase9a-collector-clickhouse-tls.md)).
+The API's ClickHouse queries are read-only and parameterised (T-41).
+**Test** `crates/storage/src/connection.rs`
+`plain_http_reaches_loopback_only`, `https_needs_a_ca_bundle`,
+`credentials_never_ride_in_the_url`,
+`logs_show_only_scheme_host_and_port`; the Grafana job exports over TLS
+to a real server. **Residual** ClickHouse's own access control is the
+operator's. The Compose stack gives the collector and the API one user
+between them, so the API's could write: a Low finding of the review.
+
+## T-54 A compromised service reaching further
+
+**Asset** the host and the other services · **Attacker** whoever
+exploits a bug in one service
+
+**Path** Code execution in one service, most exposed the collector,
+reads another's secrets or takes over the host.
+
+**Prevent** One system user per service, settings files `0600 root`
+or `0640 root:<service group>`, and systemd units with
+`NoNewPrivileges`, a read-only system and private temporary
+directories. The images are distroless, run as `65532:65532`, with a
+read-only root filesystem and every capability dropped
+([ADR 0052](../architecture/decisions/0052-phase9a-packaging.md)).
+**Test** The package job: `systemd-analyze verify` and `security` on
+every unit, each image's user checked, the collector run with
+`--read-only --cap-drop ALL`, hadolint, and Trivy failing on any
+fixable Critical or High. **Residual** A kernel or container runtime
+escape is outside this product.
+
+## T-55 A tampered release
+
+**Asset** what operators install · **Attacker** EXT who can replace a
+download, or a compromised release process
+
+**Path** A tarball or image is swapped after it is built, or built from
+code that is not the tagged commit.
+
+**Prevent** Phase 10A: the release workflow builds from the tag in a
+read-only job, publishes only after the owner approves the `release`
+environment, and signs `SHA256SUMS`, the SBOMs and every image with
+cosign keyless, with GitHub build provenance. **Test** Phase 10A's exit:
+a clean runner verifies every checksum, signature and attestation
+before installing. **Residual** Until 10A lands, there is no release to
+tamper with: v0.9.0 is a tag only.
+
+## T-56 A compromised dependency or build tool
+
+**Asset** everything the build produces · **Attacker** whoever
+controls an upstream crate, npm package, action or tool
+
+**Path** A malicious or vulnerable version enters through a dependency
+update, a moved action tag or a replaced download.
+
+**Prevent** Every action is pinned by commit SHA. Tools that CI
+downloads (gitleaks, Trivy, hadolint, cargo-deny, GoBGP) are pinned by
+version and SHA-256. `cargo deny` refuses RustSec advisories, licences
+outside the matrix, wildcard versions and sources other than crates.io;
+`npm audit` refuses High advisories in the UI; Dependabot waits 14
+days before proposing a version, and a new dependency needs a row in
+the [licence matrix](../dependency-license-matrix.md). **Detect**
+Trivy over every image; Dependabot alerts. **Test** The Rust job's
+`cargo-deny` step, the web job's `npm audit`, and the package job's
+Trivy scan, on every pull request. **Residual** A malicious version
+published and adopted within the cooldown, before any advisory.
+
+## T-57 A secret in the public history
+
+**Asset** any credential ever committed · **Attacker** EXT reading the
+repository
+
+**Path** The repository becomes permanently public at v1.0.0 (BQ-16),
+and a key, token or password in any past commit becomes everyone's.
+
+**Prevent** TLS keys, CA bundles and passwords are generated at install
+time and never committed; examples use `CHANGE_ME` and documentation
+ranges. **Detect** gitleaks over the full history on every pull request.
+**Test** The history job; a full scan of all 406 commits on
+2026-10-13 found nothing. **Residual** A secret in a form gitleaks has
+no rule for.
 
 ---
 

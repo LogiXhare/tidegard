@@ -97,6 +97,7 @@ nav:
       - Detection Safety: security/detection-safety.md
       - Incident Threat Model: security/incident-threat-model.md
       - Incident Threat Tests: security/incident-threat-tests.md
+      - Phase 9D Security Review: security/security-review.md
   - Licensing:
       - Dependency License Matrix: dependency-license-matrix.md
       - License Recommendation: license-recommendation.md
