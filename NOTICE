@@ -1,4 +1,4 @@
-WetechiNetMon
+Tidegard
 Copyright 2026 WeTechi Solutions
 
 This product is licensed under the Apache License, Version 2.0. See the
@@ -19,7 +19,7 @@ the permissive-license fork risk that was accepted knowingly.
 CLEAN-ROOM STATEMENT
 ============================================================
 
-WetechiNetMon is an independently engineered open network telemetry,
+Tidegard is an independently engineered open network telemetry,
 DDoS detection, traffic analytics, and policy-controlled mitigation
 platform. It is not a derivative, port, clone, or reverse-engineered
 edition of any proprietary product. See docs/clean-room-boundary.md for
@@ -28,6 +28,12 @@ the full clean-room policy governing this codebase.
 ============================================================
 THIRD-PARTY SOFTWARE
 ============================================================
+
+Every release tarball and image carries the full licence text of each
+third-party component it contains: THIRD-PARTY-NOTICES.txt for the
+binaries (generated from Cargo.lock by cargo-about) and
+THIRD-PARTY-NOTICES-WEB.txt for the NOC UI. The list below is the
+dependency review's record, not the notices themselves.
 
 Starting Phase 2, the following third-party Rust crates are vendored.
 Each has a completed, license-verified row in
@@ -77,7 +83,7 @@ One transitive dependency of axum carries an attribution licence:
 This list covers direct dependencies only. Transitive dependencies are
 recorded in Cargo.lock (committed to this repository) and are pulled in
 by the above crates' own dependency graphs, not chosen directly by
-WetechiNetMon.
+Tidegard.
 
 No dependency is added to this project without a completed license
 record in docs/dependency-license-matrix.md first.

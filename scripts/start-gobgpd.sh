@@ -8,7 +8,7 @@
 # scripts/start-gobgp-lab.sh.
 #
 # Linux amd64 only: CI's runner. Locally, run gobgpd yourself and set
-# WETECHINETMON_GOBGP_TEST_ENDPOINT.
+# TIDEGARD_GOBGP_TEST_ENDPOINT.
 set -euo pipefail
 
 # shellcheck source=scripts/gobgp-version.sh

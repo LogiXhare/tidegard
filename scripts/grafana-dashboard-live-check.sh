@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs every panel query of every WetechiNetMon dashboard through a real
+# Runs every panel query of every Tidegard dashboard through a real
 # Grafana, and fails on the first query Grafana or a datasource refuses
 # (ADR 0041). CI runs it against throwaway ClickHouse, Prometheus and
 # Grafana containers; it is never pointed at a production Grafana.
@@ -8,7 +8,7 @@
 #        scripts/grafana-dashboard-live-check.sh grafana/dashboards
 #
 # Needs curl and jq. The datasource variables resolve to the UIDs in
-# grafana/provisioning/datasources/wetechinetmon.yaml.
+# grafana/provisioning/datasources/tidegard.yaml.
 set -euo pipefail
 
 dir="${1:?usage: $0 DASHBOARD_DIR}"

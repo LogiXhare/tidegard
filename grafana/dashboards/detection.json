@@ -1,10 +1,10 @@
 {
   "id": null,
   "uid": "wnm-detection",
-  "title": "WetechiNetMon — Detection",
+  "title": "Tidegard — Detection",
   "description": "The detection engine: scopes and their states from Prometheus, detection events from ClickHouse. The detector never mitigates.",
   "tags": [
-    "wetechinetmon"
+    "tidegard"
   ],
   "editable": true,
   "graphTooltip": 1,
@@ -32,10 +32,10 @@
     {
       "type": "dashboards",
       "tags": [
-        "wetechinetmon"
+        "tidegard"
       ],
       "asDropdown": true,
-      "title": "WetechiNetMon",
+      "title": "Tidegard",
       "includeVars": false,
       "keepTime": true
     }
@@ -111,7 +111,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_detector_tracked_scopes)",
+          "expr": "sum(tidegard_detector_tracked_scopes)",
           "instant": true,
           "legendFormat": "Tracked scopes"
         }
@@ -167,7 +167,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(wetechinetmon_detector_scopes_in_state{state=\"active\"})",
+          "expr": "sum(tidegard_detector_scopes_in_state{state=\"active\"})",
           "instant": true,
           "legendFormat": "Active detections"
         }
@@ -227,7 +227,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(increase(wetechinetmon_detector_state_table_full_total[1h]))",
+          "expr": "sum(increase(tidegard_detector_state_table_full_total[1h]))",
           "instant": true,
           "legendFormat": "State table full"
         }
@@ -283,7 +283,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(increase(wetechinetmon_detector_detections_stale_total[1h]))",
+          "expr": "sum(increase(tidegard_detector_detections_stale_total[1h]))",
           "instant": true,
           "legendFormat": "Stale detections"
         }
@@ -338,7 +338,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (state) (wetechinetmon_detector_scopes_in_state)",
+          "expr": "sum by (state) (tidegard_detector_scopes_in_state)",
           "legendFormat": "{{state}}",
           "range": true
         }
@@ -393,7 +393,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (to) (rate(wetechinetmon_detector_state_transitions_total[$__rate_interval]))",
+          "expr": "sum by (to) (rate(tidegard_detector_state_transitions_total[$__rate_interval]))",
           "legendFormat": "to {{to}}",
           "range": true
         }
@@ -448,7 +448,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (kind) (rate(wetechinetmon_detector_events_total[$__rate_interval]))",
+          "expr": "sum by (kind) (rate(tidegard_detector_events_total[$__rate_interval]))",
           "legendFormat": "built {{kind}}",
           "range": true
         },
@@ -458,7 +458,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (kind) (rate(wetechinetmon_detector_events_published_total[$__rate_interval]))",
+          "expr": "sum by (kind) (rate(tidegard_detector_events_published_total[$__rate_interval]))",
           "legendFormat": "published {{kind}}",
           "range": true
         }
@@ -513,7 +513,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (sink) (rate(wetechinetmon_detector_events_failed_total[$__rate_interval]))",
+          "expr": "sum by (sink) (rate(tidegard_detector_events_failed_total[$__rate_interval]))",
           "legendFormat": "{{sink}}",
           "range": true
         }
@@ -568,7 +568,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (reason) (rate(wetechinetmon_detector_suppressed_total[$__rate_interval]))",
+          "expr": "sum by (reason) (rate(tidegard_detector_suppressed_total[$__rate_interval]))",
           "legendFormat": "suppressed: {{reason}}",
           "range": true
         },
@@ -578,7 +578,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (reason) (rate(wetechinetmon_detector_snapshots_ignored_total[$__rate_interval]))",
+          "expr": "sum by (reason) (rate(tidegard_detector_snapshots_ignored_total[$__rate_interval]))",
           "legendFormat": "ignored: {{reason}}",
           "range": true
         }
@@ -633,7 +633,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum by (scope_type) (rate(wetechinetmon_detector_snapshots_evaluated_total[$__rate_interval]))",
+          "expr": "sum by (scope_type) (rate(tidegard_detector_snapshots_evaluated_total[$__rate_interval]))",
           "legendFormat": "{{scope_type}}",
           "range": true
         },
@@ -643,7 +643,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_detector_snapshots_unmatched_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_detector_snapshots_unmatched_total[$__rate_interval]))",
           "legendFormat": "unmatched",
           "range": true
         },
@@ -653,7 +653,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "expr": "sum(rate(wetechinetmon_detector_thresholds_skipped_total[$__rate_interval]))",
+          "expr": "sum(rate(tidegard_detector_thresholds_skipped_total[$__rate_interval]))",
           "legendFormat": "thresholds skipped",
           "range": true
         }

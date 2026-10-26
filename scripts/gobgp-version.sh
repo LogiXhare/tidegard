@@ -10,7 +10,7 @@ GOBGP_SHA256="653f52cd11614cff847c9a70dd800b1d2746e61d5796744f591388db7084a038"
 fetch_gobgpd() {
   mkdir -p "$1"
   (
-    cd "$1"
+    cd "$1" || exit 1
     curl -fsSLo gobgp.tar.gz \
       "https://github.com/osrg/gobgp/releases/download/v${GOBGP_VERSION}/gobgp_${GOBGP_VERSION}_linux_amd64.tar.gz"
     echo "${GOBGP_SHA256}  gobgp.tar.gz" | sha256sum -c -

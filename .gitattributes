@@ -4,3 +4,9 @@
 # on whatever platform a contributor clones to.
 *.sh text eol=lf
 .githooks/** text eol=lf
+
+# What the release tarball installs on Linux (ADR 0052).
+deployments/systemd/** text eol=lf
+deployments/config/** text eol=lf
+deployments/docker/** text eol=lf
+deployments/docker-compose/** text eol=lf

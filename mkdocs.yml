@@ -1,10 +1,10 @@
-site_name: WetechiNetMon
+site_name: Tidegard
 site_description: >-
   Independently engineered open network telemetry, DDoS detection, traffic
   analytics, and policy-controlled mitigation platform.
 site_author: WeTechi Solutions
-repo_name: badshashorif/wetechi-netmon
-repo_url: https://github.com/badshashorif/wetechi-netmon
+repo_name: LogiXhare/tidegard
+repo_url: https://github.com/LogiXhare/tidegard
 edit_uri: edit/main/docs/
 
 theme:
@@ -57,6 +57,7 @@ validation:
 
 nav:
   - Home: index.md
+  - Quick Start: quick-start.md
   - Product Foundation:
       - Product Charter: product-charter.md
       - Clean-Room Boundary: clean-room-boundary.md
@@ -83,12 +84,20 @@ nav:
       - Phase 5B PostgreSQL Persistence Plan: architecture/phase5b-postgresql-persistence-plan.md
       - Phase 6 Plan (Dashboards, UI, Notifications): architecture/phase6-dashboards-ui-notifications-plan.md
       - Phase 7 Plan (BGP Mitigation Lab): architecture/phase7-bgp-mitigation-lab-plan.md
+      - Phases 9 and 10 Plan (Production Hardening and v1.0.0): architecture/phase9-10-production-release-plan.md
       - Incident Security Model: architecture/incident-security-model.md
       - Incident API Design: architecture/incident-api-plan.md
       - Incident CLI Plan: architecture/incident-cli-plan.md
       - Incident Observability: architecture/incident-observability.md
       - Incident Testing Plan: architecture/incident-testing-plan.md
       - Decision Records: architecture/decisions/index.md
+  - Release:
+      - Overview: release/index.md
+      - Test Summary: release/test-summary.md
+      - Migration Notes: release/migration-notes.md
+      - Known Issues: release/known-issues.md
+      - Production Checklist: release/production-checklist.md
+      - Security Checklist: release/security-checklist.md
   - Security:
       - Overview: security/index.md
       - Security Principles: security-principles.md
@@ -96,6 +105,7 @@ nav:
       - Detection Safety: security/detection-safety.md
       - Incident Threat Model: security/incident-threat-model.md
       - Incident Threat Tests: security/incident-threat-tests.md
+      - Phase 9D Security Review: security/security-review.md
   - Licensing:
       - Dependency License Matrix: dependency-license-matrix.md
       - License Recommendation: license-recommendation.md
@@ -123,6 +133,10 @@ nav:
       - Detection Monitoring: operations/detection-monitoring.md
       - Capacity Planning: operations/capacity-planning.md
       - Backup and Restore: operations/backup-and-restore.md
+      - Disaster Recovery: operations/disaster-recovery.md
+      - Verifying a Release: operations/verifying-a-release.md
+      - Upgrading and Rolling Back: operations/upgrading.md
+      - Customer Onboarding: operations/customer-onboarding.md
       - Incident Runbook: operations/incident-runbook.md
       - RTBH Guide: operations/rtbh-guide.md
       - FlowSpec Guide: operations/flowspec-guide.md
@@ -131,7 +145,9 @@ nav:
       - Overview: api/index.md
       - Incident API Plan: api/incident-api-plan.md
       - Error Codes: api/error-codes.md
-  - Commercial: commercial/index.md
+  - Commercial:
+      - Overview: commercial/index.md
+      - Deployment Guide: commercial/deployment-guide.md
   - Development:
       - Overview: development/index.md
       - Local Setup: development/local-setup.md
@@ -146,3 +162,4 @@ nav:
       - Phase 6 Gate 2 Assessment: development/phase6-gate2-assessment.md
       - Phase 7 Acceptance Criteria: development/phase7-acceptance-criteria.md
       - Phase 7 Gate 2 Assessment: development/phase7-gate2-assessment.md
+      - Phases 9 and 10 Acceptance Criteria: development/phase9-10-acceptance-criteria.md

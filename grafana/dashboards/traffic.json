@@ -1,10 +1,10 @@
 {
   "id": null,
   "uid": "wnm-traffic",
-  "title": "WetechiNetMon — Traffic",
+  "title": "Tidegard — Traffic",
   "description": "Traffic seen by the collector, from the ClickHouse analytics tables. Deployment-wide: the traffic tables carry no tenant until Phase 8.",
   "tags": [
-    "wetechinetmon"
+    "tidegard"
   ],
   "editable": true,
   "graphTooltip": 1,
@@ -32,10 +32,10 @@
     {
       "type": "dashboards",
       "tags": [
-        "wetechinetmon"
+        "tidegard"
       ],
       "asDropdown": true,
-      "title": "WetechiNetMon",
+      "title": "Tidegard",
       "includeVars": false,
       "keepTime": true
     }

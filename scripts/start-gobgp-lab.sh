@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the two-speaker BGP lab (Phase 7F, ADR 0051): WetechiNetMon's
+# Starts the two-speaker BGP lab (Phase 7F, ADR 0051): Tidegard's
 # speaker and a second gobgpd standing in for the edge router, peered over
 # iBGP on loopback, as an RTBH trigger router peers with its edge routers.
 #
