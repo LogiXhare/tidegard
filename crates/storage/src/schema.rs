@@ -1,4 +1,4 @@
-//! Original ClickHouse row types and table DDL for WetechiNetMon
+//! Original ClickHouse row types and table DDL for Tidegard
 //! analytics. Table names, columns, and layout are designed
 //! independently for this project — see docs/clean-room-boundary.md. Do
 //! not copy any proprietary product's table names or definitions.
@@ -238,12 +238,15 @@ const DDL_DETECTION_EVENTS: &str = "CREATE TABLE IF NOT EXISTS wetechinetmon_det
      ORDER BY (timestamp, tenant, policy_id, detection_id) \
      TTL timestamp + INTERVAL 365 DAY";
 
-/// Shared counter fields, duplicated into each row struct below rather
-/// than composed via `#[serde(flatten)]` — the `clickhouse` crate's
-/// `Row` derive maps struct fields directly to column order, and
-/// flattening is not something we've verified works correctly against a
-/// real server in this environment (see module docs).
-#[derive(Debug, Clone, Copy, Default, Serialize, clickhouse::Row)]
+/// A row's traffic counters, as the aggregator keeps them.
+///
+/// Not a column group: each row struct below repeats these twelve fields
+/// itself, through `traffic_row!`. The `clickhouse` crate maps a struct's
+/// own fields to columns, and RowBinary cannot encode
+/// `#[serde(flatten)]`, which serde writes as a map: the collector
+/// panicked on its first export to a real server until Phase 9A-3
+/// (ADR 0053).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CounterFields {
     pub bytes: u64,
     pub packets: u64,
@@ -259,8 +262,8 @@ pub struct CounterFields {
     pub dropped_packets: u64,
 }
 
-impl From<wetechinetmon_aggregator::TrafficCounters> for CounterFields {
-    fn from(c: wetechinetmon_aggregator::TrafficCounters) -> Self {
+impl From<tidegard_aggregator::TrafficCounters> for CounterFields {
+    fn from(c: tidegard_aggregator::TrafficCounters) -> Self {
         CounterFields {
             bytes: c.bytes,
             packets: c.packets,
@@ -278,90 +281,119 @@ impl From<wetechinetmon_aggregator::TrafficCounters> for CounterFields {
     }
 }
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct TotalTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    #[serde(flatten)]
-    pub counters: CounterFields,
+/// A traffic row: `timestamp`, the row's own key columns, then the twelve
+/// counter columns, all as plain fields, with `new` to fill them.
+macro_rules! traffic_row {
+    ($(#[$meta:meta])* $name:ident { $($field:ident: $ty:ty),* $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Serialize, clickhouse::Row)]
+        pub struct $name {
+            #[serde(with = "clickhouse::serde::time::datetime")]
+            pub timestamp: time::OffsetDateTime,
+            $(pub $field: $ty,)*
+            pub bytes: u64,
+            pub packets: u64,
+            pub flows: u64,
+            pub tcp_bytes: u64,
+            pub tcp_packets: u64,
+            pub udp_bytes: u64,
+            pub udp_packets: u64,
+            pub icmp_bytes: u64,
+            pub icmp_packets: u64,
+            pub tcp_syn_packets: u64,
+            pub fragmented_packets: u64,
+            pub dropped_packets: u64,
+        }
+
+        impl $name {
+            pub fn new(
+                timestamp: time::OffsetDateTime,
+                $($field: $ty,)*
+                counters: CounterFields,
+            ) -> Self {
+                $name {
+                    timestamp,
+                    $($field,)*
+                    bytes: counters.bytes,
+                    packets: counters.packets,
+                    flows: counters.flows,
+                    tcp_bytes: counters.tcp_bytes,
+                    tcp_packets: counters.tcp_packets,
+                    udp_bytes: counters.udp_bytes,
+                    udp_packets: counters.udp_packets,
+                    icmp_bytes: counters.icmp_bytes,
+                    icmp_packets: counters.icmp_packets,
+                    tcp_syn_packets: counters.tcp_syn_packets,
+                    fragmented_packets: counters.fragmented_packets,
+                    dropped_packets: counters.dropped_packets,
+                }
+            }
+
+            /// The counter columns, read back.
+            pub fn counters(&self) -> CounterFields {
+                CounterFields {
+                    bytes: self.bytes,
+                    packets: self.packets,
+                    flows: self.flows,
+                    tcp_bytes: self.tcp_bytes,
+                    tcp_packets: self.tcp_packets,
+                    udp_bytes: self.udp_bytes,
+                    udp_packets: self.udp_packets,
+                    icmp_bytes: self.icmp_bytes,
+                    icmp_packets: self.icmp_packets,
+                    tcp_syn_packets: self.tcp_syn_packets,
+                    fragmented_packets: self.fragmented_packets,
+                    dropped_packets: self.dropped_packets,
+                }
+            }
+        }
+    };
 }
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct HostTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub address: String,
-    pub family: u8,
-    #[serde(flatten)]
-    pub counters: CounterFields,
-}
+traffic_row!(TotalTrafficRow {});
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct NetworkTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub address: String,
-    pub prefix_len: u8,
-    pub family: u8,
-    #[serde(flatten)]
-    pub counters: CounterFields,
-}
+traffic_row!(HostTrafficRow {
+    address: String,
+    family: u8,
+});
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct Slash24TrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub address: String,
-    #[serde(flatten)]
-    pub counters: CounterFields,
-}
+traffic_row!(NetworkTrafficRow {
+    address: String,
+    prefix_len: u8,
+    family: u8,
+});
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct HostgroupTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub hostgroup: String,
-    #[serde(flatten)]
-    pub counters: CounterFields,
-}
+traffic_row!(Slash24TrafficRow { address: String });
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct AsnTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub asn: u32,
-    #[serde(flatten)]
-    pub counters: CounterFields,
-}
+traffic_row!(HostgroupTrafficRow { hostgroup: String });
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct ExporterTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub exporter: String,
-    #[serde(flatten)]
-    pub counters: CounterFields,
-}
+traffic_row!(AsnTrafficRow { asn: u32 });
 
-#[derive(Debug, Clone, Copy, Serialize)]
-#[repr(u8)]
+traffic_row!(ExporterTrafficRow { exporter: String });
+
+/// The `direction` column, an `Enum8('input' = 1, 'output' = 2)`.
+/// RowBinary carries an `Enum8` as its `Int8` value, and the `clickhouse`
+/// crate refuses serde's unit variants, so it is written as that number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(i8)]
 pub enum InterfaceDirection {
     Input = 1,
     Output = 2,
 }
 
-#[derive(Debug, Clone, Serialize, clickhouse::Row)]
-pub struct InterfaceTrafficRow {
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub timestamp: time::OffsetDateTime,
-    pub exporter: String,
-    pub interface_index: u32,
-    pub direction: InterfaceDirection,
-    #[serde(flatten)]
-    pub counters: CounterFields,
+impl Serialize for InterfaceDirection {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_i8(*self as i8)
+    }
 }
 
-/// One detection event, flattened for ClickHouse.
+traffic_row!(InterfaceTrafficRow {
+    exporter: String,
+    interface_index: u32,
+    direction: InterfaceDirection,
+});
+
+/// One detection event, as one ClickHouse row of plain columns.
 ///
 /// Written once. Nothing updates a detection event row: an event
 /// describes what was true at one instant, and correcting it after the
@@ -441,8 +473,8 @@ fn from_unix_millis(millis: u64) -> time::OffsetDateTime {
         .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
 }
 
-impl From<&wetechinetmon_detector::DetectionEvent> for DetectionEventRow {
-    fn from(event: &wetechinetmon_detector::DetectionEvent) -> Self {
+impl From<&tidegard_detector::DetectionEvent> for DetectionEventRow {
+    fn from(event: &tidegard_detector::DetectionEvent) -> Self {
         // The worst crossing of the whole detection, which is what a
         // dashboard sorts by. Falls back to the current crossings when a
         // detection has no recorded peak yet.
@@ -472,8 +504,8 @@ impl From<&wetechinetmon_detector::DetectionEvent> for DetectionEventRow {
             target: event.target.display.clone(),
             direction: event.target.direction.as_str().to_string(),
             family: match event.target.address_family {
-                wetechinetmon_detector::AddressFamily::Ipv4 => 4,
-                wetechinetmon_detector::AddressFamily::Ipv6 => 6,
+                tidegard_detector::AddressFamily::Ipv4 => 4,
+                tidegard_detector::AddressFamily::Ipv6 => 6,
             },
             previous_state: event.previous_state.as_str().to_string(),
             state: event.state.as_str().to_string(),
@@ -561,9 +593,36 @@ mod tests {
     }
 
     #[test]
+    fn traffic_rows_are_plain_columns() {
+        use clickhouse::Row;
+        // ADR 0053: no nested group, which RowBinary cannot encode.
+        for columns in [
+            TotalTrafficRow::COLUMN_NAMES,
+            HostTrafficRow::COLUMN_NAMES,
+            InterfaceTrafficRow::COLUMN_NAMES,
+        ] {
+            assert_eq!(columns[0], "timestamp");
+            assert!(!columns.contains(&"counters"), "{columns:?}");
+            assert!(columns.ends_with(&["fragmented_packets", "dropped_packets"]));
+        }
+        let counters = CounterFields {
+            bytes: 7,
+            dropped_packets: 3,
+            ..Default::default()
+        };
+        let row = HostTrafficRow::new(
+            time::OffsetDateTime::UNIX_EPOCH,
+            "192.0.2.1".into(),
+            4,
+            counters,
+        );
+        assert_eq!(row.counters(), counters);
+    }
+
+    #[test]
     fn a_detection_event_becomes_a_row() {
         use std::collections::BTreeMap;
-        use wetechinetmon_detector::{
+        use tidegard_detector::{
             ActionTaken, AddressFamily, DataCompleteness, DetectionEvent, DetectionState,
             EventKind, EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates,
             SamplingStatus, ScopeId, ScopeType, Severity, TrafficDirection, TransitionReason,
@@ -691,7 +750,7 @@ mod tests {
 
     #[test]
     fn counter_fields_convert_from_aggregator_traffic_counters() {
-        let counters = wetechinetmon_aggregator::TrafficCounters {
+        let counters = tidegard_aggregator::TrafficCounters {
             bytes: 100,
             packets: 10,
             flows: 1,

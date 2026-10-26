@@ -17,7 +17,7 @@
 //!   nothing.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -27,20 +27,20 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tokio::net::UdpSocket;
-use tokio_postgres::Client;
-use wetechinetmon_classifier::PrefixConfigEntry;
-use wetechinetmon_collector::config::IncidentDatabase;
-use wetechinetmon_collector::Config as CollectorConfig;
-use wetechinetmon_detector::DetectionEvent;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_manager::config::{
+use tidegard_classifier::PrefixConfigEntry;
+use tidegard_collector::config::IncidentDatabase;
+use tidegard_collector::Config as CollectorConfig;
+use tidegard_detector::DetectionEvent;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_manager::config::{
     Config as ManagerConfig, DATABASE_URL_ENV_VAR, MAINTENANCE_INTERVAL_SECS_ENV_VAR,
     METRICS_BIND_ENV_VAR, STATS_INTERVAL_SECS_ENV_VAR, WORKER_IDLE_MS_ENV_VAR, WORKER_ID_ENV_VAR,
 };
-use wetechinetmon_incident_postgres::inbox::enqueue;
+use tidegard_incident_postgres::inbox::enqueue;
+use tokio::net::UdpSocket;
+use tokio_postgres::Client;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 const TENANT: &str = "acme";
 
 const POLICY_DOC: &str = r#"{
@@ -161,13 +161,14 @@ fn collector_config(url: &str, bind: SocketAddr, policy_file: &std::path::Path) 
             tenant: TENANT.to_string(),
             hostgroup: None,
         }],
+        exporters: tidegard_collector::ExporterLimits::default(),
         max_hosts: 1_000,
         max_networks: 1_000,
         max_hostgroups: 100,
         max_asns: 100,
         inactivity_ttl_secs: 300,
         sampling_global_default: None,
-        clickhouse_url: None,
+        clickhouse: None,
         detection_policy_file: Some(policy_file.display().to_string()),
         detection_window_secs: 1,
         detection_max_scopes: 1_000,
@@ -210,7 +211,7 @@ async fn synthetic_ipfix_becomes_one_incident_and_nothing_is_notified_or_mitigat
 
     // --- The incident manager starts, and migrates the database ---
     let manager_stop = Arc::new(AtomicBool::new(false));
-    let manager = tokio::spawn(wetechinetmon_incident_manager::run(
+    let manager = tokio::spawn(tidegard_incident_manager::run(
         manager_config(&url),
         stop_signal(&manager_stop),
     ));
@@ -222,14 +223,12 @@ async fn synthetic_ipfix_becomes_one_incident_and_nothing_is_notified_or_mitigat
     .await;
 
     // --- The collector starts with detection and the inbox producer on ---
-    let policy_file = std::env::temp_dir().join(format!(
-        "wetechinetmon-e2e-policy-{}.json",
-        std::process::id()
-    ));
+    let policy_file =
+        std::env::temp_dir().join(format!("tidegard-e2e-policy-{}.json", std::process::id()));
     std::fs::write(&policy_file, POLICY_DOC).expect("the policy file is written");
     let bind = free_udp_port();
     let collector_stop = Arc::new(AtomicBool::new(false));
-    let collector = tokio::spawn(wetechinetmon_collector::run_until(
+    let collector = tokio::spawn(tidegard_collector::run_until(
         collector_config(&url, bind, &policy_file),
         stop_signal(&collector_stop),
     ));

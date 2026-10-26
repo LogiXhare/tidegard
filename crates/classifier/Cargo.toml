@@ -1,13 +1,13 @@
 [package]
-name = "wetechinetmon-classifier"
-description = "Tenant-aware local-prefix registry and traffic direction classification for WetechiNetMon."
+name = "tidegard-classifier"
+description = "Tenant-aware local-prefix registry and traffic direction classification for Tidegard."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-wetechinetmon-common = { path = "../common" }
+tidegard-common = { path = "../common" }
 thiserror.workspace = true
 
 [dev-dependencies]

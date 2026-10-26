@@ -1,6 +1,6 @@
 [package]
-name = "wetechinetmon-protocol-ipfix"
-description = "Clean-room IPFIX (RFC 7011/7012/7015) message decoder for WetechiNetMon."
+name = "tidegard-protocol-ipfix"
+description = "Clean-room IPFIX (RFC 7011/7012/7015) message decoder for Tidegard."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

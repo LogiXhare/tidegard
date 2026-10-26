@@ -1,10 +1,10 @@
-//! WetechiNetMon Telemetry Collector.
+//! Tidegard Telemetry Collector.
 //!
 //! Binds a UDP socket, decodes incoming IPFIX messages via
-//! `wetechinetmon-protocol-ipfix`, normalizes Data Records into
+//! `tidegard-protocol-ipfix`, normalizes Data Records into
 //! `NormalizedFlow`s (Phase 3), classifies their direction
-//! (`wetechinetmon-classifier`), and aggregates them
-//! (`wetechinetmon-aggregator`). Exposes Prometheus metrics on a
+//! (`tidegard-classifier`), and aggregates them
+//! (`tidegard-aggregator`). Exposes Prometheus metrics on a
 //! separate HTTP port. See docs/functional-requirements.md (FR-1, FR-2,
 //! FR-3) — NetFlow v9/v5 and sFlow v5 support are later phases.
 //!
@@ -39,8 +39,8 @@ pub fn metric_names() -> Vec<String> {
     names
 }
 
-/// Kept at its old path; the endpoint now lives in `wetechinetmon-common`.
-pub use wetechinetmon_common::metrics_server;
+/// Kept at its old path; the endpoint now lives in `tidegard-common`.
+pub use tidegard_common::metrics_server;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -48,12 +48,12 @@ use std::time::{Duration, Instant};
 
 use std::time::SystemTime;
 
+use tidegard_classifier::{build_registry, classify, Direction};
+use tidegard_protocol_ipfix::{decode_message, DecodedSet};
 use tokio::net::UdpSocket;
-use wetechinetmon_classifier::{build_registry, classify, Direction};
-use wetechinetmon_protocol_ipfix::{decode_message, DecodedSet};
 
 pub use config::Config;
-pub use exporter::ExporterRegistry;
+pub use exporter::{AllowedNetwork, ExporterLimits, ExporterRegistry};
 pub use metrics::Metrics;
 pub use pipeline::{Pipeline, SamplingConfig};
 
@@ -92,14 +92,18 @@ pub async fn run_until(
     let registry = Arc::new(registry);
 
     let metrics_addr = config.metrics_bind;
+    let readiness = metrics_server::Readiness::new();
+    let served = readiness.clone();
     let metrics_server = tokio::spawn(async move {
-        if let Err(err) = metrics_server::serve(metrics_addr, registry).await {
+        if let Err(err) = metrics_server::serve(metrics_addr, registry, served).await {
             tracing::error!(error = %err, "metrics server exited with an error");
         }
     });
 
     let socket = Arc::new(UdpSocket::bind(config.bind).await?);
     tracing::info!(bind = %config.bind, "IPFIX collector listening");
+    // Bound means flows are received; nothing later in startup can fail.
+    readiness.set(true);
 
     let prefix_report = build_registry(&config.local_prefixes).unwrap_or_else(|errors| {
         // A prefix-config error is a startup-quality problem, but Phase 3
@@ -111,13 +115,13 @@ pub async fn run_until(
         for e in &errors {
             tracing::error!(error = %e, "invalid local-prefix configuration entry, ignoring it");
         }
-        wetechinetmon_classifier::build_registry(&[]).expect("empty prefix list always validates")
+        tidegard_classifier::build_registry(&[]).expect("empty prefix list always validates")
     });
     for warning in &prefix_report.warnings {
         tracing::warn!(message = %warning.message, "local-prefix overlap");
     }
 
-    let aggregator_config = wetechinetmon_aggregator::AggregatorConfig {
+    let aggregator_config = tidegard_aggregator::AggregatorConfig {
         max_hosts: config.max_hosts,
         max_networks: config.max_networks,
         max_hostgroups: config.max_hostgroups,
@@ -149,6 +153,18 @@ pub async fn run_until(
         Some(path) => match detection::load_policy_file(path) {
             Ok(policies) => {
                 let count = policies.policies.len();
+                // A policy whose window differs from the collector's is never
+                // evaluated (the detector counts it as windowMismatch). Say so
+                // at startup, by name, rather than detect nothing quietly.
+                let window = Duration::from_secs(config.detection_window_secs);
+                for policy in policies.policies.iter().filter(|p| p.window != window) {
+                    tracing::error!(
+                        policy = %policy.id,
+                        policy_window_secs = policy.window.as_secs_f64(),
+                        collector_window_secs = config.detection_window_secs,
+                        "this policy will never be evaluated: its window differs from TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS"
+                    );
+                }
                 let extra_sinks = match &config.incident_database {
                     Some(database) => {
                         let tenants: std::collections::BTreeSet<String> = policies
@@ -166,7 +182,7 @@ pub async fn run_until(
                     }
                     None => Vec::new(),
                 };
-                let clickhouse_sink = config.clickhouse_url.as_ref().map(|_| {
+                let clickhouse_sink = config.clickhouse.as_ref().map(|_| {
                     Arc::new(detection::ClickHouseEventSink::new(
                         config.detection_event_buffer,
                     ))
@@ -176,15 +192,15 @@ pub async fn run_until(
                         tracing::info!(path, policies = count, "detection engine enabled");
                         Some(detection::DetectionStage::new(
                             detection::DetectionStageConfig {
-                                window: wetechinetmon_detector::WindowConfig {
+                                window: tidegard_detector::WindowConfig {
                                     window: Duration::from_secs(config.detection_window_secs),
                                     max_hosts: config.detection_max_scopes,
                                     max_networks: config.detection_max_scopes,
                                     max_slash24: config.detection_max_scopes,
                                     max_hostgroups: config.max_hostgroups,
                                 },
-                                engine: wetechinetmon_detector::EngineConfig {
-                                    state: wetechinetmon_detector::StateTableConfig {
+                                engine: tidegard_detector::EngineConfig {
+                                    state: tidegard_detector::StateTableConfig {
                                         max_entries: config.detection_max_scopes,
                                         idle_ttl: Duration::from_secs(config.inactivity_ttl_secs),
                                         stale_after: Duration::from_secs(
@@ -231,28 +247,39 @@ pub async fn run_until(
         metrics.queue_depth.clone(),
     ));
 
-    let mut exporters = ExporterRegistry::new();
+    if config.exporters.allowed.is_empty() {
+        tracing::warn!(
+            "TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS is not set: datagrams from any source are decoded; set it, or firewall the flow port to the routers"
+        );
+    }
+    let mut exporters = ExporterRegistry::with_limits(config.exporters.clone());
     let mut expire_interval = tokio::time::interval(EXPIRATION_INTERVAL);
 
     // ClickHouse export is entirely optional — see
     // docs/integrations/clickhouse.md. A connection/migration failure at
     // startup disables export for this run rather than crashing the
     // collector; decode/normalize/aggregate remains useful without it.
-    let mut clickhouse_exporters = match &config.clickhouse_url {
-        Some(url) => {
-            let client = wetechinetmon_storage::Client::default().with_url(url);
-            match wetechinetmon_storage::run_migrations(&client).await {
-                Ok(()) => {
-                    tracing::info!(url, "ClickHouse export enabled, migrations applied");
-                    Some(clickhouse_export::ClickHouseExporters::new(
-                        client,
-                        Instant::now(),
-                    ))
-                }
+    let mut clickhouse_exporters = match &config.clickhouse {
+        Some(settings) => {
+            let url = settings.display_url();
+            match settings.connect() {
                 Err(err) => {
-                    tracing::error!(url, error = %err, "ClickHouse migration failed; export disabled for this run");
+                    tracing::error!(url, error = %err, "ClickHouse cannot be reached; export disabled for this run");
                     None
                 }
+                Ok(client) => match tidegard_storage::run_migrations(&client).await {
+                    Ok(()) => {
+                        tracing::info!(url, "ClickHouse export enabled, migrations applied");
+                        Some(clickhouse_export::ClickHouseExporters::new(
+                            client,
+                            Instant::now(),
+                        ))
+                    }
+                    Err(err) => {
+                        tracing::error!(url, error = %err, "ClickHouse migration failed; export disabled for this run");
+                        None
+                    }
+                },
             }
         }
         None => None,
@@ -285,6 +312,14 @@ pub async fn run_until(
                 if expired > 0 {
                     metrics.expired_entries_total.inc_by(expired as u64);
                     tracing::debug!(expired, "swept inactive aggregation entries");
+                }
+                let forgotten = exporters.evict_idle(Instant::now());
+                if forgotten > 0 {
+                    metrics.active_exporters.set(exporters.exporter_count() as i64);
+                    metrics
+                        .template_cache_size
+                        .set(exporters.total_template_count() as i64);
+                    tracing::info!(forgotten, "forgot idle exporters and their templates");
                 }
             }
             _ = detection_interval.tick(), if detection.is_some() => {
@@ -372,10 +407,10 @@ fn start_incident_inbox(
     match incident_inbox::IncidentInbox::start(database, tenants, registry) {
         Ok((inbox, transport)) => {
             match transport {
-                wetechinetmon_incident_postgres::connect::Transport::VerifiedTls => {
+                tidegard_incident_postgres::connect::Transport::VerifiedTls => {
                     tracing::info!(tenants = count, "incident inbox enabled over verified TLS")
                 }
-                wetechinetmon_incident_postgres::connect::Transport::LoopbackPlaintext => {
+                tidegard_incident_postgres::connect::Transport::LoopbackPlaintext => {
                     tracing::warn!(
                         tenants = count,
                         "incident inbox enabled without TLS, allowed only because the database is on this host"
@@ -453,10 +488,21 @@ fn process_datagram(
     mut detection: Option<&mut detection::DetectionStage>,
     metrics: &Metrics,
 ) {
+    // Phase 9D (ADR 0056): a source outside the allowlist is dropped
+    // before a byte of it is parsed.
+    if !registry.permits(src.ip()) {
+        metrics
+            .datagrams_refused_total
+            .with_label_values(&["not_allowed"])
+            .inc();
+        tracing::debug!(%src, "datagram from a source outside the allowed exporters");
+        return;
+    }
+
     // Peek the header first (cheap — 16 bytes, no allocation) purely to
     // get the sequence number for restart detection *before* we hand the
     // (possibly stale) template cache to the full decoder.
-    let header = match wetechinetmon_protocol_ipfix::MessageHeader::parse(bytes) {
+    let header = match tidegard_protocol_ipfix::MessageHeader::parse(bytes) {
         Ok(h) => h,
         Err(err) => {
             metrics.parser_failures_total.inc();
@@ -465,7 +511,14 @@ fn process_datagram(
         }
     };
 
-    let exporter = registry.get_or_create(src);
+    let Some(exporter) = registry.get_or_create((src, header.observation_domain_id)) else {
+        metrics
+            .datagrams_refused_total
+            .with_label_values(&["exporter_limit"])
+            .inc();
+        tracing::debug!(%src, observation_domain_id = header.observation_domain_id, "exporter limit reached; datagram dropped");
+        return;
+    };
     if exporter.observe_sequence(header.sequence_number) {
         metrics.exporter_restarts_total.inc();
         tracing::warn!(%src, sequence_number = header.sequence_number, "exporter restart detected, template cache cleared");
@@ -527,7 +580,7 @@ fn process_datagram(
                                     }
                                     if matches!(
                                         outcome.flow.protocol,
-                                        Some(wetechinetmon_common::Protocol::Other(_))
+                                        Some(tidegard_common::Protocol::Other(_))
                                     ) {
                                         metrics.unsupported_protocol_fields_total.inc();
                                     }
@@ -626,7 +679,7 @@ fn process_datagram(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wetechinetmon_classifier::PrefixConfigEntry;
+    use tidegard_classifier::PrefixConfigEntry;
 
     /// Every metric is named once, under the product prefix, and the
     /// three groups (collector, detector, incident inbox) are all there.
@@ -635,11 +688,11 @@ mod tests {
         let names = metric_names();
         let unique: std::collections::BTreeSet<_> = names.iter().collect();
         assert_eq!(unique.len(), names.len(), "{names:?}");
-        assert!(names.iter().all(|name| name.starts_with("wetechinetmon_")));
+        assert!(names.iter().all(|name| name.starts_with("tidegard_")));
         for name in [
-            "wetechinetmon_collector_flow_datagrams_received_total",
-            "wetechinetmon_detector_scopes_in_state",
-            "wetechinetmon_collector_incident_inbox_queued",
+            "tidegard_collector_flow_datagrams_received_total",
+            "tidegard_detector_scopes_in_state",
+            "tidegard_collector_incident_inbox_queued",
         ] {
             assert!(names.iter().any(|n| n == name), "{name}");
         }
@@ -669,7 +722,7 @@ mod tests {
         .unwrap();
         Pipeline::new(
             report.registry,
-            wetechinetmon_aggregator::AggregatorConfig::default(),
+            tidegard_aggregator::AggregatorConfig::default(),
             SamplingConfig::default(),
             Instant::now(),
         )
@@ -704,6 +757,43 @@ mod tests {
             &metrics,
         );
         assert_eq!(metrics.parser_failures_total.get(), 1);
+    }
+
+    /// ADR 0056: a source outside the allowlist, or a new exporter past
+    /// the limit, is dropped before decoding and counted by reason.
+    #[test]
+    fn datagrams_outside_the_exporter_limits_are_refused_before_decoding() {
+        let (metrics, _registry) = Metrics::new().unwrap();
+        let mut pipeline = test_pipeline();
+        let set = template_set_bytes(&[(8, 4), (12, 4), (1, 8), (2, 8)]);
+        let mut msg = message_header_bytes((16 + set.len()) as u16);
+        msg.extend_from_slice(&set);
+        let refused = |reason: &str| {
+            metrics
+                .datagrams_refused_total
+                .with_label_values(&[reason])
+                .get()
+        };
+
+        let mut elsewhere = ExporterRegistry::with_limits(ExporterLimits {
+            allowed: vec![AllowedNetwork::new("192.0.2.0".parse().unwrap(), 24).unwrap()],
+            ..ExporterLimits::default()
+        });
+        process_datagram(&msg, addr(), &mut elsewhere, &mut pipeline, None, &metrics);
+        assert_eq!(refused("not_allowed"), 1);
+        assert_eq!(elsewhere.exporter_count(), 0);
+
+        let mut one = ExporterRegistry::with_limits(ExporterLimits {
+            max_exporters: 1,
+            ..ExporterLimits::default()
+        });
+        process_datagram(&msg, addr(), &mut one, &mut pipeline, None, &metrics);
+        let other: std::net::SocketAddr = "127.0.0.1:40000".parse().unwrap();
+        process_datagram(&msg, other, &mut one, &mut pipeline, None, &metrics);
+        assert_eq!(refused("exporter_limit"), 1);
+        assert_eq!(one.exporter_count(), 1);
+        assert_eq!(one.total_template_count(), 1);
+        assert_eq!(metrics.parser_failures_total.get(), 0);
     }
 
     #[test]
@@ -760,7 +850,7 @@ mod tests {
     #[test]
     fn synthetic_ipfix_produces_a_dry_run_detection_event_end_to_end() {
         use std::sync::Arc;
-        use wetechinetmon_detector::{ActionTaken, ScopeType, TrafficDirection};
+        use tidegard_detector::{ActionTaken, ScopeType, TrafficDirection};
 
         const POLICY_DOC: &str = r#"{
           "schemaVersion": 1,
@@ -790,16 +880,16 @@ mod tests {
         let detector_metrics =
             Arc::new(detection::DetectionPrometheusMetrics::new(&registry).expect("registers"));
         let sink = Arc::new(detection::ClickHouseEventSink::new(64));
-        let policies = wetechinetmon_detector::load_policies(POLICY_DOC).expect("valid policies");
+        let policies = tidegard_detector::load_policies(POLICY_DOC).expect("valid policies");
 
         let start = Instant::now();
         let mut stage = detection::DetectionStage::new(
             detection::DetectionStageConfig {
-                window: wetechinetmon_detector::WindowConfig {
+                window: tidegard_detector::WindowConfig {
                     window: Duration::from_secs(1),
-                    ..wetechinetmon_detector::WindowConfig::default()
+                    ..tidegard_detector::WindowConfig::default()
                 },
-                engine: wetechinetmon_detector::EngineConfig::default(),
+                engine: tidegard_detector::EngineConfig::default(),
                 event_buffer: 64,
             },
             policies,
@@ -926,20 +1016,20 @@ mod tests {
             .encode_to_string(&registry.gather())
             .expect("encodes");
         for expected in [
-            "wetechinetmon_detector_events_total{kind=\"started\"} 1",
-            "wetechinetmon_detector_events_published_total{kind=\"started\"} 1",
-            "wetechinetmon_detector_scopes_in_state{state=\"active\"} 1",
-            "wetechinetmon_detector_snapshots_evaluated_total{scope_type=\"host\"} 4",
-            "wetechinetmon_detector_state_transitions_total{from=\"pendingTrigger\",reason=\"triggerSustained\",to=\"active\"} 1",
+            "tidegard_detector_events_total{kind=\"started\"} 1",
+            "tidegard_detector_events_published_total{kind=\"started\"} 1",
+            "tidegard_detector_scopes_in_state{state=\"active\"} 1",
+            "tidegard_detector_snapshots_evaluated_total{scope_type=\"host\"} 4",
+            "tidegard_detector_state_transitions_total{from=\"pendingTrigger\",reason=\"triggerSustained\",to=\"active\"} 1",
         ] {
             assert!(text.contains(expected), "missing from /metrics: {expected}");
         }
         assert!(
-            !text.contains("wetechinetmon_detector_events_failed_total"),
+            !text.contains("tidegard_detector_events_failed_total"),
             "no publish should have failed"
         );
         assert!(
-            text.contains("wetechinetmon_collector_normalized_flows_total 4"),
+            text.contains("tidegard_collector_normalized_flows_total 4"),
             "the Phase 3 metrics must still be on the same endpoint"
         );
     }
@@ -1010,7 +1100,7 @@ mod tests {
         let mut exporters = ExporterRegistry::new();
         let mut pipeline = Pipeline::new(
             build_registry(&[]).unwrap().registry,
-            wetechinetmon_aggregator::AggregatorConfig::default(),
+            tidegard_aggregator::AggregatorConfig::default(),
             SamplingConfig::default(),
             Instant::now(),
         );

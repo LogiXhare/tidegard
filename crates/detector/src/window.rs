@@ -42,9 +42,9 @@ use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::{Duration, Instant, SystemTime};
 
-use wetechinetmon_aggregator::{BoundedMap, BoundedMapConfig, TrafficCounters, UpsertOutcome};
-use wetechinetmon_classifier::{ClassificationResult, Direction, PrefixRegistry};
-use wetechinetmon_common::{NormalizedFlow, SamplingSource};
+use tidegard_aggregator::{BoundedMap, BoundedMapConfig, TrafficCounters, UpsertOutcome};
+use tidegard_classifier::{ClassificationResult, Direction, PrefixRegistry};
+use tidegard_common::{NormalizedFlow, SamplingSource};
 
 use crate::input::{
     AddressFamily, DataCompleteness, DetectionSnapshot, MetricRates, SamplingStatus, ScopeId,
@@ -511,8 +511,8 @@ fn mask(addr: IpAddr, prefix_len: u8) -> IpAddr {
 mod tests {
     use std::net::Ipv4Addr;
 
-    use wetechinetmon_classifier::classify;
-    use wetechinetmon_common::{NormalizedFlowBuilder, Protocol, SamplingRate};
+    use tidegard_classifier::classify;
+    use tidegard_common::{NormalizedFlowBuilder, Protocol, SamplingRate};
 
     use super::*;
 

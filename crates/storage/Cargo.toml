@@ -1,15 +1,15 @@
 [package]
-name = "wetechinetmon-storage"
-description = "ClickHouse output for WetechiNetMon analytics: original schemas, bounded batching, and bounded-retry writes."
+name = "tidegard-storage"
+description = "ClickHouse output for Tidegard analytics: original schemas, bounded batching, and bounded-retry writes."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-wetechinetmon-common = { path = "../common" }
-wetechinetmon-aggregator = { path = "../aggregator" }
-wetechinetmon-detector = { path = "../detector" }
+tidegard-common = { path = "../common" }
+tidegard-aggregator = { path = "../aggregator" }
+tidegard-detector = { path = "../detector" }
 thiserror.workspace = true
 tracing.workspace = true
 tokio.workspace = true
@@ -17,6 +17,12 @@ clickhouse = { version = "0.13", features = ["time"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 time = "0.3"
+# ADR 0053: TLS to ClickHouse, verified against the configured CA, on the
+# aws-lc-rs provider the rest of the workspace uses. hyper-util is already
+# in the tree through the clickhouse crate.
+rustls.workspace = true
+hyper-rustls = { version = "0.27.10", default-features = false, features = ["http1", "tls12", "aws-lc-rs"] }
+hyper-util = { version = "0.1.20", default-features = false, features = ["client-legacy", "http1", "tokio"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

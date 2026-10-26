@@ -1,9 +1,9 @@
 //! Periodically snapshots the Aggregator's dimensions into ClickHouse
-//! rows and pushes them through `wetechinetmon-storage`'s batch/retry
+//! rows and pushes them through `tidegard-storage`'s batch/retry
 //! writers (Phase 3 objective 10).
 //!
 //! **Optional and off by default:** only active when
-//! `WETECHINETMON_COLLECTOR_CLICKHOUSE_URL` is set — see
+//! `TIDEGARD_COLLECTOR_CLICKHOUSE_URL` is set — see
 //! docs/integrations/clickhouse.md. `crates/storage`'s writer/batch/
 //! retry/schema logic is unit-tested (see that crate), but this specific
 //! wiring has not been exercised against a live ClickHouse server in
@@ -18,16 +18,16 @@
 //! are ready; wiring is deferred until the aggregator's interface
 //! dimension is made exporter-scoped.
 
-use time::OffsetDateTime;
-use wetechinetmon_aggregator::Aggregator;
-use wetechinetmon_storage::writer::ClickHouseWriter;
-use wetechinetmon_storage::{
+use tidegard_aggregator::Aggregator;
+use tidegard_storage::writer::ClickHouseWriter;
+use tidegard_storage::{
     schema::{
         AsnTrafficRow, DetectionEventRow, ExporterTrafficRow, HostTrafficRow, HostgroupTrafficRow,
         NetworkTrafficRow, Slash24TrafficRow, TotalTrafficRow,
     },
     BatchConfig, Client, RetryConfig,
 };
+use time::OffsetDateTime;
 
 pub struct ClickHouseExporters {
     total_ipv4: ClickHouseWriter<TotalTrafficRow>,
@@ -54,7 +54,7 @@ pub struct ExportReport {
 }
 
 impl ExportReport {
-    fn merge(&mut self, other: wetechinetmon_storage::FlushReport) {
+    fn merge(&mut self, other: tidegard_storage::FlushReport) {
         self.rows_written += other.rows_written;
         self.write_failures += other.write_failures;
         self.retry_queue_dropped += other.retry_queue_dropped;
@@ -145,81 +145,78 @@ impl ClickHouseExporters {
     /// Reads a full snapshot of `aggregator`'s current state and queues
     /// one row per tracked entry, per dimension, timestamped `now`.
     pub fn snapshot(&mut self, aggregator: &Aggregator, now: OffsetDateTime) {
-        self.total_ipv4.push(TotalTrafficRow {
-            timestamp: now,
-            counters: aggregator.total_ipv4_counters().into(),
-        });
-        self.total_ipv6.push(TotalTrafficRow {
-            timestamp: now,
-            counters: aggregator.total_ipv6_counters().into(),
-        });
+        self.total_ipv4.push(TotalTrafficRow::new(
+            now,
+            aggregator.total_ipv4_counters().into(),
+        ));
+        self.total_ipv6.push(TotalTrafficRow::new(
+            now,
+            aggregator.total_ipv6_counters().into(),
+        ));
 
         for (addr, counters) in aggregator.ipv4_hosts() {
-            self.host.push(HostTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                family: 4,
-                counters: (*counters).into(),
-            });
+            self.host.push(HostTrafficRow::new(
+                now,
+                addr.to_string(),
+                4,
+                (*counters).into(),
+            ));
         }
         for (addr, counters) in aggregator.ipv6_hosts() {
-            self.host.push(HostTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                family: 6,
-                counters: (*counters).into(),
-            });
+            self.host.push(HostTrafficRow::new(
+                now,
+                addr.to_string(),
+                6,
+                (*counters).into(),
+            ));
         }
 
         for ((addr, len), counters) in aggregator.ipv4_networks() {
-            self.network.push(NetworkTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                prefix_len: *len,
-                family: 4,
-                counters: (*counters).into(),
-            });
+            self.network.push(NetworkTrafficRow::new(
+                now,
+                addr.to_string(),
+                *len,
+                4,
+                (*counters).into(),
+            ));
         }
         for ((addr, len), counters) in aggregator.ipv6_networks() {
-            self.network.push(NetworkTrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                prefix_len: *len,
-                family: 6,
-                counters: (*counters).into(),
-            });
+            self.network.push(NetworkTrafficRow::new(
+                now,
+                addr.to_string(),
+                *len,
+                6,
+                (*counters).into(),
+            ));
         }
 
         for (addr, counters) in aggregator.ipv4_slash24() {
-            self.slash24.push(Slash24TrafficRow {
-                timestamp: now,
-                address: addr.to_string(),
-                counters: (*counters).into(),
-            });
+            self.slash24.push(Slash24TrafficRow::new(
+                now,
+                addr.to_string(),
+                (*counters).into(),
+            ));
         }
 
         for (hg, counters) in aggregator.hostgroups() {
-            self.hostgroup.push(HostgroupTrafficRow {
-                timestamp: now,
-                hostgroup: hg.clone(),
-                counters: (*counters).into(),
-            });
+            self.hostgroup.push(HostgroupTrafficRow::new(
+                now,
+                hg.clone(),
+                (*counters).into(),
+            ));
         }
 
         for (asn, counters) in aggregator.asns() {
-            self.asn.push(AsnTrafficRow {
-                timestamp: now,
-                asn: *asn,
-                counters: (*counters).into(),
-            });
+            self.asn
+                .push(AsnTrafficRow::new(now, *asn, (*counters).into()));
         }
 
         for (exporter, counters) in aggregator.exporters() {
-            self.exporter.push(ExporterTrafficRow {
-                timestamp: now,
-                exporter: exporter.to_string(),
-                counters: (*counters).into(),
-            });
+            self.exporter.push(ExporterTrafficRow::new(
+                now,
+                exporter.to_string(),
+                (*counters).into(),
+            ));
         }
     }
 

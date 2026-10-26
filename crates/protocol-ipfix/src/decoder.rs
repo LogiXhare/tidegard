@@ -144,7 +144,23 @@ fn parse_template_records(
             Template::parse_template_record(&set_body[offset..])?
         };
         offset += consumed;
-        templates.insert(template.clone());
+        // RFC 7011 §8.1: a record with no fields withdraws its template;
+        // template ID 2 (or 3, for Options Templates) withdraws them all.
+        // It was cached as a template of zero fields until Phase 9D, and
+        // a Data Set for it then decoded empty records without end.
+        if template.fields.is_empty() {
+            match template.template_id {
+                TEMPLATE_SET_ID | OPTIONS_TEMPLATE_SET_ID => templates.clear(),
+                template_id => templates.remove(template_id),
+            }
+            continue;
+        }
+        if template.min_record_len() == 0 {
+            return Err(DecodeError::ZeroLengthTemplate {
+                template_id: template.template_id,
+            });
+        }
+        templates.insert(template.clone())?;
         parsed.push(template);
     }
 
@@ -161,6 +177,11 @@ fn decode_data_set(template: &Template, set_body: &[u8]) -> Result<Vec<DataRecor
             break; // trailing padding, too short to be another record
         }
         let (record, consumed) = crate::record::decode_data_record(template, &set_body[offset..])?;
+        if consumed == 0 {
+            return Err(DecodeError::EmptyDataRecord {
+                template_id: template.template_id,
+            });
+        }
         offset += consumed;
         records.push(record);
     }
@@ -263,15 +284,17 @@ mod tests {
     #[test]
     fn decodes_multiple_records_packed_in_one_data_set() {
         let mut cache = TemplateCache::new();
-        cache.insert(Template {
-            template_id: 300,
-            scope_field_count: 0,
-            fields: vec![crate::template::FieldSpecifier {
-                information_element_id: 1,
-                field_length: 4,
-                enterprise_number: None,
-            }],
-        });
+        cache
+            .insert(Template {
+                template_id: 300,
+                scope_field_count: 0,
+                fields: vec![crate::template::FieldSpecifier {
+                    information_element_id: 1,
+                    field_length: 4,
+                    enterprise_number: None,
+                }],
+            })
+            .unwrap();
 
         let mut record_bytes = Vec::new();
         record_bytes.extend_from_slice(&10u32.to_be_bytes());
@@ -358,5 +381,112 @@ mod tests {
             let bytes = vec![0x42u8; len];
             let _ = decode_message(&bytes, &mut cache);
         }
+    }
+
+    /// The input the fuzzer found (Phase 9D): templates with no fields, then
+    /// a Data Set for one of them. It used to decode empty records without
+    /// end and allocate until the process ran out of memory.
+    #[test]
+    fn the_fuzzer_s_out_of_memory_input_ends() {
+        let input: &[u8] = &[
+            0x00, 0x0a, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x02, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0xaa, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0xaa, 0x00, 0x00, 0x0a, 0x00, 0x2c, 0x00, 0x00, 0x3f, 0xbf,
+            0x00, 0x00, 0xbf, 0x30,
+        ];
+        let mut cache = TemplateCache::new();
+        let _ = decode_message(input, &mut cache);
+        // A field-less record is a withdrawal: nothing is cached for 0xaa00.
+        assert!(!cache.contains(0xaa00));
+    }
+
+    #[test]
+    fn a_record_without_fields_withdraws_its_template() {
+        let mut cache = TemplateCache::new();
+        let define = template_set_bytes(300, &[(8, 4)]);
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + define.len()) as u16, 1);
+        msg.extend_from_slice(&define);
+        decode_message(&msg, &mut cache).unwrap();
+        assert!(cache.contains(300));
+
+        let withdraw = template_set_bytes(300, &[]);
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + withdraw.len()) as u16, 1);
+        msg.extend_from_slice(&withdraw);
+        let decoded = decode_message(&msg, &mut cache).unwrap();
+        assert!(!cache.contains(300));
+        assert!(matches!(&decoded.sets[0], DecodedSet::Templates(parsed) if parsed.is_empty()));
+
+        // A Data Set for it is now an unknown template, not an endless loop.
+        let data = data_set_bytes(300, &[0u8; 8]);
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + data.len()) as u16, 1);
+        msg.extend_from_slice(&data);
+        let decoded = decode_message(&msg, &mut cache).unwrap();
+        assert!(matches!(
+            decoded.sets[0],
+            DecodedSet::UnknownTemplate { template_id: 300 }
+        ));
+    }
+
+    #[test]
+    fn template_id_two_withdraws_every_template() {
+        let mut cache = TemplateCache::new();
+        for id in [300, 301] {
+            let define = template_set_bytes(id, &[(8, 4)]);
+            let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + define.len()) as u16, 1);
+            msg.extend_from_slice(&define);
+            decode_message(&msg, &mut cache).unwrap();
+        }
+        let withdraw_all = template_set_bytes(TEMPLATE_SET_ID, &[]);
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + withdraw_all.len()) as u16, 1);
+        msg.extend_from_slice(&withdraw_all);
+        decode_message(&msg, &mut cache).unwrap();
+        assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn a_template_of_zero_length_records_is_refused() {
+        let mut cache = TemplateCache::new();
+        // Two fields, each fixed at length zero: records of no bytes.
+        let define = template_set_bytes(302, &[(8, 0), (12, 0)]);
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + define.len()) as u16, 1);
+        msg.extend_from_slice(&define);
+        assert_eq!(
+            decode_message(&msg, &mut cache).unwrap_err(),
+            DecodeError::ZeroLengthTemplate { template_id: 302 }
+        );
+        assert!(!cache.contains(302));
+    }
+
+    /// One datagram can define thousands of templates. Past the cache's
+    /// limit the message is refused, and what was cached stays bounded.
+    #[test]
+    fn a_message_of_too_many_templates_is_refused() {
+        let mut cache = TemplateCache::new();
+        let mut sets = Vec::new();
+        for id in 0..=crate::MAX_TEMPLATES as u16 {
+            sets.extend_from_slice(&template_set_bytes(256 + id, &[(8, 4)]));
+        }
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + sets.len()) as u16, 1);
+        msg.extend_from_slice(&sets);
+        let last = 256 + crate::MAX_TEMPLATES as u16;
+        assert_eq!(
+            decode_message(&msg, &mut cache).unwrap_err(),
+            DecodeError::TemplateLimit { template_id: last }
+        );
+        assert_eq!(cache.len(), crate::MAX_TEMPLATES);
+    }
+
+    /// A template record that claims 65,535 fields in a few bytes is
+    /// truncated, and reserves only what those bytes could hold.
+    #[test]
+    fn a_huge_field_count_in_a_short_record_is_truncated() {
+        let mut record = Vec::new();
+        record.extend_from_slice(&256u16.to_be_bytes());
+        record.extend_from_slice(&u16::MAX.to_be_bytes());
+        record.extend_from_slice(&[0, 8, 0, 4]);
+        assert!(matches!(
+            Template::parse_template_record(&record),
+            Err(DecodeError::TemplateRecordTruncated { .. })
+        ));
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "wetechinetmon-flow-replay"
+name = "tidegard-flow-replay"
 description = "Sends synthetic IPFIX messages over UDP for safely testing the collector. Never sends real captured or attack traffic — see docs/security-principles.md."
 version.workspace = true
 edition.workspace = true
@@ -14,4 +14,4 @@ path = "src/main.rs"
 tokio.workspace = true
 
 [dev-dependencies]
-wetechinetmon-protocol-ipfix = { path = "../../crates/protocol-ipfix" }
+tidegard-protocol-ipfix = { path = "../../crates/protocol-ipfix" }

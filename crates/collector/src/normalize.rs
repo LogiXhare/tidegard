@@ -17,10 +17,10 @@
 
 use std::net::IpAddr;
 
-use wetechinetmon_common::{
+use tidegard_common::{
     resolve_sampling, FlowError, NormalizedFlow, NormalizedFlowBuilder, Protocol, SamplingInputs,
 };
-use wetechinetmon_protocol_ipfix::{DataRecord, SamplingInfo};
+use tidegard_protocol_ipfix::{DataRecord, SamplingInfo};
 
 // IANA IPFIX Information Element IDs used here — see the public IANA
 // "IP Flow Information Export (IPFIX) Entities" registry.
@@ -194,7 +194,7 @@ pub fn normalize_ipfix_record(
 mod tests {
     use super::*;
     use std::net::Ipv4Addr;
-    use wetechinetmon_protocol_ipfix::DecodedField;
+    use tidegard_protocol_ipfix::DecodedField;
 
     fn field(ie: u16, bytes: Vec<u8>) -> DecodedField {
         DecodedField {

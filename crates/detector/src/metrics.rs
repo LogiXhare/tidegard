@@ -9,7 +9,7 @@
 //!
 //! The Prometheus implementation therefore lives in the collector,
 //! alongside the metrics it already exposes. See
-//! `wetechinetmon-collector`'s `metrics` module.
+//! `tidegard-collector`'s `metrics` module.
 //!
 //! # Label discipline
 //!
