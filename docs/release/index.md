@@ -1,6 +1,6 @@
 # Release
 
-Status: **v1.0.0 candidate**, 2026-10-13 (Phase 10B).
+Status: **v1.0.0-rc.2**, 2026-10-26 (Phase 10C).
 
 What an operator needs to take a Tidegard release into production,
 and what the owner signs before v1.0.0 is tagged.
@@ -20,6 +20,8 @@ and what the owner signs before v1.0.0 is tagged.
   two databases.
 - [Known Issues](known-issues.md): what v1.0.0 does not do, or does in
   part.
+- [Test Summary](test-summary.md): what the current release candidate
+  passed, with every run's link.
 - [Production Checklist](production-checklist.md) and
   [Security Checklist](security-checklist.md): every item with the test
   or document that proves it, signed off by the owner.
