@@ -1,8 +1,7 @@
-# Dependabot configuration for wetechi-netmon
+# Dependabot configuration for tidegard
 #
 # Only ecosystems with a real manifest file in the repository are
-# configured. When container builds land, add:
-#   - package-ecosystem: "docker"    directory: "/"        (once Dockerfiles exist)
+# configured.
 # Each addition must have a corresponding entry validated in
 # docs/dependency-license-matrix.md before being merged.
 
@@ -74,3 +73,17 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # The images' base, pinned by digest in deployments/docker/Dockerfile
+  # (ADR 0052). A new digest is proposed once it is two weeks old.
+  - package-ecosystem: "docker"
+    directory: "/deployments/docker"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 14
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps)"

@@ -1,0 +1,366 @@
+name: Release acceptance
+
+# The acceptance test of a published release (ADR 0059). Run by hand once
+# a release is published, before it is called good. CI tests each part
+# from source; this runs the whole chain on what an operator downloads:
+#
+#   synthetic flows -> detection -> incident -> request and approval
+#   -> RTBH route on a lab edge router -> webhook notifications
+#   -> withdrawal, and the traffic in ClickHouse
+#
+# The product comes from the release, never from a build. Only the test
+# tools come from the tag's source: flow-replay and the GoBGP lab. Every
+# address is a documentation prefix (2001:db8::/32), every BGP speaker
+# listens on loopback, and the database is throwaway.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to test, such as v1.0.0-rc.2
+        required: true
+        type: string
+
+permissions: {}
+
+env:
+  TAG: ${{ inputs.tag }}
+  REGISTRY: ghcr.io/logixhare
+  TARGETS: collector incident-manager api notifier mitigator
+
+jobs:
+  anonymous:
+    name: As an anonymous user, download and pull
+    runs-on: ubuntu-22.04
+    # No token: what anyone on the internet gets.
+    permissions: {}
+    steps:
+      - name: Download the checksums without signing in
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o SHA256SUMS \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/SHA256SUMS"
+          grep -c 'tidegard-' SHA256SUMS
+      - name: Pull every image without signing in
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          failed=""
+          for target in $TARGETS; do
+            if ! docker pull --quiet "$REGISTRY/tidegard-$target:$version"; then
+              failed="$failed tidegard-$target"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::Not pullable without signing in:$failed. Make each package public: the package's page, Package settings, Change visibility."
+            exit 1
+          fi
+
+  end-to-end:
+    name: End to end on the released tarball
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      API: http://127.0.0.1:8080
+      DATABASE: host=127.0.0.1 port=55432 user=tidegard password=tidegard_test_only dbname=tidegard
+    # The same throwaway credential as CI's other jobs; never a real database.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tidegard
+          POSTGRES_PASSWORD: tidegard_test_only
+          POSTGRES_DB: tidegard
+        ports:
+          - 55432:5432
+        options: >-
+          --tmpfs /var/lib/postgresql/data
+          --health-cmd "pg_isready -U tidegard -d tidegard"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          path: source
+      - name: Build flow-replay from the tag
+        working-directory: source
+        run: cargo build --release -p tidegard-flow-replay
+      - name: Start the BGP lab
+        working-directory: source
+        env:
+          GOBGP_LAB_DIR: ${{ runner.temp }}/gobgp-lab
+        run: |
+          set -euo pipefail
+          bash scripts/start-gobgp-lab.sh
+          # The CLI from the same checked release, to read the edge's table.
+          tar -xzf "$GOBGP_LAB_DIR/gobgp.tar.gz" -C "$GOBGP_LAB_DIR" gobgp
+      - name: Start ClickHouse on loopback
+        run: |
+          set -euo pipefail
+          openssl rand -hex 24 | tr -d '\n' > "$RUNNER_TEMP/clickhouse-password"
+          docker run -d --name clickhouse -p 127.0.0.1:18123:8123 \
+            -e CLICKHOUSE_USER=tidegard \
+            -e CLICKHOUSE_PASSWORD="$(cat "$RUNNER_TEMP/clickhouse-password")" \
+            -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
+            clickhouse/clickhouse-server:26.8.14.3@sha256:4769eec6a9b9842a7d102c8bdfca0400128bc6edf65dec4e19a7d3a2b25f32db
+          for _ in $(seq 60); do
+            curl -sf http://127.0.0.1:18123/ping >/dev/null && break
+            sleep 1
+          done
+          curl -sS --fail-with-body http://127.0.0.1:18123/ping
+      - name: Start the webhook receiver
+        run: |
+          set -euo pipefail
+          openssl rand -hex 32 | tr -d '\n' > "$RUNNER_TEMP/webhook-secret"
+          # Records each event's type, and refuses a body whose HMAC
+          # (X-WNM-Signature over "timestamp.body") does not match.
+          cat > "$RUNNER_TEMP/receiver.py" <<'PY'
+          import hashlib, hmac, http.server, json, sys
+          secret = open(sys.argv[1], "rb").read()
+          log = open(sys.argv[2], "a", buffering=1)
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def do_POST(self):
+                  body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                  stamp = self.headers.get("X-WNM-Timestamp", "")
+                  mac = hmac.new(secret, stamp.encode() + b"." + body, hashlib.sha256)
+                  good = hmac.compare_digest("sha256=" + mac.hexdigest(),
+                                             self.headers.get("X-WNM-Signature", ""))
+                  log.write((json.loads(body).get("event_type", "?") if good else "BAD-SIGNATURE") + "\n")
+                  self.send_response(200 if good else 401)
+                  self.end_headers()
+              def log_message(self, *args):
+                  pass
+          http.server.HTTPServer(("127.0.0.1", 18080), Handler).serve_forever()
+          PY
+          touch "$RUNNER_TEMP/events.log"
+          nohup python3 "$RUNNER_TEMP/receiver.py" "$RUNNER_TEMP/webhook-secret" \
+            "$RUNNER_TEMP/events.log" > "$RUNNER_TEMP/receiver.out" 2>&1 &
+      - name: Download and install the release
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D release \
+            -p "tidegard-$version-linux-x86_64.tar.gz" -p SHA256SUMS
+          (cd release && sha256sum -c --ignore-missing SHA256SUMS)
+          tar -xzf "release/tidegard-$version-linux-x86_64.tar.gz" -C "$RUNNER_TEMP"
+          sudo "$RUNNER_TEMP/tidegard-$version-linux-x86_64/install.sh"
+          /opt/tidegard/bin/tidegardctl --version | grep -qx "tidegardctl $version"
+      - name: Configure the lab
+        run: |
+          set -euo pipefail
+          sudo sed -i "s/host=127.0.0.1 user=tidegard password=CHANGE_ME dbname=tidegard/$DATABASE/" \
+            /etc/tidegard/*.env
+          # setting <service> <name> <value>: replaces the line or adds it.
+          setting() {
+            sudo sed -i "/^$2=/d" "/etc/tidegard/$1.env"
+            echo "$2=$3" | sudo tee -a "/etc/tidegard/$1.env" >/dev/null
+          }
+          # secret <file> <owner>: a copy of a lab secret only its service reads.
+          secret() {
+            sudo install -m 0400 -o "$2" -g root "$RUNNER_TEMP/$1" "/etc/tidegard/$1-$2"
+          }
+          secret clickhouse-password tidegard-collector
+          secret clickhouse-password tidegard-api
+          secret webhook-secret tidegard-notifier
+
+          setting collector TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS 127.0.0.1/32
+          setting collector TIDEGARD_COLLECTOR_LOCAL_PREFIXES 2001:db8::/32@default
+          setting collector TIDEGARD_COLLECTOR_DETECTION_WINDOW_SECS 1
+          setting collector TIDEGARD_COLLECTOR_CLICKHOUSE_URL http://127.0.0.1:18123
+          setting collector TIDEGARD_COLLECTOR_CLICKHOUSE_USER tidegard
+          setting collector TIDEGARD_COLLECTOR_CLICKHOUSE_PASSWORD_FILE \
+            /etc/tidegard/clickhouse-password-tidegard-collector
+          setting api TIDEGARD_API_CLICKHOUSE_URL http://127.0.0.1:18123
+          setting api TIDEGARD_API_CLICKHOUSE_USER tidegard
+          setting api TIDEGARD_API_CLICKHOUSE_PASSWORD_FILE \
+            /etc/tidegard/clickhouse-password-tidegard-api
+          setting api TIDEGARD_API_TRAFFIC_TENANT default
+
+          # tee into the installed files keeps their owners and modes.
+          sudo tee /etc/tidegard/detection-policy.json >/dev/null <<'JSON'
+          {"schemaVersion": 1,
+           "tenants": [{"tenant": "default", "prefixes": ["2001:db8::/32"]}],
+           "policies": [{"id": "lab-host-inbound", "name": "Lab host inbound", "tenant": "default",
+             "scopeType": "host", "direction": "incoming", "window": "1s",
+             "thresholds": {"bps": "1M"}, "triggerFor": "2s", "clearFor": "5s",
+             "cooldown": "10s", "severity": "critical", "executionMode": "dryRun"}]}
+          JSON
+          # Announcing for real, to the lab edge only, and only inside
+          # 2001:db8::/48.
+          sudo tee /etc/tidegard/guard.json >/dev/null <<'JSON'
+          {"dry_run": false, "bgp_enabled": true,
+           "allowlist": [{"prefix": "2001:db8::/48", "tenant": "default", "actions": ["rtbh"]}]}
+          JSON
+          sudo tee /etc/tidegard/mitigator.json >/dev/null <<'JSON'
+          {"guard_file": "/etc/tidegard/guard.json",
+           "routes": {"local_asn": 65001, "rtbh_next_hop_ipv4": "192.0.2.1",
+                      "rtbh_next_hop_ipv6": "2001:db8:ffff::1"},
+           "gobgp": {"url": "http://127.0.0.1:50061"},
+           "poll_interval_ms": 500, "reconcile_interval_seconds": 5}
+          JSON
+          sudo tee /etc/tidegard/notifier.json >/dev/null <<'JSON'
+          {"channels": {"lab-webhook": {"kind": "webhook", "url": "http://127.0.0.1:18080/hook",
+             "secret_file": "/etc/tidegard/webhook-secret-tidegard-notifier", "allow_private": true}},
+           "routes": [{"tenant": "default",
+             "events": ["incident.opened", "mitigation.requested", "mitigation.approved",
+                        "mitigation.active", "mitigation.withdrawn"],
+             "channels": ["lab-webhook"]}],
+           "allowed_hosts": ["127.0.0.1"],
+           "ca_file": "/etc/ssl/certs/ca-certificates.crt",
+           "ui_base_url": null}
+          JSON
+      - name: Start the services
+        run: |
+          set -euo pipefail
+          ready() {
+            for _ in $(seq 60); do
+              curl -sf "http://127.0.0.1:$1/readyz" >/dev/null && return 0
+              sleep 1
+            done
+            curl -sS --fail-with-body "http://127.0.0.1:$1/readyz"
+          }
+          sudo systemctl start tidegard-incident-manager
+          ready 9091
+          sudo systemctl start tidegard-api tidegard-collector \
+            tidegard-notifier tidegard-mitigator
+          for port in 8080 9090 9093 9094; do ready "$port"; done
+          # The collector creates its tables before it says so.
+          for _ in $(seq 30); do
+            sudo journalctl -u tidegard-collector --no-pager | grep -q "ClickHouse export enabled" && break
+            sleep 1
+          done
+          sudo journalctl -u tidegard-collector --no-pager | grep -q "ClickHouse export enabled"
+          # token <actor> <role>
+          token() {
+            sudo bash -c "set -a; . /etc/tidegard/api.env; exec /opt/tidegard/bin/tidegard-api \
+              token create --tenant default --actor-id $1 --role $2 --days 1" \
+              | awk '/^token:/ {print $2}'
+          }
+          # Four eyes: an operator requests, a lead approves.
+          operator=$(token acceptance-operator senior_operator)
+          lead=$(token acceptance-lead noc_lead)
+          [ -n "$operator" ] && [ -n "$lead" ]
+          echo "::add-mask::$operator"
+          echo "::add-mask::$lead"
+          echo "OPERATOR=$operator" >> "$GITHUB_ENV"
+          echo "LEAD=$lead" >> "$GITHUB_ENV"
+      - name: Flows become an incident
+        run: |
+          set -euo pipefail
+          source/target/release/flow-replay 127.0.0.1:2055 --family ipv6 \
+            --pattern flood --duration-secs 20 --peak-bps 20000000
+          for _ in $(seq 30); do
+            curl -sf -H "Authorization: Bearer $LEAD" "$API/api/v1/incidents" > incidents.json \
+              && python3 -c 'import json, sys; sys.exit(not json.load(open("incidents.json"))["items"])' \
+              && break
+            sleep 2
+          done
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          incident = json.load(open("incidents.json"))["items"][0]
+          print(f"INCIDENT={incident['incident_id']}")
+          print(f"TARGET={incident['target_id']}")
+          PY
+          grep -E '^(INCIDENT|TARGET)=' "$GITHUB_ENV"
+      - name: The traffic reached ClickHouse
+        run: |
+          set -euo pipefail
+          for _ in $(seq 30); do
+            curl -sf -H "Authorization: Bearer $LEAD" \
+              "$API/api/v1/traffic/top?dimension=host&limit=10" > top.json \
+              && python3 -c 'import json, sys; sys.exit(not any(e["key"].startswith("2001:db8:") and e["bytes"] > 0 for e in json.load(open("top.json"))["items"]))' \
+              && break
+            sleep 2
+          done
+          cat top.json
+          python3 -c 'import json, sys; sys.exit(not any(e["key"].startswith("2001:db8:") for e in json.load(open("top.json"))["items"]))'
+      - name: Request, approve and announce
+        run: |
+          set -euo pipefail
+          curl -sS --fail-with-body -X POST "$API/api/v1/mitigations" \
+            -H "Authorization: Bearer $OPERATOR" -H "Content-Type: application/json" \
+            -H "Idempotency-Key: acceptance-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --data "{\"prefix\": \"$TARGET/128\", \"action\": \"rtbh\", \"reason\": \"Release acceptance\", \"duration_seconds\": 600, \"incident_id\": \"$INCIDENT\"}" \
+            > mitigation.json
+          id=$(python3 -c 'import json; print(json.load(open("mitigation.json"))["mitigation_id"])')
+          version=$(python3 -c 'import json; print(json.load(open("mitigation.json"))["version"])')
+          echo "MITIGATION=$id" >> "$GITHUB_ENV"
+          # The operator may not approve their own request.
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/api/v1/mitigations/$id/approve" \
+            -H "Authorization: Bearer $OPERATOR" -H "Content-Type: application/json" \
+            --data "{\"expected_version\": $version}")
+          [ "$status" = 403 ] || { echo "the requester's own approval returned $status"; exit 1; }
+          curl -sS --fail-with-body -X POST "$API/api/v1/mitigations/$id/approve" \
+            -H "Authorization: Bearer $LEAD" -H "Content-Type: application/json" \
+            --data "{\"expected_version\": $version}" >/dev/null
+          for _ in $(seq 60); do
+            state=$(curl -sf -H "Authorization: Bearer $LEAD" "$API/api/v1/mitigations/$id" \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])')
+            [ "$state" = active ] && break
+            sleep 1
+          done
+          echo "state: $state"
+          [ "$state" = active ]
+      - name: The edge router holds the blackhole route
+        run: |
+          set -euo pipefail
+          gobgp="$RUNNER_TEMP/gobgp-lab/gobgp"
+          for _ in $(seq 30); do
+            "$gobgp" -p 50062 global rib -a ipv6 | grep -qF "$TARGET/128" && break
+            sleep 1
+          done
+          "$gobgp" -p 50062 global rib -a ipv6
+          "$gobgp" -p 50062 global rib -a ipv6 | grep -F "$TARGET/128" | grep -qiE '65535:666|blackhole'
+      - name: Withdraw, and the route is gone
+        run: |
+          set -euo pipefail
+          version=$(curl -sf -H "Authorization: Bearer $LEAD" "$API/api/v1/mitigations/$MITIGATION" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')
+          curl -sS --fail-with-body -X POST "$API/api/v1/mitigations/$MITIGATION/withdraw" \
+            -H "Authorization: Bearer $LEAD" -H "Content-Type: application/json" \
+            --data "{\"expected_version\": $version, \"reason\": \"Release acceptance complete\"}" >/dev/null
+          for _ in $(seq 60); do
+            state=$(curl -sf -H "Authorization: Bearer $LEAD" "$API/api/v1/mitigations/$MITIGATION" \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])')
+            [ "$state" = withdrawn ] && break
+            sleep 1
+          done
+          echo "state: $state"
+          [ "$state" = withdrawn ]
+          gobgp="$RUNNER_TEMP/gobgp-lab/gobgp"
+          for _ in $(seq 30); do
+            "$gobgp" -p 50062 global rib -a ipv6 | grep -qF "$TARGET/128" || break
+            sleep 1
+          done
+          if "$gobgp" -p 50062 global rib -a ipv6 | grep -qF "$TARGET/128"; then
+            echo "the edge still holds $TARGET/128"; exit 1
+          fi
+      - name: Every notification arrived, signed
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/events.log"
+          for _ in $(seq 60); do
+            grep -qx mitigation.withdrawn "$log" && break
+            sleep 1
+          done
+          sort "$log" | uniq -c
+          if grep -qx BAD-SIGNATURE "$log"; then
+            echo "a notification's signature did not verify"; exit 1
+          fi
+          for event in incident.opened mitigation.requested mitigation.approved \
+            mitigation.active mitigation.withdrawn; do
+            grep -qx "$event" "$log" || { echo "no $event notification"; exit 1; }
+          done
+          echo "Tidegard $TAG passed the release acceptance test."
+      - name: Logs on failure
+        if: failure()
+        run: |
+          sudo journalctl -u 'tidegard-*' --no-pager -n 200 || true
+          tail -n 50 "$RUNNER_TEMP/gobgp-lab/speaker.log" "$RUNNER_TEMP/gobgp-lab/edge.log" \
+            "$RUNNER_TEMP/receiver.out" || true
+          docker logs --tail 40 clickhouse || true
