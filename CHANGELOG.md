@@ -8,6 +8,15 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-10-26
+
+The second release candidate of Tidegard 1.0.0. It changes no feature,
+setting or database schema from rc.1: it updates dependencies with
+security advisories, among them `rustls` and `rustls-webpki`, which every
+service and `tidegardctl` use for TLS. Upgrade from rc.1 by
+installing over it, as [Upgrading](docs/operations/upgrading.md) describes;
+from v0.9.0, read the rc.1 notes below first.
+
 ### Added
 
 - The release acceptance test
@@ -464,5 +473,6 @@ this environment. Property-based tests (`proptest`) cover the same
   out-of-scope list, risk register, roadmap, acceptance criteria, blocking
   questions, and naming/branding decisions under `docs/`.
 
-[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.1...HEAD
+[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.2...HEAD
+[1.0.0-rc.2]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.1...v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/LogiXhare/tidegard/releases/tag/v1.0.0-rc.1
