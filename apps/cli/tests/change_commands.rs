@@ -21,9 +21,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{json, Value};
-use wetechinetmon_cli::config::{Environment, TOKEN_VAR, URL_VAR};
-use wetechinetmon_cli::{exit, run_with, Io};
-use wetechinetmon_common::rfc3339::rfc3339;
+use tidegard_cli::config::{Environment, TOKEN_VAR, URL_VAR};
+use tidegard_cli::{exit, run_with, Io};
+use tidegard_common::rfc3339::rfc3339;
 
 const ID: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
 const NOW: i64 = 1_700_000_000_000_000;
@@ -263,7 +263,7 @@ async fn a_conflict_exits_4_and_is_not_reissued() {
         refused.err
     );
     assert!(
-        refused.err.contains("wetechinetmonctl incidents show"),
+        refused.err.contains("tidegardctl incidents show"),
         "{}",
         refused.err
     );

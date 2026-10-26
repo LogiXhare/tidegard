@@ -17,7 +17,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use serde::{Deserialize, Deserializer};
-use wetechinetmon_mitigation::{Action, ActionKind, FlowMatch, Prefix};
+use tidegard_mitigation::{Action, ActionKind, FlowMatch, Prefix};
 
 use crate::api;
 use crate::api::attribute::Attr;
@@ -50,7 +50,7 @@ const ORIGIN_IGP: u32 = 0;
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RouteConfig {
-    /// The ASN of WetechiNetMon's own BGP speaker.
+    /// The ASN of Tidegard's own BGP speaker.
     pub local_asn: u32,
     /// Where blackholed IPv4 traffic goes, usually a discard route on the
     /// edge routers.
@@ -121,7 +121,7 @@ fn large_communities<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<(u32, u32, u
 }
 
 impl RouteConfig {
-    /// The large community that marks a route as WetechiNetMon's.
+    /// The large community that marks a route as Tidegard's.
     pub fn ownership(&self) -> api::LargeCommunity {
         api::LargeCommunity {
             global_admin: self.local_asn,
@@ -352,7 +352,7 @@ pub fn summary(
     })
 }
 
-/// Whether a path read from GoBGP is WetechiNetMon's.
+/// Whether a path read from GoBGP is Tidegard's.
 pub fn is_owned(path: &api::Path, config: &RouteConfig) -> bool {
     let ownership = config.ownership();
     path.pattrs.iter().any(|attribute| {
@@ -361,7 +361,7 @@ pub fn is_owned(path: &api::Path, config: &RouteConfig) -> bool {
     })
 }
 
-/// A route WetechiNetMon announced, read back from GoBGP.
+/// A route Tidegard announced, read back from GoBGP.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OwnedRoute {
     pub prefix: Prefix,
@@ -455,7 +455,7 @@ pub fn read_back(path: &api::Path) -> Result<OwnedRoute, UnreadablePath> {
             };
             (prefix, action)
         }
-        _ => return Err(bad("an NLRI type WetechiNetMon never announces")),
+        _ => return Err(bad("an NLRI type Tidegard never announces")),
     };
     Ok(OwnedRoute {
         key: action.duplicate_key(&prefix),

@@ -209,7 +209,7 @@ pub(crate) async fn change(
         Err(mut stop) => {
             if stop.code == exit::CONFLICT && output != Output::Json {
                 stop.message.push_str(&format!(
-                    "\nRe-read the mitigation and decide again:\n  wetechinetmonctl mitigations show {id}\n"
+                    "\nRe-read the mitigation and decide again:\n  tidegardctl mitigations show {id}\n"
                 ));
             }
             return Err(stop);

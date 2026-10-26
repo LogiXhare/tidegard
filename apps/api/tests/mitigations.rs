@@ -4,7 +4,7 @@
 //! only on the host), BGP routes and peers, tenant isolation, and the
 //! incident's mitigation and notification status (FU-64).
 //!
-//! Needs `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
+//! Needs `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`, an ephemeral database
 //! this test wipes. Without it the test says why and passes; CI sets it and
 //! fails on the skip message.
 
@@ -13,23 +13,23 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use serde_json::{json, Value};
+use tidegard_api::auth::Role;
+use tidegard_api::token_admin::{self, ActorType, NewToken};
+use tidegard_api::{router, AppState};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::timeline::NotificationOutcome;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tidegard_mitigation::guard::AllowlistEntry;
+use tidegard_mitigation::{ActionKind, Guard, GuardConfig};
 use tokio_postgres::Client;
 use tower::ServiceExt;
-use wetechinetmon_api::auth::Role;
-use wetechinetmon_api::token_admin::{self, ActorType, NewToken};
-use wetechinetmon_api::{router, AppState};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::timeline::NotificationOutcome;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
-use wetechinetmon_mitigation::guard::AllowlistEntry;
-use wetechinetmon_mitigation::{ActionKind, Guard, GuardConfig};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 const MISSING: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
 
 async fn token(client: &Client, tenant: &str, role: Role, id: &str) -> String {
@@ -106,11 +106,11 @@ async fn the_mitigation_api_requests_approves_withdraws_and_isolates() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .unwrap();
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &url,
         None,
         PoolPolicy {
@@ -508,7 +508,7 @@ async fn the_mitigation_api_requests_approves_withdraws_and_isolates() {
             .mitigations
             .set_kill_switch(
                 &mut client,
-                &wetechinetmon_api::mitigations::host_admin_context("root"),
+                &tidegard_api::mitigations::host_admin_context("root"),
                 false,
                 "all clear",
             )

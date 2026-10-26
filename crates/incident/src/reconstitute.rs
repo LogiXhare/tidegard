@@ -66,7 +66,7 @@
 
 use std::collections::BTreeSet;
 
-use wetechinetmon_detector::Severity;
+use tidegard_detector::Severity;
 
 use crate::category::derive_category;
 use crate::durable_time::DurableTimestamp;
@@ -422,7 +422,7 @@ mod tests {
     use crate::correlation::TenantId;
     use crate::incident::{Note, NoteVisibility};
     use crate::test_fixtures::{valid_incident, FIXTURE_TIME};
-    use wetechinetmon_detector::MetricKind;
+    use tidegard_detector::MetricKind;
 
     const EVERY_STATE: [IncidentState; 7] = [
         IncidentState::Open,
@@ -682,7 +682,7 @@ mod tests {
         expect_rejected(s, "correlation_key");
 
         let mut s = snapshot_of(IncidentState::Open);
-        s.correlation_key.direction = wetechinetmon_detector::TrafficDirection::Outgoing;
+        s.correlation_key.direction = tidegard_detector::TrafficDirection::Outgoing;
         expect_rejected(s, "correlation_key");
     }
 

@@ -21,21 +21,21 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
+use tidegard_detector::DetectionEvent;
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::clock::Clock;
+use tidegard_incident::closure::ClosurePolicy;
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::{CorrelationKey, TenantId};
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::{IncidentGenerator, IncidentId};
+use tidegard_incident::idempotency::IdempotencyKey;
+use tidegard_incident::manual::ManualIncident;
+use tidegard_incident::number::{IncidentNumber, NumberAllocator};
+use tidegard_incident::reopen::ReopenPolicy;
+use tidegard_incident::transition::DetectionEndReason;
+use tidegard_incident::unit_of_work::{IncidentUnitOfWork, IngestResult};
 use tokio_postgres::{Client, IsolationLevel};
-use wetechinetmon_detector::DetectionEvent;
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::clock::Clock;
-use wetechinetmon_incident::closure::ClosurePolicy;
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::{IncidentGenerator, IncidentId};
-use wetechinetmon_incident::idempotency::IdempotencyKey;
-use wetechinetmon_incident::manual::ManualIncident;
-use wetechinetmon_incident::number::{IncidentNumber, NumberAllocator};
-use wetechinetmon_incident::reopen::ReopenPolicy;
-use wetechinetmon_incident::transition::DetectionEndReason;
-use wetechinetmon_incident::unit_of_work::{IncidentUnitOfWork, IngestResult};
 
 use crate::error::PersistError;
 use crate::flush::flush;
@@ -201,7 +201,7 @@ impl IncidentPersistence {
         incident_id: IncidentId,
         channel: &str,
         event_type: &str,
-        outcome: wetechinetmon_incident::timeline::NotificationOutcome,
+        outcome: tidegard_incident::timeline::NotificationOutcome,
     ) -> Outcome<()> {
         self.run(client, auth.tenant(), by_id(incident_id), |uow| {
             uow.record_notification_result(auth, incident_id, channel, event_type, outcome)

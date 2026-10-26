@@ -5,7 +5,7 @@
 //! without touching the row, and tenant scoping on load.
 //!
 //! Like `migration_smoke_test.rs`, this only ever connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). Everything runs in one test function because the test resets
 //! the `public` schema, which parallel tests in the same binary would race.
@@ -13,14 +13,12 @@
 mod support;
 
 use support::{all_scopes, host_scope, operator, run, worked_incident};
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::sql::{
-    insert_incident, load_incident, update_incident, Locking,
-};
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::sql::{insert_incident, load_incident, update_incident, Locking};
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 #[tokio::test]
 async fn incidents_round_trip_through_postgres_under_the_version_guard() {
@@ -46,7 +44,7 @@ async fn incidents_round_trip_through_postgres_under_the_version_guard() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");
@@ -91,7 +89,7 @@ async fn incidents_round_trip_through_postgres_under_the_version_guard() {
     let operator = operator(scope.tenant);
     run(&mut uow, &operator, id, |_| Command::AddNote {
         body: "second look".to_string(),
-        visibility: wetechinetmon_incident::incident::NoteVisibility::Internal,
+        visibility: tidegard_incident::incident::NoteVisibility::Internal,
     });
     run(&mut uow, &operator, id, |_| Command::RemoveTag {
         key: "site".to_string(),

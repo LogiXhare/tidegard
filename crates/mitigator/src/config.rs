@@ -13,7 +13,7 @@
 //!
 //! `guard` is ADR 0047's configuration. Instead of writing it here,
 //! `guard_file` may name a file holding it, which the API reads too
-//! (`WETECHINETMON_API_MITIGATION_GUARD_FILE`): one allowlist for both.
+//! (`TIDEGARD_API_MITIGATION_GUARD_FILE`): one allowlist for both.
 //! Neither is the fresh install: dry-run, BGP off, nothing allowlisted.
 
 use std::net::SocketAddr;
@@ -21,18 +21,18 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::Deserialize;
-use wetechinetmon_mitigation::{Guard, GuardConfig};
+use tidegard_mitigation::{Guard, GuardConfig};
 
 use crate::gobgp::GoBgpEndpoint;
 use crate::route::RouteConfig;
 
-pub const DATABASE_URL_ENV_VAR: &str = "WETECHINETMON_MITIGATOR_DATABASE_URL";
-pub const DATABASE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_MITIGATOR_DATABASE_CA_FILE";
-pub const CONFIG_FILE_ENV_VAR: &str = "WETECHINETMON_MITIGATOR_CONFIG";
-pub const METRICS_BIND_ENV_VAR: &str = "WETECHINETMON_MITIGATOR_METRICS_BIND";
-pub const CONSUMER_ID_ENV_VAR: &str = "WETECHINETMON_MITIGATOR_ID";
+pub const DATABASE_URL_ENV_VAR: &str = "TIDEGARD_MITIGATOR_DATABASE_URL";
+pub const DATABASE_CA_FILE_ENV_VAR: &str = "TIDEGARD_MITIGATOR_DATABASE_CA_FILE";
+pub const CONFIG_FILE_ENV_VAR: &str = "TIDEGARD_MITIGATOR_CONFIG";
+pub const METRICS_BIND_ENV_VAR: &str = "TIDEGARD_MITIGATOR_METRICS_BIND";
+pub const CONSUMER_ID_ENV_VAR: &str = "TIDEGARD_MITIGATOR_ID";
 pub const DEFAULT_METRICS_BIND: &str = "127.0.0.1:9094";
-pub const DEFAULT_CONSUMER_ID: &str = "wetechinetmon-mitigator";
+pub const DEFAULT_CONSUMER_ID: &str = "tidegard-mitigator";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -126,7 +126,7 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_lookup(|var| std::env::var(var).ok())
+        Self::from_lookup(|var| tidegard_common::env::var(var).ok().flatten())
     }
 
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {

@@ -1,20 +1,20 @@
 //! The database connection: the pool and startup migrations.
 //!
 //! **TLS (ADR 0023).** The pool comes from
-//! `wetechinetmon_incident_postgres::connect`: verified TLS with a CA file,
+//! `tidegard_incident_postgres::connect`: verified TLS with a CA file,
 //! plaintext only for a loopback-only connection string, and the connection
 //! string never echoed.
 //!
 //! **Migrations (ADR 0024).** Applied before any work starts, under a
 //! session advisory lock, so several instances starting together apply
 //! each migration once. An operator who runs migrations separately sets
-//! `WETECHINETMON_INCIDENT_MIGRATE=false`.
+//! `TIDEGARD_INCIDENT_MIGRATE=false`.
 
 use deadpool_postgres::Pool;
-use wetechinetmon_incident_postgres::connect::ConnectError;
-pub use wetechinetmon_incident_postgres::connect::Transport;
-use wetechinetmon_incident_postgres::error::PersistError;
-use wetechinetmon_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::connect::ConnectError;
+pub use tidegard_incident_postgres::connect::Transport;
+use tidegard_incident_postgres::error::PersistError;
+use tidegard_incident_postgres::pool::acquire;
 
 use crate::config::Config;
 
@@ -35,7 +35,7 @@ pub enum DatabaseError {
 /// Builds the pool. Nothing connects yet: the first connection is opened
 /// by the first use.
 pub fn connect(config: &Config) -> Result<(Pool, Transport), DatabaseError> {
-    Ok(wetechinetmon_incident_postgres::connect::connect(
+    Ok(tidegard_incident_postgres::connect::connect(
         &config.database_url,
         config.tls.as_ref(),
         config.pool,
@@ -50,7 +50,7 @@ pub async fn migrate(pool: &Pool) -> Result<usize, DatabaseError> {
         .execute("SELECT pg_advisory_lock($1)", &[&MIGRATION_LOCK_KEY])
         .await
         .map_err(PersistError::from)?;
-    let applied = wetechinetmon_incident_postgres::migrations::migrations::runner()
+    let applied = tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut **client)
         .await
         .map(|report| report.applied_migrations().len())

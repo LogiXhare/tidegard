@@ -23,8 +23,8 @@
 //!
 //! ```text
 //! docker compose -f crates/incident-postgres/docker-compose.yml up -d --wait
-//! WETECHINETMON_INCIDENT_POSTGRES_TEST_URL="host=127.0.0.1 port=55432 user=wetechinetmon_test password=wetechinetmon_test_only dbname=wetechinetmon_incident_test" \
-//!     cargo test -p wetechinetmon-incident-postgres --test migration_smoke_test
+//! TIDEGARD_INCIDENT_POSTGRES_TEST_URL="host=127.0.0.1 port=55432 user=tidegard_test password=tidegard_test_only dbname=tidegard_incident_test" \
+//!     cargo test -p tidegard-incident-postgres --test migration_smoke_test
 //! docker compose -f crates/incident-postgres/docker-compose.yml down -v
 //! ```
 //!
@@ -39,7 +39,7 @@
 //! its skip message anyway (FU-46) — so a skip can never pass silently
 //! there.
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 /// Every table this milestone's migrations create, independent of which
 /// migration file created it — used to assert nothing silently failed to
@@ -109,14 +109,14 @@ async fn migrations_apply_cleanly_are_idempotent_and_produce_the_expected_schema
     // multiple `cargo test` invocations without requiring `docker compose
     // down -v` between each one. This only ever targets the throwaway
     // schema inside the opt-in test database above — never anything
-    // reachable without WETECHINETMON_INCIDENT_POSTGRES_TEST_URL set.
+    // reachable without TIDEGARD_INCIDENT_POSTGRES_TEST_URL set.
     client
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
 
     // --- Forward application ---
-    let report = wetechinetmon_incident_postgres::migrations::migrations::runner()
+    let report = tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("all migrations must apply cleanly against an empty schema");
@@ -130,7 +130,7 @@ async fn migrations_apply_cleanly_are_idempotent_and_produce_the_expected_schema
     // A second run against the same, now-migrated database must apply
     // nothing — every migration is already recorded, checksum-matched, in
     // refinery's own history table.
-    let second_report = wetechinetmon_incident_postgres::migrations::migrations::runner()
+    let second_report = tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("re-running already-applied migrations must not error");

@@ -1,13 +1,13 @@
 [package]
-name = "wetechinetmon-cli"
-description = "wetechinetmonctl: the incident CLI, an API client with no business logic"
+name = "tidegard-cli"
+description = "tidegardctl: the incident CLI, an API client with no business logic"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "wetechinetmonctl"
+name = "tidegardctl"
 path = "src/main.rs"
 
 [dependencies]
@@ -21,7 +21,7 @@ tokio-rustls = "0.26.4"
 rustls.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-wetechinetmon-common = { path = "../../crates/common" }
+tidegard-common = { path = "../../crates/common" }
 # One Idempotency-Key per logical command (ADR 0040).
 uuid.workspace = true
 

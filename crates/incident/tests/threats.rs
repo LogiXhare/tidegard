@@ -9,27 +9,27 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::time::Duration;
 
 use proptest::prelude::*;
-use wetechinetmon_detector::{
+use tidegard_detector::{
     ActionTaken, AddressFamily, DataCompleteness, DetectionEvent, DetectionState, EventKind,
     EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates, SamplingStatus, ScopeId,
     ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
 };
-use wetechinetmon_incident::assignment::Assignee;
-use wetechinetmon_incident::audit::{AttemptedResource, AuditOutcome, FieldChange};
-use wetechinetmon_incident::authorization::{
+use tidegard_incident::assignment::Assignee;
+use tidegard_incident::audit::{AttemptedResource, AuditOutcome, FieldChange};
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, Permission, PermissionResolver,
 };
-use wetechinetmon_incident::closure::ClosureReason;
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::{IncidentId, TestIncidentGenerator};
-use wetechinetmon_incident::incident::NoteVisibility;
-use wetechinetmon_incident::number::InMemoryNumberAllocator;
-use wetechinetmon_incident::severity::Priority;
-use wetechinetmon_incident::state::IncidentState;
-use wetechinetmon_incident::timeline::TimelinePayload;
-use wetechinetmon_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
+use tidegard_incident::closure::ClosureReason;
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::{CorrelationKey, TenantId};
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::{IncidentId, TestIncidentGenerator};
+use tidegard_incident::incident::NoteVisibility;
+use tidegard_incident::number::InMemoryNumberAllocator;
+use tidegard_incident::severity::Priority;
+use tidegard_incident::state::IncidentState;
+use tidegard_incident::timeline::TimelinePayload;
+use tidegard_incident::unit_of_work::{IncidentUnitOfWork, IngestOutcomeKind};
 
 fn uow() -> IncidentUnitOfWork {
     IncidentUnitOfWork::new(
@@ -41,7 +41,7 @@ fn uow() -> IncidentUnitOfWork {
 
 fn event(detection_id: &str, sequence: u64, kind: EventKind, addr: IpAddr) -> DetectionEvent {
     DetectionEvent {
-        schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+        schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
         event_id: format!("{detection_id}-{sequence}"),
         detection_id: detection_id.to_string(),
         sequence,
@@ -650,7 +650,7 @@ fn every_transition_needs_the_current_version() {
 /// version, and its names are plain.
 #[test]
 fn only_the_notifier_records_notifications_and_the_version_stays() {
-    use wetechinetmon_incident::timeline::NotificationOutcome;
+    use tidegard_incident::timeline::NotificationOutcome;
     let (mut uow, id, version) = opened();
     let notifier = AuthorizationContext::notifier(TenantId::new("acme"), "notifier-1");
 

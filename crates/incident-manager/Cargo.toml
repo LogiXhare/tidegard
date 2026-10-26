@@ -1,21 +1,21 @@
 [package]
-name = "wetechinetmon-incident-manager"
-description = "WetechiNetMon Incident Manager — the service that turns queued detection events into incidents (ADR 0035) and runs the incident timers and retention on a schedule (Phase 5C, ADR 0036)."
+name = "tidegard-incident-manager"
+description = "Tidegard Incident Manager — the service that turns queued detection events into incidents (ADR 0035) and runs the incident timers and retention on a schedule (Phase 5C, ADR 0036)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "wetechinetmon-incident-manager"
+name = "tidegard-incident-manager"
 path = "src/main.rs"
 
 # Every dependency below is already in the workspace; nothing new enters
 # Cargo.lock.
 [dependencies]
-wetechinetmon-common = { path = "../common", features = ["metrics-server"] }
-wetechinetmon-incident = { path = "../incident" }
-wetechinetmon-incident-postgres = { path = "../incident-postgres" }
+tidegard-common = { path = "../common", features = ["metrics-server"] }
+tidegard-incident = { path = "../incident" }
+tidegard-incident-postgres = { path = "../incident-postgres" }
 deadpool-postgres.workspace = true
 tokio-postgres.workspace = true
 tokio.workspace = true
@@ -25,4 +25,4 @@ thiserror.workspace = true
 
 [dev-dependencies]
 # The shared PostgreSQL test fixtures build detection events.
-wetechinetmon-detector = { path = "../detector" }
+tidegard-detector = { path = "../detector" }

@@ -82,7 +82,7 @@ fn is_loopback(host: &str) -> bool {
         || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
 
-/// The families WetechiNetMon announces in.
+/// The families Tidegard announces in.
 fn families() -> [api::Family; 4] {
     use api::family::{Afi, Safi};
     [
@@ -286,7 +286,7 @@ impl GoBgp {
         Ok(peers)
     }
 
-    /// Every route in the global table that carries WetechiNetMon's
+    /// Every route in the global table that carries Tidegard's
     /// ownership community. Another speaker's routes are never returned,
     /// so nothing here can touch them.
     pub async fn owned_routes(

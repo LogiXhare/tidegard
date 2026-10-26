@@ -6,22 +6,22 @@ use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr};
 use std::time::Duration;
 
-use wetechinetmon_detector::{
+use tidegard_detector::{
     ActionTaken, AddressFamily, DataCompleteness, DetectionEvent, DetectionState, EventKind,
     EventTarget, ExecutionMode, MatchedReason, MetricKind, MetricRates, SamplingStatus, ScopeId,
     ScopeType, Severity, TestClock, TrafficDirection, TransitionReason,
 };
-use wetechinetmon_incident::assignment::Assignee;
-use wetechinetmon_incident::authorization::{
+use tidegard_incident::assignment::Assignee;
+use tidegard_incident::authorization::{
     Actor, AuthorizationContext, FixedBundleResolver, PermissionResolver,
 };
-use wetechinetmon_incident::command::Command;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::id::{IncidentId, TestIncidentGenerator};
-use wetechinetmon_incident::incident::NoteVisibility;
-use wetechinetmon_incident::number::InMemoryNumberAllocator;
-use wetechinetmon_incident::severity::Priority;
-use wetechinetmon_incident::unit_of_work::IncidentUnitOfWork;
+use tidegard_incident::command::Command;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::id::{IncidentId, TestIncidentGenerator};
+use tidegard_incident::incident::NoteVisibility;
+use tidegard_incident::number::InMemoryNumberAllocator;
+use tidegard_incident::severity::Priority;
+use tidegard_incident::unit_of_work::IncidentUnitOfWork;
 
 pub struct Scope {
     pub tenant: &'static str,
@@ -81,7 +81,7 @@ pub fn event(
 ) -> DetectionEvent {
     let detection_id = "det-row";
     DetectionEvent {
-        schema_version: wetechinetmon_detector::EVENT_SCHEMA_VERSION,
+        schema_version: tidegard_detector::EVENT_SCHEMA_VERSION,
         event_id: format!("{detection_id}-{sequence}"),
         detection_id: detection_id.to_string(),
         sequence,
@@ -139,7 +139,7 @@ pub fn operator(tenant: &str) -> AuthorizationContext {
         FixedBundleResolver
             .permissions_for("noc_lead")
             .into_iter()
-            .chain([wetechinetmon_incident::authorization::Permission::IncidentUpdate])
+            .chain([tidegard_incident::authorization::Permission::IncidentUpdate])
             .collect(),
     )
 }

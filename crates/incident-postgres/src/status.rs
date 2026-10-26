@@ -13,9 +13,9 @@
 //!
 //! Both are read within the incident's tenant only.
 
+use tidegard_incident::correlation::TenantId;
+use tidegard_mitigation::MitigationState;
 use tokio_postgres::GenericClient;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_mitigation::MitigationState;
 
 use crate::error::PersistError;
 use crate::mitigation::mitigation_status;

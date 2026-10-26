@@ -4,14 +4,14 @@
 
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
+use tidegard_api::web::{WebRoot, API_CSP, PAGE_CSP};
+use tidegard_api::{router, AppState};
+use tidegard_incident_postgres::pool::PoolPolicy;
 use tower::ServiceExt;
-use wetechinetmon_api::web::{WebRoot, API_CSP, PAGE_CSP};
-use wetechinetmon_api::{router, AppState};
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
 
 fn app(root: &std::path::Path) -> axum::Router {
     // A pool to nowhere: building it connects to nothing.
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         "host=127.0.0.1 port=9 user=nobody dbname=none",
         None,
         PoolPolicy::starting_default(),

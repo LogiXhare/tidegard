@@ -148,7 +148,7 @@ impl Client {
             .header(ACCEPT, "application/json, application/problem+json")
             .header(
                 USER_AGENT,
-                concat!("wetechinetmonctl/", env!("CARGO_PKG_VERSION")),
+                concat!("tidegardctl/", env!("CARGO_PKG_VERSION")),
             );
         let mut bearer = HeaderValue::from_str(&format!("Bearer {}", self.endpoint.token))
             .map_err(|_| TransportError::Connection("the token is not a valid header".into()))?;

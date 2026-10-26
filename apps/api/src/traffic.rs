@@ -13,9 +13,9 @@ use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
+use tidegard_incident::authorization::Permission;
+use tidegard_incident::correlation::TenantId;
 use utoipa::ToSchema;
-use wetechinetmon_incident::authorization::Permission;
-use wetechinetmon_incident::correlation::TenantId;
 
 use crate::auth::Principal;
 use crate::clickhouse::{ClickHouse, ClickHouseError};
@@ -528,7 +528,7 @@ mod tests {
     fn every_query_is_parameterised_and_reads_only_traffic_tables() {
         let mut queries: Vec<&str> = TOP.iter().map(|(_, sql)| *sql).collect();
         queries.extend([SUMMARY_IPV4, SUMMARY_IPV6, EXPORTERS]);
-        let tables: BTreeSet<&str> = wetechinetmon_storage::schema::CREATE_TABLE_STATEMENTS
+        let tables: BTreeSet<&str> = tidegard_storage::schema::CREATE_TABLE_STATEMENTS
             .iter()
             .map(|(name, _)| *name)
             .collect();

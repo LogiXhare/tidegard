@@ -5,30 +5,30 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use wetechinetmon_incident_postgres::connect::TlsFiles as DatabaseTlsFiles;
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::connect::TlsFiles as DatabaseTlsFiles;
+use tidegard_incident_postgres::pool::PoolPolicy;
 
 use crate::server::TlsFiles;
 
 const DEFAULT_BIND: &str = "127.0.0.1:8080";
 
-pub const BIND_ENV_VAR: &str = "WETECHINETMON_API_BIND";
-pub const TLS_CERT_FILE_ENV_VAR: &str = "WETECHINETMON_API_TLS_CERT_FILE";
-pub const TLS_KEY_FILE_ENV_VAR: &str = "WETECHINETMON_API_TLS_KEY_FILE";
-pub const DATABASE_URL_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_URL";
-pub const DATABASE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CA_FILE";
-pub const DATABASE_CLIENT_CERT_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CLIENT_CERT_FILE";
-pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str = "WETECHINETMON_API_DATABASE_CLIENT_KEY_FILE";
-pub const POOL_MAX_SIZE_ENV_VAR: &str = "WETECHINETMON_API_POOL_MAX_SIZE";
-pub const TRAFFIC_TENANT_ENV_VAR: &str = "WETECHINETMON_API_TRAFFIC_TENANT";
-pub const WEB_ROOT_ENV_VAR: &str = "WETECHINETMON_API_WEB_ROOT";
+pub const BIND_ENV_VAR: &str = "TIDEGARD_API_BIND";
+pub const TLS_CERT_FILE_ENV_VAR: &str = "TIDEGARD_API_TLS_CERT_FILE";
+pub const TLS_KEY_FILE_ENV_VAR: &str = "TIDEGARD_API_TLS_KEY_FILE";
+pub const DATABASE_URL_ENV_VAR: &str = "TIDEGARD_API_DATABASE_URL";
+pub const DATABASE_CA_FILE_ENV_VAR: &str = "TIDEGARD_API_DATABASE_CA_FILE";
+pub const DATABASE_CLIENT_CERT_FILE_ENV_VAR: &str = "TIDEGARD_API_DATABASE_CLIENT_CERT_FILE";
+pub const DATABASE_CLIENT_KEY_FILE_ENV_VAR: &str = "TIDEGARD_API_DATABASE_CLIENT_KEY_FILE";
+pub const POOL_MAX_SIZE_ENV_VAR: &str = "TIDEGARD_API_POOL_MAX_SIZE";
+pub const TRAFFIC_TENANT_ENV_VAR: &str = "TIDEGARD_API_TRAFFIC_TENANT";
+pub const WEB_ROOT_ENV_VAR: &str = "TIDEGARD_API_WEB_ROOT";
 /// The safety guard file mitigation requests are checked against
 /// (ADR 0047, ADR 0050): the same `guard` the mitigator uses.
-pub const MITIGATION_GUARD_FILE_ENV_VAR: &str = "WETECHINETMON_API_MITIGATION_GUARD_FILE";
-pub const CLICKHOUSE_URL_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_URL";
-pub const CLICKHOUSE_USER_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_USER";
-pub const CLICKHOUSE_PASSWORD_FILE_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_PASSWORD_FILE";
-pub const CLICKHOUSE_CA_FILE_ENV_VAR: &str = "WETECHINETMON_API_CLICKHOUSE_CA_FILE";
+pub const MITIGATION_GUARD_FILE_ENV_VAR: &str = "TIDEGARD_API_MITIGATION_GUARD_FILE";
+pub const CLICKHOUSE_URL_ENV_VAR: &str = "TIDEGARD_API_CLICKHOUSE_URL";
+pub const CLICKHOUSE_USER_ENV_VAR: &str = "TIDEGARD_API_CLICKHOUSE_USER";
+pub const CLICKHOUSE_PASSWORD_FILE_ENV_VAR: &str = "TIDEGARD_API_CLICKHOUSE_PASSWORD_FILE";
+pub const CLICKHOUSE_CA_FILE_ENV_VAR: &str = "TIDEGARD_API_CLICKHOUSE_CA_FILE";
 const DEFAULT_CLICKHOUSE_USER: &str = "default";
 
 /// Traffic for the one traffic tenant (ADR 0042).
@@ -86,7 +86,7 @@ pub enum ConfigError {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_lookup(|var| std::env::var(var).ok())
+        Self::from_lookup(|var| tidegard_common::env::var(var).ok().flatten())
     }
 
     /// Reads configuration through `lookup`, so tests need not touch the

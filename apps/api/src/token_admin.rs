@@ -1,6 +1,6 @@
 //! Issuing, revoking and listing API tokens (ADR 0038, gate 4).
 //!
-//! The bootstrap path: `wetechinetmon-api token ...` talks to the database
+//! The bootstrap path: `tidegard-api token ...` talks to the database
 //! directly, so the first token needs no running API and no prior token.
 //! The secret is returned once, by [`create`], and never stored or listed;
 //! only its SHA-256 is kept.

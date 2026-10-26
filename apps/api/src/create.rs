@@ -23,11 +23,11 @@ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use serde::Deserialize;
+use tidegard_detector::{AddressFamily, ScopeId, ScopeType, TrafficDirection};
+use tidegard_incident::manual::ManualIncident;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::queries;
 use utoipa::ToSchema;
-use wetechinetmon_detector::{AddressFamily, ScopeId, ScopeType, TrafficDirection};
-use wetechinetmon_incident::manual::ManualIncident;
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::queries;
 
 use crate::auth::Principal;
 use crate::incidents::{limit, IncidentView};

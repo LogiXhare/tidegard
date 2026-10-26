@@ -16,10 +16,10 @@
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::{IncidentGenerator, IncidentId};
 use uuid::timestamp::context::ContextV7;
 use uuid::{Timestamp, Uuid};
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::{IncidentGenerator, IncidentId};
 
 /// Generates UUIDv7 incident ids.
 ///

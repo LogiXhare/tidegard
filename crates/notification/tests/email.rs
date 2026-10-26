@@ -3,11 +3,11 @@
 
 use std::sync::{Arc, Mutex};
 
+use tidegard_notification::config::parse_file;
+use tidegard_notification::message::Notice;
+use tidegard_notification::worker::{Channel, Delivery};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
-use wetechinetmon_notification::config::parse_file;
-use wetechinetmon_notification::message::Notice;
-use wetechinetmon_notification::worker::{Channel, Delivery};
 
 /// Speaks just enough SMTP to accept one message, and records it.
 async fn relay(transcript: Arc<Mutex<Vec<String>>>, refuse_recipients: bool) -> u16 {
@@ -65,7 +65,7 @@ fn channel(port: u16) -> Channel {
             "channels": {{
                 "noc-mail": {{"kind": "email", "smtp_host": "127.0.0.1", "smtp_port": {port},
                               "smtp_tls": "none", "allow_private": true,
-                              "from": "WetechiNetMon <noc@example.net>",
+                              "from": "Tidegard <noc@example.net>",
                               "to": ["oncall@example.net", "lead@example.net"]}}
             }},
             "routes": [],

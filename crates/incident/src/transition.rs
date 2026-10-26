@@ -165,7 +165,7 @@ mod tests {
     use crate::severity::{Priority, Severity, SeveritySource};
     use std::collections::{BTreeMap, BTreeSet};
     use std::net::IpAddr;
-    use wetechinetmon_detector::{AddressFamily, ScopeId, ScopeType, TrafficDirection};
+    use tidegard_detector::{AddressFamily, ScopeId, ScopeType, TrafficDirection};
 
     fn bare_incident(state: IncidentState, clock: &TestClock) -> Incident {
         let now = DurableTimestamp::now(clock).unwrap();

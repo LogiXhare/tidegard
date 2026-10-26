@@ -5,11 +5,11 @@
 //! fetch, the staging store reports as a miss if the call looks it up, and
 //! the call is then not flushed.
 
+use tidegard_detector::DetectionEvent;
+use tidegard_incident::correlation::{CorrelationKey, TenantId};
+use tidegard_incident::id::IncidentId;
+use tidegard_incident::idempotency::{IdempotencyKey, RequestFingerprint};
 use tokio_postgres::{GenericClient, Row};
-use wetechinetmon_detector::DetectionEvent;
-use wetechinetmon_incident::correlation::{CorrelationKey, TenantId};
-use wetechinetmon_incident::id::IncidentId;
-use wetechinetmon_incident::idempotency::{IdempotencyKey, RequestFingerprint};
 
 use crate::error::PersistError;
 use crate::history;

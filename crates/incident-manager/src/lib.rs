@@ -1,4 +1,4 @@
-//! WetechiNetMon Incident Manager (Milestone 5C, ADR 0036).
+//! Tidegard Incident Manager (Milestone 5C, ADR 0036).
 //!
 //! The process that owns the incident lifecycle in the background:
 //!
@@ -27,21 +27,22 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use deadpool_postgres::Pool;
-use tokio::sync::watch;
-use tokio::time::MissedTickBehavior;
-use wetechinetmon_incident::authorization::{Actor, AuthorizationContext, Permission};
-use wetechinetmon_incident::clock::SystemClock;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::id::UuidV7IncidentGenerator;
-use wetechinetmon_incident_postgres::inbox::{inbox_stats, InboxPolicy, InboxWorker, WorkerReport};
-use wetechinetmon_incident_postgres::maintenance::{
+use tidegard_common::metrics_server::Readiness;
+use tidegard_incident::authorization::{Actor, AuthorizationContext, Permission};
+use tidegard_incident::clock::SystemClock;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::id::UuidV7IncidentGenerator;
+use tidegard_incident_postgres::inbox::{inbox_stats, InboxPolicy, InboxWorker, WorkerReport};
+use tidegard_incident_postgres::maintenance::{
     run_maintenance, timeline_pressure, MaintenancePolicy,
 };
-use wetechinetmon_incident_postgres::outbox::outbox_stats;
-use wetechinetmon_incident_postgres::platform::PlatformAuthority;
-use wetechinetmon_incident_postgres::pool::acquire;
-use wetechinetmon_incident_postgres::retention::{run_retention, RetentionPolicy};
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
+use tidegard_incident_postgres::outbox::outbox_stats;
+use tidegard_incident_postgres::platform::PlatformAuthority;
+use tidegard_incident_postgres::pool::acquire;
+use tidegard_incident_postgres::retention::{run_retention, RetentionPolicy};
+use tidegard_incident_postgres::service::IncidentPersistence;
+use tokio::sync::watch;
+use tokio::time::MissedTickBehavior;
 
 pub use config::Config;
 pub use metrics::ManagerMetrics;
@@ -100,14 +101,16 @@ pub async fn run(
     let (metrics, registry) = ManagerMetrics::new()?;
     let registry = Arc::new(registry);
     let metrics_bind = config.metrics_bind;
+    let readiness = Readiness::new();
+    let served = readiness.clone();
     let metrics_server = tokio::spawn(async move {
         if let Err(error) =
-            wetechinetmon_common::metrics_server::serve(metrics_bind, registry).await
+            tidegard_common::metrics_server::serve(metrics_bind, registry, served).await
         {
             tracing::error!(error = %error, "metrics server exited with an error");
         }
     });
-    let result = run_with_metrics(config, metrics, shutdown).await;
+    let result = run_with_metrics(config, metrics, readiness, shutdown).await;
     metrics_server.abort();
     result
 }
@@ -115,6 +118,7 @@ pub async fn run(
 async fn run_with_metrics(
     config: Config,
     metrics: ManagerMetrics,
+    readiness: Readiness,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<RunReport, StartupError> {
     let (pool, transport) = database::connect(&config)?;
@@ -167,7 +171,11 @@ async fn run_with_metrics(
             &context.pool,
             config.worker_idle,
             stopped(stop_rx.clone()),
-            |outcome| observe_batch(&context.metrics, outcome),
+            |outcome| {
+                // Ready while correlation batches succeed (ADR 0052).
+                readiness.set(outcome.is_ok());
+                observe_batch(&context.metrics, outcome);
+            },
         ),
         housekeeping(&context, &config, stopped(stop_rx)),
     );
@@ -183,8 +191,8 @@ async fn stopped(mut rx: watch::Receiver<bool>) {
 fn observe_batch(
     metrics: &ManagerMetrics,
     outcome: Result<
-        &wetechinetmon_incident_postgres::inbox::BatchReport,
-        &wetechinetmon_incident_postgres::error::PersistError,
+        &tidegard_incident_postgres::inbox::BatchReport,
+        &tidegard_incident_postgres::error::PersistError,
     >,
 ) {
     match outcome {
@@ -264,7 +272,7 @@ async fn refresh_stats(context: &Context) -> bool {
         let inbox = inbox_stats(&context.authority, &**client).await?;
         let outbox = outbox_stats(&context.authority, &**client).await?;
         let pressure = timeline_pressure(&context.authority, &**client).await?;
-        Ok::<_, wetechinetmon_incident_postgres::error::PersistError>((inbox, outbox, pressure))
+        Ok::<_, tidegard_incident_postgres::error::PersistError>((inbox, outbox, pressure))
     }
     .await;
     match result {

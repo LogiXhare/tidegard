@@ -6,27 +6,27 @@
 //! in order, exporters with their silence. Another tenant gets `404`.
 //!
 //! Like the other database tests, this connects only to the opt-in,
-//! throwaway services named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`
-//! and `WETECHINETMON_CLICKHOUSE_TEST_URL`, skips with a message when
+//! throwaway services named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`
+//! and `TIDEGARD_CLICKHOUSE_TEST_URL`, skips with a message when
 //! either is unset, and fails CI if it skips there.
 
 use axum::body::Body;
 use axum::http::{header, Request, StatusCode};
 use serde_json::Value;
+use tidegard_api::auth::Role;
+use tidegard_api::clickhouse::{parse_url, ClickHouse, Endpoint};
+use tidegard_api::token_admin::{self, ActorType, NewToken};
+use tidegard_api::traffic::TrafficSource;
+use tidegard_api::{router, AppState};
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident_postgres::pool::PoolPolicy;
 use tokio_postgres::Client;
 use tower::ServiceExt;
-use wetechinetmon_api::auth::Role;
-use wetechinetmon_api::clickhouse::{parse_url, ClickHouse, Endpoint};
-use wetechinetmon_api::token_admin::{self, ActorType, NewToken};
-use wetechinetmon_api::traffic::TrafficSource;
-use wetechinetmon_api::{router, AppState};
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident_postgres::pool::PoolPolicy;
 
-const POSTGRES_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
-const CLICKHOUSE_VAR: &str = "WETECHINETMON_CLICKHOUSE_TEST_URL";
-const CLICKHOUSE_USER_VAR: &str = "WETECHINETMON_CLICKHOUSE_TEST_USER";
-const CLICKHOUSE_PASSWORD_VAR: &str = "WETECHINETMON_CLICKHOUSE_TEST_PASSWORD";
+const POSTGRES_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
+const CLICKHOUSE_VAR: &str = "TIDEGARD_CLICKHOUSE_TEST_URL";
+const CLICKHOUSE_USER_VAR: &str = "TIDEGARD_CLICKHOUSE_TEST_USER";
+const CLICKHOUSE_PASSWORD_VAR: &str = "TIDEGARD_CLICKHOUSE_TEST_PASSWORD";
 
 async fn connect(url: &str) -> Client {
     let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls)
@@ -89,14 +89,14 @@ async fn traffic_is_read_from_clickhouse_for_the_traffic_tenant_only() {
     let password = std::env::var(CLICKHOUSE_PASSWORD_VAR).unwrap_or_default();
 
     // --- ClickHouse: the collector's schema and known rows ---
-    let writer = wetechinetmon_storage::Client::default()
+    let writer = tidegard_storage::Client::default()
         .with_url(&clickhouse_url)
         .with_user(&user)
         .with_password(&password);
-    wetechinetmon_storage::run_migrations(&writer)
+    tidegard_storage::run_migrations(&writer)
         .await
         .expect("the collector's schema applies");
-    for (table, _) in wetechinetmon_storage::schema::CREATE_TABLE_STATEMENTS {
+    for (table, _) in tidegard_storage::schema::CREATE_TABLE_STATEMENTS {
         writer
             .query(&format!("TRUNCATE TABLE {table}"))
             .execute()
@@ -142,13 +142,13 @@ async fn traffic_is_read_from_clickhouse_for_the_traffic_tenant_only() {
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .unwrap();
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut admin)
         .await
         .unwrap();
     let viewer = token(&admin, "acme", Role::Viewer).await;
     let outsider = token(&admin, "globex", Role::NocLead).await;
-    let (pool, _) = wetechinetmon_incident_postgres::connect::connect(
+    let (pool, _) = tidegard_incident_postgres::connect::connect(
         &postgres,
         None,
         PoolPolicy {

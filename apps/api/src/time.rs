@@ -1,4 +1,4 @@
 //! RFC 3339 UTC timestamps for the API. The implementation lives in
-//! `wetechinetmon_common::rfc3339`, shared with the CLI (ADR 0040).
+//! `tidegard_common::rfc3339`, shared with the CLI (ADR 0040).
 
-pub use wetechinetmon_common::rfc3339::{parse_rfc3339, rfc3339};
+pub use tidegard_common::rfc3339::{parse_rfc3339, rfc3339};

@@ -9,7 +9,7 @@
 //! proves the decision time came from the database.
 //!
 //! Like the other PostgreSQL tests, this only connects to the opt-in,
-//! ephemeral database named by `WETECHINETMON_INCIDENT_POSTGRES_TEST_URL`,
+//! ephemeral database named by `TIDEGARD_INCIDENT_POSTGRES_TEST_URL`,
 //! skips with a message when it is unset, and fails CI if it skips there
 //! (FU-46). One test function, because it resets the `public` schema.
 
@@ -18,17 +18,17 @@ mod support;
 use std::sync::Arc;
 
 use support::{event, host_scope, in_episode};
+use tidegard_detector::{EventKind, MetricKind, TestClock};
+use tidegard_incident::authorization::AuthorizationContext;
+use tidegard_incident::correlation::TenantId;
+use tidegard_incident::error::IncidentError;
+use tidegard_incident::id::TestIncidentGenerator;
+use tidegard_incident::unit_of_work::IngestOutcomeKind;
+use tidegard_incident_postgres::service::IncidentPersistence;
 use tokio_postgres::types::ToSql;
 use tokio_postgres::Client;
-use wetechinetmon_detector::{EventKind, MetricKind, TestClock};
-use wetechinetmon_incident::authorization::AuthorizationContext;
-use wetechinetmon_incident::correlation::TenantId;
-use wetechinetmon_incident::error::IncidentError;
-use wetechinetmon_incident::id::TestIncidentGenerator;
-use wetechinetmon_incident::unit_of_work::IngestOutcomeKind;
-use wetechinetmon_incident_postgres::service::IncidentPersistence;
 
-const TEST_DATABASE_URL_VAR: &str = "WETECHINETMON_INCIDENT_POSTGRES_TEST_URL";
+const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 
 async fn connect(url: &str) -> Client {
     let (client, connection) = tokio_postgres::connect(url, tokio_postgres::NoTls)
@@ -65,7 +65,7 @@ async fn a_recurrence_before_the_persisted_reference_is_refused_and_time_comes_f
         .batch_execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .await
         .expect("must be able to reset the public schema in the test database");
-    wetechinetmon_incident_postgres::migrations::migrations::runner()
+    tidegard_incident_postgres::migrations::migrations::runner()
         .run_async(&mut client)
         .await
         .expect("migrations must apply");

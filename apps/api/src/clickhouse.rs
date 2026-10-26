@@ -8,7 +8,6 @@
 //!   Plain HTTP is accepted only for a loopback host.
 //! - **The password is never logged** and travels as a sensitive header.
 
-use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,11 +30,9 @@ pub const MAX_RESULT_ROWS: u32 = 10_000;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Scheme {
-    Http,
-    Https,
-}
+// Shared with the collector, so the plaintext rule is written once
+// (ADR 0053).
+pub use tidegard_common::http_endpoint::{is_loopback, parse_url, Scheme};
 
 /// Where ClickHouse is, and how to prove who we are.
 #[derive(Clone, PartialEq, Eq)]
@@ -59,55 +56,6 @@ impl std::fmt::Debug for Endpoint {
             .field("ca_file", &self.ca_file)
             .finish()
     }
-}
-
-/// Parses `http://host:port` or `https://host:port`. A path, query or
-/// credentials in the URL are refused: credentials come from their own
-/// settings, never a URL that ends up in a log.
-pub fn parse_url(url: &str) -> Result<(Scheme, String, u16), String> {
-    let (scheme, rest) = if let Some(rest) = url.strip_prefix("https://") {
-        (Scheme::Https, rest)
-    } else if let Some(rest) = url.strip_prefix("http://") {
-        (Scheme::Http, rest)
-    } else {
-        return Err("the URL must start with http:// or https://".into());
-    };
-    let authority = rest.strip_suffix('/').unwrap_or(rest);
-    if authority.contains(['/', '?', '#', '@']) {
-        return Err("the URL may hold only a host and a port".into());
-    }
-    let (host, port) = if let Some(bracketed) = authority.strip_prefix('[') {
-        let (host, after) = bracketed
-            .split_once(']')
-            .ok_or("an IPv6 host needs its closing bracket")?;
-        (host.to_string(), after.strip_prefix(':'))
-    } else {
-        match authority.rsplit_once(':') {
-            Some((host, port)) => (host.to_string(), Some(port)),
-            None => (authority.to_string(), None),
-        }
-    };
-    if host.is_empty() {
-        return Err("the URL has no host".into());
-    }
-    let port = match port {
-        Some(text) => text
-            .parse::<u16>()
-            .ok()
-            .filter(|port| *port > 0)
-            .ok_or("the port is not a number from 1 to 65535")?,
-        None => match scheme {
-            Scheme::Http => 8123,
-            Scheme::Https => 8443,
-        },
-    };
-    Ok((scheme, host, port))
-}
-
-/// Plain HTTP only to this machine.
-pub fn is_loopback(host: &str) -> bool {
-    host.eq_ignore_ascii_case("localhost")
-        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]

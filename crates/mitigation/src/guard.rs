@@ -15,7 +15,7 @@
 use std::time::Duration;
 
 use serde::Deserialize;
-use wetechinetmon_incident::correlation::TenantId;
+use tidegard_incident::correlation::TenantId;
 
 use crate::action::{Action, ActionKind};
 use crate::mitigation::{ApprovalPolicy, MAX_DURATION, MIN_DURATION};
