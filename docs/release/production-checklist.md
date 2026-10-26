@@ -1,6 +1,6 @@
 # Production Checklist
 
-Status: **v1.0.0 candidate**, 2026-10-13. **Not yet signed off.**
+Status: **v1.0.0-rc.2**, 2026-10-26. **Not yet signed off.**
 
 Phase 10's acceptance criterion: the owner signs this list and the
 [security checklist](security-checklist.md) before `v1.0.0` is tagged.
@@ -44,11 +44,12 @@ runs on each pull request or a measured run with its link.
 | P-16 | Runbooks for incidents, mitigation, upgrades, backups and disaster recovery | [Operations](../operations/index.md) |
 | P-17 | Every release is signed and attested, and the pipeline that publishes it verifies and installs it on a clean runner | The release workflow's `verify` job ([ADR 0057](../architecture/decisions/0057-phase10a-release-pipeline.md)) |
 | P-18 | What v1.0.0 does not do is written down | [Known issues](known-issues.md) |
+| P-19 | The published release, installed as shipped, takes synthetic flows to an incident, an approved RTBH route on a lab edge router, signed notifications and a withdrawal; anyone can download it and pull its images without signing in | The release acceptance test ([ADR 0059](../architecture/decisions/0059-release-acceptance-test.md)), its run in the [test summary](test-summary.md) |
 
 ## Sign-off
 
 | | |
 |---|---|
-| Release candidate | |
+| Release candidate | v1.0.0-rc.2 ([test summary](test-summary.md)) |
 | Signed off by | |
 | Date | |

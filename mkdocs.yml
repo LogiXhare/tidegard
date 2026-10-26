@@ -93,6 +93,7 @@ nav:
       - Decision Records: architecture/decisions/index.md
   - Release:
       - Overview: release/index.md
+      - Test Summary: release/test-summary.md
       - Migration Notes: release/migration-notes.md
       - Known Issues: release/known-issues.md
       - Production Checklist: release/production-checklist.md

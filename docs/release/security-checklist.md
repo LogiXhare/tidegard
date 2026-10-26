@@ -1,6 +1,6 @@
 # Security Checklist
 
-Status: **v1.0.0 candidate**, 2026-10-13. **Not yet signed off.**
+Status: **v1.0.0-rc.2**, 2026-10-26. **Not yet signed off.**
 
 Signed by the owner with the [production checklist](production-checklist.md)
 before `v1.0.0` is tagged. Every item links to what proves it.
@@ -26,6 +26,6 @@ before `v1.0.0` is tagged. Every item links to what proves it.
 
 | | |
 |---|---|
-| Release candidate | |
+| Release candidate | v1.0.0-rc.2 ([test summary](test-summary.md)) |
 | Signed off by | |
 | Date | |
