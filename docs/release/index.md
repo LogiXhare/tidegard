@@ -10,6 +10,10 @@ and what the owner signs before v1.0.0 is tagged.
   [Commercial Deployment Guide](../commercial/deployment-guide.md).
 - [Verifying a Release](../operations/verifying-a-release.md): check the
   signatures, checksums and provenance before installing.
+- The release acceptance test
+  ([ADR 0059](../architecture/decisions/0059-release-acceptance-test.md)):
+  the published release, end to end in a lab, from flows to a withdrawn
+  route.
 - [Upgrading and Rolling Back](../operations/upgrading.md): from v0.9.0,
   and from one release to the next.
 - [Migration Notes](migration-notes.md): what each release does to the

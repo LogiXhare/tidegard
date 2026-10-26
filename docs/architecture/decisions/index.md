@@ -100,3 +100,4 @@ yet:
 | [0056](0056-phase9d-collector-input-bounds.md) | Phase 9D Bounds on What the Collector Remembers | Accepted |
 | [0057](0057-phase10a-release-pipeline.md) | Phase 10A The Release Pipeline | Accepted |
 | [0058](0058-rename-to-tidegard.md) | The Product Is Renamed Tidegard | Accepted |
+| [0059](0059-release-acceptance-test.md) | The Release Acceptance Test | Accepted |

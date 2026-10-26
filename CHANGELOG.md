@@ -8,6 +8,15 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Added
+
+- The release acceptance test
+  ([ADR 0059](docs/architecture/decisions/0059-release-acceptance-test.md)):
+  run on a published tag, it pulls the images without signing in, then
+  installs the tarball and takes synthetic flows through detection, an
+  approved RTBH route on a lab edge router, signed webhook notifications
+  and the withdrawal.
+
 ### Security — dependency advisories
 
 - `rustls-webpki` 0.103.16 and `webpki-roots` 1.0.11 fix certificate
