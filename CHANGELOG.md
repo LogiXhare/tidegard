@@ -8,6 +8,25 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Security — dependency advisories
+
+- `rustls-webpki` 0.103.16 and `webpki-roots` 1.0.11 fix certificate
+  verification that could accept distrusted intermediates
+  ([RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382),
+  [RUSTSEC-2026-0381](https://rustsec.org/advisories/RUSTSEC-2026-0381)).
+- `rustls` 0.23.46 fixes secrets in `Debug` output, an ECH data leak, a
+  pre-authentication Brotli allocation and a key-exchange downgrade
+  ([RUSTSEC-2026-0346](https://rustsec.org/advisories/RUSTSEC-2026-0346),
+  [0347](https://rustsec.org/advisories/RUSTSEC-2026-0347),
+  [0348](https://rustsec.org/advisories/RUSTSEC-2026-0348),
+  [0349](https://rustsec.org/advisories/RUSTSEC-2026-0349)).
+- `ctutils` 0.4.6 ([RUSTSEC-2026-0385](https://rustsec.org/advisories/RUSTSEC-2026-0385))
+  and `tokio` 1.53.3 ([RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386)).
+- The 1.0.0-rc.1 binaries carry the affected Rust versions.
+- Web UI build tooling: `vite` 8.3.5 and `vitest` 5.0.5, plus the
+  transitive `undici` fix, clear the open `npm audit` advisories. These are
+  development dependencies; the served UI is unaffected.
+
 ## [1.0.0-rc.1] - 2026-10-13
 
 The first release candidate of Tidegard 1.0.0: IPFIX flow
