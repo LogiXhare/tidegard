@@ -85,6 +85,7 @@ nav:
       - Phase 6 Plan (Dashboards, UI, Notifications): architecture/phase6-dashboards-ui-notifications-plan.md
       - Phase 7 Plan (BGP Mitigation Lab): architecture/phase7-bgp-mitigation-lab-plan.md
       - Phases 9 and 10 Plan (Production Hardening and v1.0.0): architecture/phase9-10-production-release-plan.md
+      - Phase 8 Plan (Multi-Tenancy and Enterprise Authentication): architecture/phase8-multi-tenancy-enterprise-auth-plan.md
       - Incident Security Model: architecture/incident-security-model.md
       - Incident API Design: architecture/incident-api-plan.md
       - Incident CLI Plan: architecture/incident-cli-plan.md
@@ -163,3 +164,4 @@ nav:
       - Phase 7 Acceptance Criteria: development/phase7-acceptance-criteria.md
       - Phase 7 Gate 2 Assessment: development/phase7-gate2-assessment.md
       - Phases 9 and 10 Acceptance Criteria: development/phase9-10-acceptance-criteria.md
+      - Phase 8 Acceptance Criteria: development/phase8-acceptance-criteria.md

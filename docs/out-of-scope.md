@@ -11,8 +11,9 @@ scope creep and gives each a home to be picked up deliberately later.
 - **Multi-tenancy enforcement** (v1.1.0) — schema-level tenant scoping may
   exist earlier, but full tenant isolation across API/DB/UI/CLI/reports/
   dashboards/notifications/audit is a v1.1.0 deliverable (Phase 8).
-- **Enterprise authentication**: OIDC, Microsoft Entra ID, optional LDAP,
-  MFA compatibility (v1.2.0, Phase 8).
+- **Enterprise authentication**: OIDC, Microsoft Entra ID, local
+  accounts and TOTP MFA (v1.2.0, Phase 8). LDAP comes after v1.2.0
+  (BQ-22).
 - **Advanced statistical/baseline anomaly detection**: EWMA, MAD,
   hour-of-day/day-of-week/seasonal baselines, cold-start protection,
   confidence scoring, baseline versioning (explicitly "add later" per
