@@ -8,6 +8,30 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-28
+
+Tidegard 1.0.0, the production-ready single-tenant release (Phase 10).
+It is 1.0.0-rc.4 unchanged but for its version: the candidate that passed
+the release pipeline and the release acceptance test, after an
+independent review of rc.2 whose findings rc.3 fixed. The owner signed
+off the [production](docs/release/production-checklist.md) and
+[security](docs/release/security-checklist.md) checklists on 2026-10-28.
+
+What it is, from flows to a withdrawn route: an IPFIX collector with
+aggregation and direction classification, ClickHouse traffic storage, a
+static detection engine, incident management on PostgreSQL with a REST
+API, `tidegardctl` and a web NOC UI, Grafana dashboards, notifications
+by email, Slack, Teams, Telegram and signed webhooks, and approval-gated
+RTBH and FlowSpec mitigation through GoBGP, off and in dry-run as
+shipped. It installs from signed tarballs for x86_64 and aarch64 with
+systemd units, or from public images on GHCR with a Docker Compose
+reference stack. [Known issues](docs/release/known-issues.md) lists what
+it does not do; multi-tenancy is Phase 8.
+
+The release candidates' notes below list every change since v0.9.0.
+Upgrade from v0.9.0 as [Upgrading](docs/operations/upgrading.md)
+describes, reading the rc.1 notes first.
+
 ## [1.0.0-rc.4] - 2026-10-28
 
 The fourth release candidate of Tidegard 1.0.0. One change from rc.3:
@@ -547,7 +571,8 @@ this environment. Property-based tests (`proptest`) cover the same
   out-of-scope list, risk register, roadmap, acceptance criteria, blocking
   questions, and naming/branding decisions under `docs/`.
 
-[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.4...HEAD
+[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/LogiXhare/tidegard/compare/v0.9.0...v1.0.0
 [1.0.0-rc.4]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.3...v1.0.0-rc.4
 [1.0.0-rc.3]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.2...v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.1...v1.0.0-rc.2

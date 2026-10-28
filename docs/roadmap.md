@@ -24,8 +24,8 @@ an explicit decision record, a commit, and updated documentation.
 | Phase 7 | v0.9.0 | BGP mitigation lab — ✅ complete |
 | Phase 8 | v1.1.0 | Multi-tenancy |
 | Phase 8 (cont.) | v1.2.0 | Enterprise authentication |
-| Phase 9 | — | Production hardening (feeds into v1.0.0) — planned |
-| Phase 10 | v1.0.0 | Production-ready single-tenant release — planned |
+| Phase 9 | — | Production hardening (feeds into v1.0.0) — ✅ complete |
+| Phase 10 | v1.0.0 | Production-ready single-tenant release — ✅ released 2026-10-28 |
 | Future | v2.0.0 | Distributed high-availability architecture |
 
 Note: the master prompt's phase list (0–10) and version list (v0.1.0–v2.0.0)
@@ -137,7 +137,12 @@ than configured — see
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
 
-## Phases 9 and 10: Production Hardening and v1.0.0 — Planned
+## Phases 9 and 10: Production Hardening and v1.0.0 — Complete
+
+**v1.0.0 released on 2026-10-28**, after four release candidates, an
+independent review and the owner's sign-off of both checklists. See the
+[release documents](release/index.md) and the
+[test summary](release/test-summary.md).
 
 Planned on 2026-10-12, with the owner's decisions on BQ-3 and BQ-16 to
 BQ-18. Phase 8 (multi-tenancy) follows v1.0.0 (BQ-4), so Phase 9 comes

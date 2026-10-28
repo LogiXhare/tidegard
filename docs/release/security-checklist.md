@@ -1,6 +1,6 @@
 # Security Checklist
 
-Status: **v1.0.0-rc.3**, 2026-10-28. **Not yet signed off.**
+Status: **v1.0.0**, 2026-10-28. **Signed off** by the owner.
 
 Signed by the owner with the [production checklist](production-checklist.md)
 before `v1.0.0` is tagged. Every item links to what proves it.
@@ -26,6 +26,6 @@ before `v1.0.0` is tagged. Every item links to what proves it.
 
 | | |
 |---|---|
-| Release candidate | v1.0.0-rc.3 ([test summary](test-summary.md)) |
-| Signed off by | |
-| Date | |
+| Release candidate | v1.0.0-rc.4 ([test summary](test-summary.md)), released as v1.0.0 with no other change |
+| Signed off by | MD Shoriful Islam ([@badshashorif](https://github.com/badshashorif)), owner |
+| Date | 2026-10-28 |

@@ -1,6 +1,6 @@
 # Release
 
-Status: **v1.0.0-rc.3**, 2026-10-28 (Phase 10C).
+Status: **v1.0.0**, released 2026-10-28 (Phase 10C).
 
 What an operator needs to take a Tidegard release into production,
 and what the owner signs before v1.0.0 is tagged.
