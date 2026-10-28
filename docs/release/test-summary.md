@@ -15,6 +15,12 @@ through the release pipeline ([40654280913](https://github.com/LogiXhare/tidegar
 acceptance test ([40655575059](https://github.com/LogiXhare/tidegard/actions/runs/40655575059)) again, both passing. The
 figures below are rc.3's: rc.4 changed no other code.
 
+v1.0.0 itself, rc.4 with its version changed, went through both once
+more: the release pipeline ([40657879188](https://github.com/LogiXhare/tidegard/actions/runs/40657879188),
+6 of 6 jobs) and the release acceptance test
+([40659269360](https://github.com/LogiXhare/tidegard/actions/runs/40659269360),
+both jobs), on the published [v1.0.0](https://github.com/LogiXhare/tidegard/releases/tag/v1.0.0).
+
 ## The release
 
 | What | Result | Run |
