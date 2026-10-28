@@ -73,16 +73,33 @@ pub fn session_hash(id: &str) -> Vec<u8> {
 /// The CSRF value for a session: derivable only from the id, which the
 /// page's JavaScript never sees.
 pub fn csrf_token(id: &str) -> String {
+    csrf_value(b"tidegard csrf\0", id)
+}
+
+/// The value v0.9.0 gave the same session, before the rename (ADR 0058).
+/// Still accepted through 1.x, so a page left open across the upgrade
+/// keeps working.
+fn legacy_csrf_token(id: &str) -> String {
+    csrf_value(b"wetechinetmon csrf\0", id)
+}
+
+fn csrf_value(separator: &[u8], id: &str) -> String {
     let digest = Sha256::new()
-        .chain_update(b"tidegard csrf\0")
+        .chain_update(separator)
         .chain_update(id.as_bytes())
         .finalize();
     digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-/// Compares without stopping at the first difference.
+/// Whether `presented` is the session's CSRF value, current or from
+/// before the rename.
 pub fn csrf_matches(id: &str, presented: &str) -> bool {
-    let expected = csrf_token(id);
+    constant_time_eq(&csrf_token(id), presented)
+        | constant_time_eq(&legacy_csrf_token(id), presented)
+}
+
+/// Compares without stopping at the first difference.
+fn constant_time_eq(expected: &str, presented: &str) -> bool {
     expected.len() == presented.len()
         && expected
             .bytes()
@@ -496,6 +513,11 @@ mod tests {
         assert!(!csrf_matches(&a, ""));
         assert!(!csrf_matches(&a, &a));
         assert_eq!(csrf_token(&a).len(), 64);
+        // A page left open across the upgrade from v0.9.0 still works,
+        // for its own session only.
+        assert!(csrf_matches(&a, &legacy_csrf_token(&a)));
+        assert!(!csrf_matches(&a, &legacy_csrf_token(&b)));
+        assert_ne!(legacy_csrf_token(&a), csrf_token(&a));
     }
 
     #[test]

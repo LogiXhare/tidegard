@@ -170,6 +170,15 @@ impl Config {
                 expected: "at least 1",
             });
         }
+        // Exporters are swept every 30 s: a timeout of 0 would forget every
+        // template at each sweep.
+        if exporters.idle_timeout.is_zero() {
+            return Err(ConfigError::InvalidValue {
+                var: EXPORTER_IDLE_SECS_ENV_VAR.to_string(),
+                value: "0".to_string(),
+                expected: "at least 1",
+            });
+        }
         let clickhouse = match env_value(CLICKHOUSE_URL_ENV_VAR)? {
             Some(url) if !url.trim().is_empty() => {
                 let settings = ClickHouseSettings {
@@ -372,11 +381,11 @@ fn parse_allowed_exporters(var: &str) -> Result<Vec<AllowedNetwork>, ConfigError
 fn env_value(var: &str) -> Result<Option<String>, ConfigError> {
     match tidegard_common::env::var(var) {
         Ok(value) => Ok(value),
-        Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(std::env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidValue {
+        // Unset is Ok(None); only a value that is not text is left.
+        Err(_) => Err(ConfigError::InvalidValue {
             var: var.to_string(),
             value: "<non-utf8>".to_string(),
-            expected: "a UTF-8 string",
+            expected: "a UTF-8 string, under this name or its deprecated one",
         }),
     }
 }
@@ -462,6 +471,9 @@ mod tests {
         }
         std::env::remove_var(ALLOWED_EXPORTERS_ENV_VAR);
         std::env::set_var(MAX_EXPORTERS_ENV_VAR, "0");
+        assert!(Config::from_env().is_err());
+        std::env::remove_var(MAX_EXPORTERS_ENV_VAR);
+        std::env::set_var(EXPORTER_IDLE_SECS_ENV_VAR, "0");
         assert!(Config::from_env().is_err());
         clear_all();
     }

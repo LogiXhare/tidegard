@@ -38,10 +38,10 @@ it as follows:
 
 | Service | Ready when |
 |---|---|
-| Collector | its UDP socket is bound; nothing later in startup can fail |
+| Collector | startup is over: its UDP socket is bound, and ClickHouse, when configured, took the migrations or was given up on for the run (since 1.0.0-rc.3) |
 | Incident manager | its latest correlation batch succeeded, so after the migrations |
 | Notifier | its latest outbox batch succeeded |
-| Mitigator | it holds the single-mitigator lock and its latest pass succeeded; a standby stays not ready |
+| Mitigator | it holds the single-mitigator lock and its latest pass succeeded, and GoBGP answered its latest call (since 1.0.0-rc.3); a standby stays not ready |
 
 A failed batch or pass makes the service not ready until the next one
 succeeds, so readiness follows the database. Nothing new listens: the
@@ -51,7 +51,11 @@ elsewhere; loopback for the notifier and the mitigator). The two new
 paths reveal only "up" and "ready".
 
 A standby mitigator is alive but not ready on purpose: it does no work,
-and `/readyz` tells an operator which instance is active.
+and `/readyz` tells an operator which instance is active. Since
+1.0.0-rc.3 the active one checks before every pass that the connection
+holding the lock is alive; when it is not, a standby may already hold
+the lock, so it stops, and its service manager restarts it as a
+standby (review finding R-11).
 
 ### Tarballs and systemd units (9A-2)
 

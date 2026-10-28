@@ -152,6 +152,7 @@ mod tests {
             proposed: 1,
             refused: 1,
             errors: 1,
+            unreachable: 1,
             kill_switch: true,
         });
         metrics.record_reconcile(&ReconcileReport {

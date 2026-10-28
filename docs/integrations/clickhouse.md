@@ -27,6 +27,11 @@ export TIDEGARD_COLLECTOR_CLICKHOUSE_PASSWORD_FILE=/etc/tidegard/clickhouse-pass
 The collector refuses to start with `http://` to another host, or with
 `https://` and no CA bundle. A URL holding credentials, a path or a query
 is refused too.
+A password file or CA bundle that cannot be read, or a bundle that
+holds no certificate, stops it as well. A server that does not answer
+within 30 seconds at startup, or refuses the migrations, disables export
+for that run and says so in the log; the collector reports ready only
+once this is settled.
 
 Unset (the default): ClickHouse export is entirely disabled, and nothing
 else about the collector's behavior changes — decode/normalize/classify/

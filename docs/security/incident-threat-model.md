@@ -846,7 +846,8 @@ implemented, so they add no parser.
 
 **Path** UDP is unauthenticated. Datagrams from spoofed sources each
 created an exporter state that was never forgotten, and one exporter
-could cache every template ID with thousands of fields.
+could cache every template ID with thousands of fields. A bare
+16-byte header from each of many addresses could fill every place.
 
 **Prevent** `TIDEGARD_COLLECTOR_ALLOWED_EXPORTERS` drops datagrams
 from outside the routers' networks before parsing. At most
@@ -854,18 +855,24 @@ from outside the routers' networks before parsing. At most
 after an hour, and each template cache holds at most 512 templates and
 8,192 fields: about 125 MiB in all, whatever is sent
 ([ADR 0056](../architecture/decisions/0056-phase9d-collector-input-bounds.md)).
+A new exporter keeps its place only once its datagram decodes, and
+when all are taken it replaces the longest-silent one that defined no
+template (review finding R-2, 1.0.0-rc.3).
 **Detect** `datagrams_refused_total{reason}`, `active_exporters`,
 `template_cache_size`; a startup warning when no allowlist is set.
 **Test** `crates/collector/src/exporter.rs`
 `a_new_exporter_past_the_limit_is_refused_until_one_goes_idle`,
+`a_new_exporter_replaces_the_idlest_one_without_templates`,
 `the_allowlist_admits_its_networks_only`;
 `crates/collector/src/lib.rs`
-`datagrams_outside_the_exporter_limits_are_refused_before_decoding`;
+`datagrams_outside_the_exporter_limits_are_refused_before_decoding`,
+`a_new_exporter_keeps_no_place_when_its_datagram_does_not_decode`;
 `crates/protocol-ipfix/src/template_cache.rs`
 `a_template_past_the_count_limit_is_refused_and_the_cache_kept`,
 `templates_past_the_field_limit_are_refused`. **Residual** Without an
-allowlist, spoofed exporters can fill the 1,000 places and keep a new
-router out until they go idle. Set the allowlist and firewall the port.
+allowlist, spoofed exporters that send valid templates can still fill
+the 1,000 places and keep a new router out until they go idle. Set the
+allowlist and firewall the port.
 
 ## T-51 Flow flood
 

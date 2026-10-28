@@ -163,39 +163,66 @@ impl std::fmt::Debug for Endpoint {
     }
 }
 
-/// The default config file location.
-fn default_config_path(env: &dyn Environment) -> Option<PathBuf> {
-    if cfg!(windows) {
-        env.var("APPDATA")
-            .map(|dir| PathBuf::from(dir).join("tidegard").join("cli.json"))
+/// The default config file location, under the product's directory
+/// (`tidegard`, or `wetechinetmon` before ADR 0058).
+fn default_config_path(env: &dyn Environment, product: &str) -> Option<PathBuf> {
+    let dir = if cfg!(windows) {
+        env.var("APPDATA").map(PathBuf::from)
     } else {
-        env.var("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .or_else(|| {
-                env.var("HOME")
-                    .map(|home| PathBuf::from(home).join(".config"))
-            })
-            .map(|dir| dir.join("tidegard").join("cli.json"))
+        env.var("XDG_CONFIG_HOME").map(PathBuf::from).or_else(|| {
+            env.var("HOME")
+                .map(|home| PathBuf::from(home).join(".config"))
+        })
+    };
+    dir.map(|dir| dir.join(product).join("cli.json"))
+}
+
+/// Reads the default config file: the product's, or failing that the one
+/// written before the rename, which still works through 1.x (ADR 0058).
+/// `Ok(None)` when there is neither.
+fn read_default_config(env: &dyn Environment) -> Result<Option<(PathBuf, String)>, String> {
+    let mut paths = [
+        default_config_path(env, "tidegard"),
+        default_config_path(env, "wetechinetmon"),
+    ]
+    .into_iter()
+    .flatten();
+    let Some(current) = paths.next() else {
+        return Ok(None);
+    };
+    for (index, path) in std::iter::once(current.clone()).chain(paths).enumerate() {
+        match env.read_file(&path) {
+            Ok(text) => {
+                if index > 0 {
+                    eprintln!(
+                        "warning: {} is deprecated; move it to {}",
+                        path.display(),
+                        current.display()
+                    );
+                }
+                return Ok(Some((path, text)));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("{}: {error}", path.display())),
+        }
     }
+    Ok(None)
 }
 
 /// Resolves the endpoint for `profile`. Errors are for the operator and
 /// never include the token.
 pub fn resolve(env: &dyn Environment, profile: Option<&str>) -> Result<Endpoint, String> {
-    let explicit_path = env.var(CONFIG_VAR).map(PathBuf::from);
-    let path = explicit_path.clone().or_else(|| default_config_path(env));
-    let file = match path {
+    // A missing default file is normal; a missing explicit one is not.
+    let found = match env.var(CONFIG_VAR).map(PathBuf::from) {
         Some(path) => match env.read_file(&path) {
-            Ok(text) => serde_json::from_str::<ConfigFile>(&text)
-                .map_err(|error| format!("{}: {error}", path.display()))?,
-            // A missing default file is normal; a missing explicit one is not.
-            Err(error)
-                if error.kind() == std::io::ErrorKind::NotFound && explicit_path.is_none() =>
-            {
-                ConfigFile::default()
-            }
+            Ok(text) => Some((path, text)),
             Err(error) => return Err(format!("{}: {error}", path.display())),
         },
+        None => read_default_config(env)?,
+    };
+    let file = match found {
+        Some((path, text)) => serde_json::from_str::<ConfigFile>(&text)
+            .map_err(|error| format!("{}: {error}", path.display()))?,
         None => ConfigFile::default(),
     };
     let chosen = profile
@@ -315,6 +342,39 @@ mod tests {
             None
         )
         .is_ok());
+    }
+
+    /// A profile file written before the rename is still found, and the
+    /// product's own file wins over it.
+    #[test]
+    fn the_config_file_from_before_the_rename_still_works() {
+        let (var, home) = if cfg!(windows) {
+            ("APPDATA", PathBuf::from("/appdata"))
+        } else {
+            ("HOME", PathBuf::from("/home/noc").join(".config"))
+        };
+        let root = if cfg!(windows) {
+            "/appdata"
+        } else {
+            "/home/noc"
+        };
+        let profile = |url: &str| {
+            format!(r#"{{"profiles": {{"default": {{"url": "{url}", "token": "wnm_x"}}}}}}"#)
+        };
+        let mut fake = env(&[(var, root)]);
+        fake.files.insert(
+            home.join("wetechinetmon").join("cli.json"),
+            profile("http://127.0.0.1:8080"),
+        );
+        let endpoint = resolve(&fake, None).unwrap();
+        assert_eq!(endpoint.base.port, 8080);
+
+        fake.files.insert(
+            home.join("tidegard").join("cli.json"),
+            profile("http://127.0.0.1:9090"),
+        );
+        let endpoint = resolve(&fake, None).unwrap();
+        assert_eq!(endpoint.base.port, 9090);
     }
 
     #[test]
