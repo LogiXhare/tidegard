@@ -201,9 +201,9 @@ if ! diff -u "$work/v090.txt" "$work/upgraded.txt"; then
   exit 1
 fi
 new_lead=$(token "$NEW_BIN" tidegard noc_lead drill-lead-2)
-call "$new_lead" GET "/api/v1/incidents/$first" | grep -q '"state":"acknowledged"'
-call "$new_lead" GET "/api/v1/incidents/$first/notes" | grep -q 'written by v0.9.0'
-call "$new_lead" GET "/api/v1/mitigations/$mitigation" | grep -q '"state":"requested"'
+call "$new_lead" GET "/api/v1/incidents/$first" | grep '"state":"acknowledged"' >/dev/null
+call "$new_lead" GET "/api/v1/incidents/$first/notes" | grep 'written by v0.9.0' >/dev/null
+call "$new_lead" GET "/api/v1/mitigations/$mitigation" | grep '"state":"requested"' >/dev/null
 before=$(sql 'SELECT count(*) FROM incidents')
 "$REPLAY" 127.0.0.1:2055 --rate 20000 --hosts 400 --duration-secs 10 > /dev/null
 incidents_after "$before"
@@ -229,8 +229,8 @@ if ! diff -u "$work/v090.txt" "$work/rolled-back.txt"; then
   echo "drill: the rollback does not match what v0.9.0 had"
   exit 1
 fi
-call "$lead" GET "/api/v1/incidents/$first" | grep -q '"state":"acknowledged"'
-call "$lead" GET "/api/v1/mitigations/$mitigation" | grep -q '"state":"requested"'
+call "$lead" GET "/api/v1/incidents/$first" | grep '"state":"acknowledged"' >/dev/null
+call "$lead" GET "/api/v1/mitigations/$mitigation" | grep '"state":"requested"' >/dev/null
 stop_all
 
 echo "drill: passed"

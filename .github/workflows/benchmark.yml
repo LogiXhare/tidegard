@@ -20,8 +20,12 @@ name: Benchmark
 on:
   workflow_dispatch:
     inputs:
+      # A choice, not free text: the soak job's timeout fits five hours
+      # and a cold build, and "" or "0.0" would skip every job.
       soak_hours:
         description: "Soak hours (0 runs the benchmarks and the load test instead)"
+        type: choice
+        options: ["0", "1", "2", "3", "4", "5"]
         default: "0"
   pull_request:
     branches: [main]
@@ -35,9 +39,11 @@ on:
 permissions:
   contents: read
 
+# A soak has a group of its own, and is never cancelled: a benchmark run
+# on the same ref must not throw away hours of it.
 concurrency:
-  group: benchmark-${{ github.ref }}
-  cancel-in-progress: true
+  group: benchmark-${{ github.ref }}-${{ (inputs.soak_hours && inputs.soak_hours != '0') && 'soak' || 'bench' }}
+  cancel-in-progress: ${{ !(inputs.soak_hours && inputs.soak_hours != '0') }}
 
 jobs:
   incident-persistence:
@@ -108,7 +114,7 @@ jobs:
           --health-timeout 3s
           --health-retries 30
       clickhouse:
-        image: clickhouse/clickhouse-server:26.8.24.9
+        image: clickhouse/clickhouse-server:26.8.24.9@sha256:35b2bc23277259a249af5fbb199ca9ce5042eb249ecbbcbb15b19256a1f41660
         env:
           CLICKHOUSE_USER: tidegard_test
           CLICKHOUSE_PASSWORD: tidegard_test_only

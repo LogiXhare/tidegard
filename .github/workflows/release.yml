@@ -94,24 +94,41 @@ jobs:
             platform: amd64
             runner: ubuntu-22.04
             cargo_about_sha256: 9099a59e820c38a68b9d65f300662a567d56562f9a10f6aa4c7e86c17c2566af
+            rustup_init_sha256: dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
           - arch: aarch64
             platform: arm64
             runner: ubuntu-22.04-arm
             cargo_about_sha256: af5169282fb6f84e13471493f405437e43ac517744c9ae12fbe2cdf0a6f0e5a8
+            rustup_init_sha256: 15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cdfdef615fac433
     env:
       VERSION: ${{ needs.check.outputs.version }}
+      # Both architectures, and every rebuild of a tag, use this compiler,
+      # not whatever the runner image ships. 1.99.1 fixes a miscompilation
+      # of FFI `bool` returns on x86_64.
+      RUSTUP_TOOLCHAIN: "1.99.1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
+      # rustup itself by version and SHA-256, where the image has none.
       - name: Rust toolchain
+        env:
+          RUSTUP_VERSION: 1.29.1
         run: |
-          if ! command -v cargo >/dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-              | sh -s -- -y --profile minimal
+          set -euo pipefail
+          if ! command -v rustup >/dev/null; then
+            init="$RUNNER_TEMP/rustup-init"
+            curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -o "$init" \
+              "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${{ matrix.arch }}-unknown-linux-gnu/rustup-init"
+            echo "${{ matrix.rustup_init_sha256 }}  $init" | sha256sum -c -
+            chmod +x "$init"
+            "$init" -y --profile minimal --default-toolchain none
             echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.cargo/bin:$PATH"
           fi
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+          rustc --version
       # The tarball's third-party licence notices (FU-53).
       - name: Install cargo-about
         env:
@@ -330,9 +347,10 @@ jobs:
     name: Verify and install on a clean runner
     needs: [check, publish]
     runs-on: ubuntu-22.04
+    # No packages permission: the images are pulled without signing in,
+    # as an operator pulls them, so a private package fails here.
     permissions:
       contents: read
-      packages: read
       attestations: read
     env:
       VERSION: ${{ needs.check.outputs.version }}
@@ -383,7 +401,6 @@ jobs:
       - name: Verify the images
         run: |
           set -euo pipefail
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           for target in $TARGETS; do
             image="$REGISTRY/tidegard-$target:$VERSION"
             "$RUNNER_TEMP/cosign" verify "$image" \
