@@ -475,7 +475,7 @@ pub async fn require_principal(
             let path = request.uri().path().to_string();
             let principal = match act_in(&auth, principal, named, &path).await {
                 Ok(principal) => principal,
-                Err(refusal) => return refusal,
+                Err(refusal) => return refusal.into_response(),
             };
             request.extensions_mut().insert(principal);
             next.run(request).await
@@ -507,10 +507,10 @@ async fn act_in(
     mut principal: Principal,
     named: Option<String>,
     path: &str,
-) -> Result<Principal, Response> {
+) -> Result<Principal, Problem> {
     match (principal.role.scope(), named) {
         (Scope::Tenant, Some(tenant)) if tenant != principal.tenant.as_str() => {
-            Err(Problem::new(ErrorCode::Forbidden).into_response())
+            Err(Problem::new(ErrorCode::Forbidden))
         }
         (Scope::Tenant, _) => Ok(principal),
         (Scope::Platform, Some(tenant)) => {
@@ -519,14 +519,12 @@ async fn act_in(
                     principal.tenant = TenantId::new(tenant);
                     Ok(principal)
                 }
-                Ok(false) => Err(Problem::new(ErrorCode::TenantUnknown).into_response()),
-                Err(_) => Err(Problem::new(ErrorCode::Unavailable)
-                    .retry_after(5)
-                    .into_response()),
+                Ok(false) => Err(Problem::new(ErrorCode::TenantUnknown)),
+                Err(_) => Err(Problem::new(ErrorCode::Unavailable).retry_after(5)),
             }
         }
         (Scope::Platform, None) if needs_no_tenant(path) => Ok(principal),
-        (Scope::Platform, None) => Err(Problem::new(ErrorCode::TenantRequired).into_response()),
+        (Scope::Platform, None) => Err(Problem::new(ErrorCode::TenantRequired)),
     }
 }
 
