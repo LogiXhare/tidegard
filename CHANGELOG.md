@@ -8,9 +8,18 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
-The fixes from the independent review of 1.0.0-rc.2: 40 findings, one of
-them High, every one listed with its disposition in the
+## [1.0.0-rc.3] - 2026-10-28
+
+The third release candidate of Tidegard 1.0.0. It carries the fixes from
+the independent review of 1.0.0-rc.2: 40 findings, one of them High,
+every one listed with its disposition in the
 [security review](docs/security/security-review.md#release-candidate-review).
+It changes no database schema. Upgrade from rc.2 by installing over it,
+as [Upgrading](docs/operations/upgrading.md) describes; from v0.9.0,
+read the rc.1 notes below first. Two changes can stop a service that
+ran before: an unreadable ClickHouse CA or password file now stops the
+collector, and `TIDEGARD_COLLECTOR_EXPORTER_IDLE_SECS=0` is refused.
+The images on GHCR are public now: anyone can pull them without signing in.
 
 ### Security — rc.2 review
 
@@ -523,6 +532,7 @@ this environment. Property-based tests (`proptest`) cover the same
   out-of-scope list, risk register, roadmap, acceptance criteria, blocking
   questions, and naming/branding decisions under `docs/`.
 
-[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.2...HEAD
+[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.3...HEAD
+[1.0.0-rc.3]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.2...v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.1...v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/LogiXhare/tidegard/releases/tag/v1.0.0-rc.1
