@@ -17,6 +17,7 @@ use tidegard_api::token_admin::{self, ActorType, NewToken};
 use tidegard_incident::authorization::Actor;
 use tidegard_incident::correlation::TenantId;
 use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::tenants::{self, TenantStatus};
 use tokio_postgres::Client;
 
 const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
@@ -74,6 +75,13 @@ async fn issued_tokens_authenticate_until_revoked_or_expired() {
     .expect("a loopback test database");
     let authenticator = TokenAuthenticator::new(pool);
 
+    // --- A token names a registered tenant (ADR 0060) ---
+    assert!(matches!(
+        token_admin::create(&admin, &alice(Role::Operator)).await,
+        Err(token_admin::AdminError::UnknownTenant(tenant)) if tenant == "acme"
+    ));
+    tenants::create(&admin, "acme", "Acme").await.unwrap();
+
     // --- Issue: the secret authenticates; only its hash is stored ---
     let issued = token_admin::create(&admin, &alice(Role::Operator))
         .await
@@ -104,6 +112,20 @@ async fn issued_tokens_authenticate_until_revoked_or_expired() {
         !dump.contains(&issued.secret[4..]),
         "the secret is stored nowhere"
     );
+
+    // --- A suspended tenant's token is refused, and works again on
+    // reactivation (ADR 0060) ---
+    tenants::set_status(&admin, "acme", TenantStatus::Suspended)
+        .await
+        .unwrap();
+    assert_eq!(
+        authenticator.authenticate(&issued.secret).await,
+        Err(AuthError::Rejected)
+    );
+    tenants::set_status(&admin, "acme", TenantStatus::Active)
+        .await
+        .unwrap();
+    assert!(authenticator.authenticate(&issued.secret).await.is_ok());
 
     // --- A wrong token, even well-formed, is refused ---
     let mut wrong = issued.secret.clone();

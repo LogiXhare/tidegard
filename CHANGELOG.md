@@ -8,6 +8,26 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Added — Phase 8A, the tenant registry
+
+- A tenant registry in PostgreSQL (migration V22,
+  [ADR 0060](docs/architecture/decisions/0060-phase8a-tenant-registry.md)): `tenants`, each active or suspended, and
+  `tenant_prefixes`, the addresses each owns. The database refuses two
+  overlapping prefixes, in one tenant or two, a claim wider than `/8` or
+  `/16`, and a tenant named `platform`.
+- `tidegard-api tenant create|list|suspend|activate` and
+  `tidegard-api tenant prefix add|remove|list` on the host.
+
+### Changed
+
+- A suspended tenant's tokens and sessions are refused, as an unknown
+  token is.
+- A token names a registered tenant. `tidegard-api token create`
+  registers a tenant it has not seen before, and says so, so existing
+  scripts keep working.
+- Upgrading registers every tenant id already in use, active and named by
+  its id. Nothing needs to be done by hand.
+
 ### Security — RUSTSEC-2026-0414
 
 - `pulldown-cmark` 0.13.5 (RUSTSEC-2026-0414, event growth with

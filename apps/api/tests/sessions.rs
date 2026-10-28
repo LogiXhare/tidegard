@@ -22,6 +22,7 @@ use tidegard_api::session::csrf_token;
 use tidegard_api::token_admin::{self, ActorType, NewToken};
 use tidegard_api::{router, AppState};
 use tidegard_incident_postgres::pool::PoolPolicy;
+use tidegard_incident_postgres::tenants::{self, TenantStatus};
 use tokio_postgres::Client;
 use tower::ServiceExt;
 
@@ -63,6 +64,10 @@ async fn connect(url: &str) -> Client {
 }
 
 async fn token(client: &Client, tenant: &str, role: Role) -> (String, String) {
+    // A token names a registered tenant (ADR 0060).
+    tidegard_incident_postgres::tenants::ensure(client, tenant)
+        .await
+        .unwrap();
     let created = token_admin::create(
         client,
         &NewToken {
@@ -391,6 +396,47 @@ async fn sessions_sign_in_expire_end_and_refuse_forgery() {
     )
     .await;
     assert_eq!(reply.status, StatusCode::OK);
+
+    // --- Suspending the tenant refuses its sessions and sign-ins until it
+    // is reactivated (ADR 0060) ---
+    tenants::set_status(&admin, "acme", TenantStatus::Suspended)
+        .await
+        .unwrap();
+    let reply = send(
+        &app,
+        Method::GET,
+        "/api/v1/incidents",
+        Some(&viewer_cookie),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::UNAUTHORIZED, "suspended");
+    let reply = send(
+        &app,
+        Method::POST,
+        "/api/v1/session",
+        None,
+        None,
+        Some(json!({ "token": viewer })),
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::UNAUTHORIZED, "suspended sign-in");
+    assert!(reply.cookie.is_none());
+    tenants::set_status(&admin, "acme", TenantStatus::Active)
+        .await
+        .unwrap();
+    let reply = send(
+        &app,
+        Method::GET,
+        "/api/v1/incidents",
+        Some(&viewer_cookie),
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::OK, "reactivated");
+
     admin
         .execute(
             "UPDATE api_tokens SET revoked_at = now() WHERE token_id = $1::text::uuid",

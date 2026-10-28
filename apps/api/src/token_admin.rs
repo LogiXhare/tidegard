@@ -72,6 +72,9 @@ pub enum AdminError {
     Lifetime(u32),
     #[error("the operating system's random source failed")]
     Random,
+    /// A token names a registered tenant (ADR 0060).
+    #[error("no tenant {0:?} is registered")]
+    UnknownTenant(String),
     #[error(transparent)]
     Database(#[from] tokio_postgres::Error),
 }
@@ -120,7 +123,14 @@ pub async fn create(
                 &lifetime,
             ],
         )
-        .await?;
+        .await
+        .map_err(|error| {
+            if error.code() == Some(&tokio_postgres::error::SqlState::FOREIGN_KEY_VIOLATION) {
+                AdminError::UnknownTenant(new.tenant.clone())
+            } else {
+                AdminError::Database(error)
+            }
+        })?;
     Ok(IssuedToken {
         token_id,
         secret,
