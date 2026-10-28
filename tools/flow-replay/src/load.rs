@@ -18,6 +18,10 @@ use crate::synthetic::{self, IpProtocol, Ipv4Record};
 /// Records per datagram: 16 + 4 + 40 × 29 = 1,180 bytes, under any MTU.
 pub const RECORDS_PER_DATAGRAM: usize = 40;
 const PACING: Duration = Duration::from_millis(2);
+/// How often the template goes out again, as a router refreshes its own:
+/// a lost first datagram, a collector restart or a sequence number that
+/// wraps then costs seconds of records, not the rest of the run.
+pub const TEMPLATE_REFRESH: Duration = Duration::from_secs(10);
 
 /// The `index`-th of `hosts` local hosts, in `10.0.0.0/8`: 10.0.x.y with
 /// y from 1 to 250, so no address ends in 0 or 255.
@@ -67,7 +71,8 @@ pub fn due(rate: u64, elapsed: Duration) -> u64 {
 }
 
 /// Sends `rate` records a second for `duration`, from one observation
-/// domain, after its template. Returns what it sent.
+/// domain, after its template and with the template again every
+/// [`TEMPLATE_REFRESH`]. Returns what it sent.
 pub async fn run(
     socket: &UdpSocket,
     observation_domain_id: u32,
@@ -76,13 +81,8 @@ pub async fn run(
     hosts: u32,
 ) -> std::io::Result<LoadReport> {
     let mut sequence_number = 0u32;
-    socket
-        .send(&synthetic::template_message_ipv4(
-            sequence_number,
-            observation_domain_id,
-        ))
-        .await?;
     let start = Instant::now();
+    let mut template_due = start;
     let mut sent = 0u64;
     let mut datagrams = 0u64;
     let mut batch = Vec::with_capacity(RECORDS_PER_DATAGRAM);
@@ -90,6 +90,15 @@ pub async fn run(
         let elapsed = start.elapsed();
         if elapsed >= duration {
             break;
+        }
+        if Instant::now() >= template_due {
+            socket
+                .send(&synthetic::template_message_ipv4(
+                    sequence_number,
+                    observation_domain_id,
+                ))
+                .await?;
+            template_due += TEMPLATE_REFRESH;
         }
         let target = due(rate, elapsed);
         while sent < target {

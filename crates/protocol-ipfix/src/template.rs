@@ -136,16 +136,34 @@ impl Template {
     }
 
     fn parse_record(input: &[u8], is_options: bool) -> Result<(Self, usize), DecodeError> {
-        let header_len = if is_options { 6 } else { 4 };
-        if input.len() < header_len {
+        if input.len() < 4 {
             return Err(DecodeError::TemplateRecordTruncated {
-                declared: header_len as u16,
+                declared: 4,
                 available: input.len(),
             });
         }
 
         let template_id = u16::from_be_bytes([input[0], input[1]]);
         let field_count = u16::from_be_bytes([input[2], input[3]]);
+
+        // RFC 7011 §8.1: an Options Template Withdrawal is four bytes, a
+        // Template ID and a Field Count of 0, with no Scope Field Count.
+        if is_options && field_count == 0 {
+            return Ok((
+                Template {
+                    template_id,
+                    scope_field_count: 0,
+                    fields: Vec::new(),
+                },
+                4,
+            ));
+        }
+        if is_options && input.len() < 6 {
+            return Err(DecodeError::TemplateRecordTruncated {
+                declared: 6,
+                available: input.len(),
+            });
+        }
 
         let (scope_field_count, mut offset) = if is_options {
             let scope = u16::from_be_bytes([input[4], input[5]]);
