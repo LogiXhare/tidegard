@@ -95,6 +95,19 @@ impl TemplateCache {
         }
     }
 
+    /// Forgets every Options Template (`options`) or every other
+    /// template: a withdrawal of Template ID 3 or 2 (RFC 7011 §8.1). The
+    /// sampling learned from options data goes with the Options
+    /// Templates, and stays when only the others are withdrawn.
+    pub fn remove_all(&mut self, options: bool) {
+        self.templates
+            .retain(|_, template| (template.scope_field_count > 0) != options);
+        self.fields = self.templates.values().map(|t| t.fields.len()).sum();
+        if options {
+            self.sampling = SamplingInfo::default();
+        }
+    }
+
     /// Field specifiers across every cached template.
     pub fn field_count(&self) -> usize {
         self.fields

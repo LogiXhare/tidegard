@@ -65,6 +65,11 @@ pub use pipeline::{Pipeline, SamplingConfig};
 /// allocation.
 const MAX_DATAGRAM_SIZE: usize = 65535;
 
+/// How long startup waits for ClickHouse to take the migrations before
+/// export is disabled for the run: a host that drops packets would
+/// otherwise hold startup for the operating system's TCP timeout.
+const CLICKHOUSE_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// How often the aggregator sweeps for inactivity expiration.
 const EXPIRATION_INTERVAL: Duration = Duration::from_secs(30);
 
@@ -102,8 +107,6 @@ pub async fn run_until(
 
     let socket = Arc::new(UdpSocket::bind(config.bind).await?);
     tracing::info!(bind = %config.bind, "IPFIX collector listening");
-    // Bound means flows are received; nothing later in startup can fail.
-    readiness.set(true);
 
     let prefix_report = build_registry(&config.local_prefixes).unwrap_or_else(|errors| {
         // A prefix-config error is a startup-quality problem, but Phase 3
@@ -256,35 +259,51 @@ pub async fn run_until(
     let mut expire_interval = tokio::time::interval(EXPIRATION_INTERVAL);
 
     // ClickHouse export is entirely optional — see
-    // docs/integrations/clickhouse.md. A connection/migration failure at
-    // startup disables export for this run rather than crashing the
-    // collector; decode/normalize/aggregate remains useful without it.
+    // docs/integrations/clickhouse.md. A server that cannot be reached or
+    // migrated at startup disables export for this run rather than
+    // crashing the collector; decode/normalize/aggregate remains useful
+    // without it. A password or CA file that cannot be read is a
+    // configuration mistake, and stops the collector.
     let mut clickhouse_exporters = match &config.clickhouse {
         Some(settings) => {
             let url = settings.display_url();
-            match settings.connect() {
-                Err(err) => {
-                    tracing::error!(url, error = %err, "ClickHouse cannot be reached; export disabled for this run");
+            let client = settings.connect().map_err(|err| {
+                tracing::error!(url, error = %err, "ClickHouse is misconfigured");
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, err)
+            })?;
+            match tokio::time::timeout(
+                CLICKHOUSE_STARTUP_TIMEOUT,
+                tidegard_storage::run_migrations(&client),
+            )
+            .await
+            {
+                Ok(Ok(())) => {
+                    tracing::info!(url, "ClickHouse export enabled, migrations applied");
+                    Some(clickhouse_export::ClickHouseExporters::new(
+                        client,
+                        Instant::now(),
+                    ))
+                }
+                Ok(Err(err)) => {
+                    tracing::error!(url, error = %err, "ClickHouse migration failed; export disabled for this run");
                     None
                 }
-                Ok(client) => match tidegard_storage::run_migrations(&client).await {
-                    Ok(()) => {
-                        tracing::info!(url, "ClickHouse export enabled, migrations applied");
-                        Some(clickhouse_export::ClickHouseExporters::new(
-                            client,
-                            Instant::now(),
-                        ))
-                    }
-                    Err(err) => {
-                        tracing::error!(url, error = %err, "ClickHouse migration failed; export disabled for this run");
-                        None
-                    }
-                },
+                Err(_) => {
+                    tracing::error!(
+                        url,
+                        timeout_secs = CLICKHOUSE_STARTUP_TIMEOUT.as_secs(),
+                        "ClickHouse did not answer; export disabled for this run"
+                    );
+                    None
+                }
             }
         }
         None => None,
     };
     let mut clickhouse_interval = tokio::time::interval(CLICKHOUSE_EXPORT_INTERVAL);
+
+    // Ready once startup is over and the loop below takes datagrams.
+    readiness.set(true);
 
     loop {
         tokio::select! {
@@ -314,11 +333,11 @@ pub async fn run_until(
                     tracing::debug!(expired, "swept inactive aggregation entries");
                 }
                 let forgotten = exporters.evict_idle(Instant::now());
+                metrics.active_exporters.set(exporters.exporter_count() as i64);
+                metrics
+                    .template_cache_size
+                    .set(exporters.total_template_count() as i64);
                 if forgotten > 0 {
-                    metrics.active_exporters.set(exporters.exporter_count() as i64);
-                    metrics
-                        .template_cache_size
-                        .set(exporters.total_template_count() as i64);
                     tracing::info!(forgotten, "forgot idle exporters and their templates");
                 }
             }
@@ -511,7 +530,11 @@ fn process_datagram(
         }
     };
 
-    let Some(exporter) = registry.get_or_create((src, header.observation_domain_id)) else {
+    // A new exporter keeps its place only if its first datagram decodes,
+    // so headers alone, from any address, do not fill the registry.
+    let key = (src, header.observation_domain_id);
+    let new_exporter = !registry.contains(&key);
+    let Some(exporter) = registry.get_or_create(key) else {
         metrics
             .datagrams_refused_total
             .with_label_values(&["exporter_limit"])
@@ -519,12 +542,26 @@ fn process_datagram(
         tracing::debug!(%src, observation_domain_id = header.observation_domain_id, "exporter limit reached; datagram dropped");
         return;
     };
+    let templates_before = exporter.template_cache.len() as i64;
     if exporter.observe_sequence(header.sequence_number) {
         metrics.exporter_restarts_total.inc();
         tracing::warn!(%src, sequence_number = header.sequence_number, "exporter restart detected, template cache cleared");
     }
 
-    match decode_message(bytes, &mut exporter.template_cache) {
+    let decoded = decode_message(bytes, &mut exporter.template_cache);
+    // The gauge moves by what this exporter's cache did, rather than
+    // summing every exporter's on each datagram.
+    let forget = decoded.is_err() && new_exporter;
+    let templates_after = if forget {
+        0
+    } else {
+        exporter.template_cache.len() as i64
+    };
+    metrics
+        .template_cache_size
+        .add(templates_after - templates_before);
+
+    match decoded {
         Ok(message) => {
             for set in &message.sets {
                 match set {
@@ -656,9 +693,9 @@ fn process_datagram(
         }
     }
 
-    metrics
-        .template_cache_size
-        .set(registry.total_template_count() as i64);
+    if forget {
+        registry.remove(&key);
+    }
     metrics
         .active_exporters
         .set(registry.exporter_count() as i64);
@@ -794,6 +831,36 @@ mod tests {
         assert_eq!(one.exporter_count(), 1);
         assert_eq!(one.total_template_count(), 1);
         assert_eq!(metrics.parser_failures_total.get(), 0);
+    }
+
+    /// A header alone, or any datagram that does not decode, takes no
+    /// place among the exporters: a sender cannot fill the registry
+    /// without valid messages.
+    #[test]
+    fn a_new_exporter_keeps_no_place_when_its_datagram_does_not_decode() {
+        let (metrics, _registry) = Metrics::new().unwrap();
+        let mut pipeline = test_pipeline();
+        let mut registry = ExporterRegistry::new();
+        // The header claims 64 bytes; only its own 16 arrive.
+        let header_only = message_header_bytes(64);
+        process_datagram(
+            &header_only,
+            addr(),
+            &mut registry,
+            &mut pipeline,
+            None,
+            &metrics,
+        );
+        assert_eq!(metrics.parser_failures_total.get(), 1);
+        assert_eq!(registry.exporter_count(), 0);
+        assert_eq!(metrics.active_exporters.get(), 0);
+
+        let set = template_set_bytes(&[(8, 4), (12, 4), (1, 8), (2, 8)]);
+        let mut msg = message_header_bytes((16 + set.len()) as u16);
+        msg.extend_from_slice(&set);
+        process_datagram(&msg, addr(), &mut registry, &mut pipeline, None, &metrics);
+        assert_eq!(registry.exporter_count(), 1);
+        assert_eq!(metrics.template_cache_size.get(), 1);
     }
 
     #[test]

@@ -145,12 +145,14 @@ fn parse_template_records(
         };
         offset += consumed;
         // RFC 7011 §8.1: a record with no fields withdraws its template;
-        // template ID 2 (or 3, for Options Templates) withdraws them all.
-        // It was cached as a template of zero fields until Phase 9D, and
-        // a Data Set for it then decoded empty records without end.
+        // template ID 2 withdraws every Template, and 3 every Options
+        // Template. It was cached as a template of zero fields until
+        // Phase 9D, and a Data Set for it then decoded empty records
+        // without end.
         if template.fields.is_empty() {
             match template.template_id {
-                TEMPLATE_SET_ID | OPTIONS_TEMPLATE_SET_ID => templates.clear(),
+                TEMPLATE_SET_ID => templates.remove_all(false),
+                OPTIONS_TEMPLATE_SET_ID => templates.remove_all(true),
                 template_id => templates.remove(template_id),
             }
             continue;
@@ -441,6 +443,86 @@ mod tests {
         msg.extend_from_slice(&withdraw_all);
         decode_message(&msg, &mut cache).unwrap();
         assert!(cache.is_empty());
+    }
+
+    fn options_template_bytes(template_id: u16, scope: (u16, u16), field: (u16, u16)) -> Vec<u8> {
+        let mut record = Vec::new();
+        record.extend_from_slice(&template_id.to_be_bytes());
+        record.extend_from_slice(&2u16.to_be_bytes()); // field_count
+        record.extend_from_slice(&1u16.to_be_bytes()); // scope_field_count
+        for (ie, len) in [scope, field] {
+            record.extend_from_slice(&ie.to_be_bytes());
+            record.extend_from_slice(&len.to_be_bytes());
+        }
+        options_set_bytes(&record)
+    }
+
+    fn options_set_bytes(records: &[u8]) -> Vec<u8> {
+        let mut set = Vec::new();
+        set.extend_from_slice(&OPTIONS_TEMPLATE_SET_ID.to_be_bytes());
+        set.extend_from_slice(&((SET_HEADER_LEN + records.len()) as u16).to_be_bytes());
+        set.extend_from_slice(records);
+        set
+    }
+
+    fn send(cache: &mut TemplateCache, set: &[u8]) -> Result<DecodedMessage, DecodeError> {
+        let mut msg = message_header_bytes((MESSAGE_HEADER_LEN + set.len()) as u16, 1);
+        msg.extend_from_slice(set);
+        decode_message(&msg, cache)
+    }
+
+    /// Learns options template 400 with a sampling interval of 100, and
+    /// data template 300.
+    fn cache_with_both_kinds() -> TemplateCache {
+        let mut cache = TemplateCache::new();
+        send(&mut cache, &options_template_bytes(400, (10, 4), (34, 4))).unwrap();
+        let mut data = Vec::new();
+        data.extend_from_slice(&1u32.to_be_bytes());
+        data.extend_from_slice(&100u32.to_be_bytes());
+        send(&mut cache, &data_set_bytes(400, &data)).unwrap();
+        send(&mut cache, &template_set_bytes(300, &[(8, 4)])).unwrap();
+        assert_eq!(cache.sampling().sampling_interval, Some(100));
+        cache
+    }
+
+    /// An Options Template Withdrawal is four bytes, with no Scope Field
+    /// Count (RFC 7011 §8.1); two of them pack into one set.
+    #[test]
+    fn options_template_withdrawals_are_four_bytes() {
+        let mut cache = cache_with_both_kinds();
+        send(&mut cache, &options_template_bytes(401, (10, 4), (35, 1))).unwrap();
+        let mut records = Vec::new();
+        for id in [400u16, 401] {
+            records.extend_from_slice(&id.to_be_bytes());
+            records.extend_from_slice(&0u16.to_be_bytes());
+        }
+        send(&mut cache, &options_set_bytes(&records)).unwrap();
+        assert!(!cache.contains(400));
+        assert!(!cache.contains(401));
+        assert!(cache.contains(300));
+    }
+
+    #[test]
+    fn template_id_three_withdraws_only_options_templates() {
+        let mut cache = cache_with_both_kinds();
+        let mut record = Vec::new();
+        record.extend_from_slice(&OPTIONS_TEMPLATE_SET_ID.to_be_bytes());
+        record.extend_from_slice(&0u16.to_be_bytes());
+        send(&mut cache, &options_set_bytes(&record)).unwrap();
+        assert!(!cache.contains(400));
+        assert!(cache.contains(300));
+        assert_eq!(cache.sampling().sampling_interval, None);
+        assert_eq!(cache.field_count(), 1);
+    }
+
+    #[test]
+    fn template_id_two_keeps_options_templates_and_sampling() {
+        let mut cache = cache_with_both_kinds();
+        send(&mut cache, &template_set_bytes(TEMPLATE_SET_ID, &[])).unwrap();
+        assert!(!cache.contains(300));
+        assert!(cache.contains(400));
+        assert_eq!(cache.sampling().sampling_interval, Some(100));
+        assert_eq!(cache.field_count(), 2);
     }
 
     #[test]

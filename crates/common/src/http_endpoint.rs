@@ -16,6 +16,17 @@ pub enum Scheme {
 /// settings, never a URL that ends up in a log. Without a port, ClickHouse's
 /// HTTP ports are assumed: 8123, or 8443 for TLS.
 pub fn parse_url(url: &str) -> Result<(Scheme, String, u16), String> {
+    let (scheme, host, port) = parse_url_with_port(url)?;
+    let port = port.unwrap_or(match scheme {
+        Scheme::Http => 8123,
+        Scheme::Https => 8443,
+    });
+    Ok((scheme, host, port))
+}
+
+/// [`parse_url`], with no port assumed: `None` when the URL gives none,
+/// for an endpoint that has no customary port.
+pub fn parse_url_with_port(url: &str) -> Result<(Scheme, String, Option<u16>), String> {
     let (scheme, rest) = if let Some(rest) = url.strip_prefix("https://") {
         (Scheme::Https, rest)
     } else if let Some(rest) = url.strip_prefix("http://") {
@@ -31,7 +42,15 @@ pub fn parse_url(url: &str) -> Result<(Scheme, String, u16), String> {
         let (host, after) = bracketed
             .split_once(']')
             .ok_or("an IPv6 host needs its closing bracket")?;
-        (host.to_string(), after.strip_prefix(':'))
+        let port = match after {
+            "" => None,
+            _ => Some(
+                after
+                    .strip_prefix(':')
+                    .ok_or("only a :port may follow an IPv6 host's closing bracket")?,
+            ),
+        };
+        (host.to_string(), port)
     } else {
         match authority.rsplit_once(':') {
             Some((host, port)) => (host.to_string(), Some(port)),
@@ -42,15 +61,13 @@ pub fn parse_url(url: &str) -> Result<(Scheme, String, u16), String> {
         return Err("the URL has no host".into());
     }
     let port = match port {
-        Some(text) => text
-            .parse::<u16>()
-            .ok()
-            .filter(|port| *port > 0)
-            .ok_or("the port is not a number from 1 to 65535")?,
-        None => match scheme {
-            Scheme::Http => 8123,
-            Scheme::Https => 8443,
-        },
+        Some(text) => Some(
+            text.parse::<u16>()
+                .ok()
+                .filter(|port| *port > 0)
+                .ok_or("the port is not a number from 1 to 65535")?,
+        ),
+        None => None,
     };
     Ok((scheme, host, port))
 }
@@ -58,7 +75,9 @@ pub fn parse_url(url: &str) -> Result<(Scheme, String, u16), String> {
 /// Plain HTTP only to this machine.
 pub fn is_loopback(host: &str) -> bool {
     host.eq_ignore_ascii_case("localhost")
-        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+        || host
+            .parse::<IpAddr>()
+            .is_ok_and(|ip| ip.to_canonical().is_loopback())
 }
 
 /// `scheme://host:port`, with an IPv6 host in brackets.
@@ -92,6 +111,10 @@ mod tests {
             parse_url("https://[2001:db8::1]:9440"),
             Ok((Scheme::Https, "2001:db8::1".into(), 9440))
         );
+        assert_eq!(
+            parse_url("http://[::1]"),
+            Ok((Scheme::Http, "::1".into(), 8123))
+        );
     }
 
     #[test]
@@ -105,6 +128,8 @@ mod tests {
             "ftp://127.0.0.1",
             "http://",
             "https://[2001:db8::1",
+            "http://[::1]garbage",
+            "https://[2001:db8::1]8443",
         ] {
             assert!(parse_url(url).is_err(), "{url}");
         }
@@ -112,7 +137,14 @@ mod tests {
 
     #[test]
     fn only_this_machine_is_loopback() {
-        for host in ["localhost", "LOCALHOST", "127.0.0.1", "127.5.0.9", "::1"] {
+        for host in [
+            "localhost",
+            "LOCALHOST",
+            "127.0.0.1",
+            "127.5.0.9",
+            "::1",
+            "::ffff:127.0.0.1",
+        ] {
             assert!(is_loopback(host), "{host}");
         }
         for host in [
