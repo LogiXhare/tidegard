@@ -94,9 +94,68 @@ platform actor and audits every registry change made through the API.
 The host command acts with the host's own authority, as the token
 command does.
 
+## 8A-2: the roles and the platform scope
+
+### Twelve roles in two scopes
+
+FR-12.2's ten roles become twelve bundles in `FixedBundleResolver`,
+because the four v1.0.0 roles stay as they were: no existing token gains
+or loses a permission, and a test pins each of the four. The
+[security model](../incident-security-model.md) lists every bundle.
+
+| Scope | Roles |
+|---|---|
+| Tenant | `viewer`, `operator`, `senior_operator`, `noc_lead`, `customer_admin`, `security_analyst`, `automation` |
+| Platform | `noc_operator`, `noc_admin`, `auditor`, `platform_admin`, `super_admin` |
+
+- **`platform_admin` no longer holds every permission.** It administers
+  tenants, tokens and the kill switch release, and reads, but changes no
+  incident. `super_admin` holds every human permission, and is the only
+  bundle with `incident.closure_policy.override`. No token could carry
+  `platform_admin` before, so nothing deployed changes.
+- **`automation` is a fixed bundle for integrations** (read, open,
+  acknowledge, note), held only by service accounts. The plan imagined a
+  per-token permission list; a fixed bundle is easier to review and
+  covers a ticketing or SOAR integration. A per-token list can come
+  later without a schema change to roles.
+- Two permissions join: `platform.tenant.admin` for the registry, and
+  `tenant.token.admin` for a tenant's own tokens. `customer_admin` holds
+  the second, `platform_admin` both. The endpoints that check them come
+  in 8A-3.
+
+### Platform tokens (V23)
+
+`api_tokens` gains a `scope`, `tenant` or `platform`. One `CHECK`
+couples scope, tenant and role: a tenant token names a tenant and holds a
+tenant role; a platform token names none, holds a provider role, and
+lives at most 90 days (R36). Another keeps `automation` for service
+accounts. `tidegard-api token create --platform` issues one on the host,
+and `token list --platform` lists them. Suspending a tenant never
+touches a platform token.
+
+### Acting in a tenant
+
+A platform principal names the tenant it acts in, per request, in the
+`Tidegard-Tenant` header. Every handler and every domain call already
+scope by the principal's tenant, so none of them changes: the
+authentication middleware sets that tenant from the header, after
+checking the tenant is registered. A suspended tenant can still be
+looked into by its provider.
+
+- **No header:** only `whoami`, the session and `/api/v1/platform/*`
+  answer. Everything else is `400 api.tenant_required`.
+- **An unregistered tenant**, or `platform`: `400 api.tenant_unknown`.
+- **A tenant principal** may send the header only with its own tenant.
+  Naming any other, registered or not, is `403 api.forbidden`, so it
+  learns nothing about other tenants.
+- `whoami` answers with the scope and the tenant acted in.
+
+Every cross-tenant access is to be audited (BQ-21); that lands with 8D,
+where the provider's identity is recorded on the tenant's audit trail.
+The NOC UI cannot send the header yet; its tenant switcher is 8E.
+
 ## Later in 8A
 
-- **8A-2:** the roles of FR-12.2, a principal's scope (one tenant or the
-  platform), and platform tokens.
 - **8A-3:** `/api/v1/platform/tenants` and their prefixes,
-  `tidegardctl tenants`, and audit of registry changes.
+  `tidegardctl tenants`, tokens issued through the API under
+  `tenant.token.admin`, and audit of registry changes.

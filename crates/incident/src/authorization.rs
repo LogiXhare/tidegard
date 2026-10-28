@@ -73,6 +73,11 @@ pub enum Permission {
     MitigationKillSwitchEngage,
     /// Turn it off again: platform administrators only.
     MitigationKillSwitchRelease,
+    /// Register, suspend and reactivate tenants, and their prefixes
+    /// (ADR 0060). Platform roles only.
+    PlatformTenantAdmin,
+    /// Issue and revoke the API tokens of the tenant acted in.
+    TenantTokenAdmin,
 }
 
 impl Permission {
@@ -114,6 +119,8 @@ impl Permission {
             MitigationExecute => "mitigation.execute",
             MitigationKillSwitchEngage => "mitigation.kill_switch.engage",
             MitigationKillSwitchRelease => "mitigation.kill_switch.release",
+            PlatformTenantAdmin => "platform.tenant.admin",
+            TenantTokenAdmin => "tenant.token.admin",
         }
     }
 }
@@ -232,15 +239,42 @@ pub trait PermissionResolver: Send + Sync {
     fn permissions_for(&self, role: &str) -> Vec<Permission>;
 }
 
-/// The five suggested Community role bundles from the security model.
-/// `incident.closure_policy.override` appears in **none** of them,
-/// including `noc_lead` — it must be granted deliberately, on its own,
-/// or not at all.
+/// The roles a tenant-scoped principal may hold: the four of v1.0.0,
+/// unchanged, and the tenant roles of FR-12.2 (ADR 0060).
+pub const TENANT_ROLES: [&str; 7] = [
+    "viewer",
+    "operator",
+    "senior_operator",
+    "noc_lead",
+    "customer_admin",
+    "security_analyst",
+    "automation",
+];
+
+/// The provider roles of FR-12.2, which act across tenants (BQ-21). A
+/// tenant-scoped principal never holds one.
+pub const PLATFORM_ROLES: [&str; 5] = [
+    "noc_operator",
+    "noc_admin",
+    "auditor",
+    "platform_admin",
+    "super_admin",
+];
+
+/// The Community role bundles from the security model, one per role in
+/// [`TENANT_ROLES`] and [`PLATFORM_ROLES`]. `incident.closure_policy.override`
+/// appears in none of them but `super_admin`, which holds every human
+/// permission: it must be granted deliberately or not at all.
 pub struct FixedBundleResolver;
 
 impl PermissionResolver for FixedBundleResolver {
     fn permissions_for(&self, role: &str) -> Vec<Permission> {
         use Permission::*;
+        let with = |base: &Vec<Permission>, more: &[Permission]| {
+            let mut v = base.clone();
+            v.extend_from_slice(more);
+            v
+        };
         let viewer = vec![IncidentRead, IncidentList, TrafficRead, MitigationRead];
         let operator = {
             let mut v = viewer.clone();
@@ -280,20 +314,53 @@ impl PermissionResolver for FixedBundleResolver {
             ]);
             v
         };
+        // Provider roles read every tenant's records, and say so.
+        let reader = with(
+            &viewer,
+            &[
+                IncidentAuditRead,
+                IncidentConfigRead,
+                PlatformIncidentReadAll,
+            ],
+        );
+        let platform_admin = with(
+            &reader,
+            &[
+                PlatformIncidentAdmin,
+                PlatformTenantAdmin,
+                TenantTokenAdmin,
+                MitigationKillSwitchRelease,
+            ],
+        );
+        let noc_admin = with(&noc_lead, &[PlatformIncidentReadAll]);
         match role {
             "viewer" => viewer,
             "operator" => operator,
             "senior_operator" => senior_operator,
             "noc_lead" => noc_lead,
-            "platform_admin" => {
-                let mut v = noc_lead.clone();
-                v.extend([
-                    IncidentClosurePolicyOverride,
-                    PlatformIncidentReadAll,
-                    PlatformIncidentAdmin,
-                    IncidentNoteCustomerVisible,
-                    MitigationKillSwitchRelease,
-                ]);
+            "customer_admin" => with(&noc_lead, &[TenantTokenAdmin]),
+            "security_analyst" => with(
+                &viewer,
+                &[IncidentNoteCreate, IncidentExport, IncidentAuditRead],
+            ),
+            "automation" => with(
+                &viewer,
+                &[IncidentCreate, IncidentAcknowledge, IncidentNoteCreate],
+            ),
+            "noc_operator" => with(&senior_operator, &[PlatformIncidentReadAll]),
+            "noc_admin" => noc_admin,
+            "auditor" => reader,
+            "platform_admin" => platform_admin,
+            "super_admin" => {
+                let mut v = with(
+                    &noc_admin,
+                    &[IncidentClosurePolicyOverride, IncidentNoteCustomerVisible],
+                );
+                for permission in platform_admin {
+                    if !v.contains(&permission) {
+                        v.push(permission);
+                    }
+                }
                 v
             }
             _ => Vec::new(),
@@ -305,48 +372,170 @@ impl PermissionResolver for FixedBundleResolver {
 mod tests {
     use super::*;
 
+    fn all_roles() -> impl Iterator<Item = &'static str> {
+        TENANT_ROLES.into_iter().chain(PLATFORM_ROLES)
+    }
+
+    fn names(role: &str) -> Vec<&'static str> {
+        let mut names: Vec<_> = FixedBundleResolver
+            .permissions_for(role)
+            .into_iter()
+            .map(Permission::name)
+            .collect();
+        names.sort_unstable();
+        names
+    }
+
     /// Every name is the one the security model's permission table uses.
     #[test]
     fn names_match_the_security_model() {
         let document = include_str!("../../../docs/architecture/incident-security-model.md");
-        let resolver = FixedBundleResolver;
-        for permission in resolver.permissions_for("platform_admin") {
-            let row = format!("| `{}` |", permission.name());
-            assert!(document.contains(&row), "the security model lacks {row}");
+        for role in all_roles() {
+            for name in names(role) {
+                let row = format!("| `{name}` |");
+                assert!(document.contains(&row), "the security model lacks {row}");
+            }
+        }
+    }
+
+    /// No v1.0.0 token gains or loses a permission (Phase 8 plan).
+    #[test]
+    fn the_v1_roles_are_unchanged() {
+        let viewer = [
+            "incident.list",
+            "incident.read",
+            "mitigation.read",
+            "traffic.read",
+        ];
+        assert_eq!(names("viewer"), viewer);
+        let mut operator = viewer.to_vec();
+        operator.extend([
+            "incident.acknowledge",
+            "incident.assign",
+            "incident.investigate",
+            "incident.note.create",
+        ]);
+        operator.sort_unstable();
+        assert_eq!(names("operator"), operator);
+        let mut senior = operator.clone();
+        senior.extend([
+            "incident.severity.change",
+            "incident.priority.change",
+            "incident.resolve",
+            "incident.close",
+            "incident.reopen",
+            "incident.create",
+            "mitigation.request",
+            "mitigation.withdraw",
+        ]);
+        senior.sort_unstable();
+        assert_eq!(names("senior_operator"), senior);
+        let mut lead = senior.clone();
+        lead.extend([
+            "incident.suppress",
+            "incident.export",
+            "incident.audit.read",
+            "incident.config.read",
+            "incident.update",
+            "incident.note.redact",
+            "mitigation.approve",
+            "mitigation.kill_switch.engage",
+        ]);
+        lead.sort_unstable();
+        assert_eq!(names("noc_lead"), lead);
+    }
+
+    /// FR-12.2: every role has at least one allow and one deny case.
+    #[test]
+    fn every_role_has_an_allow_and_a_deny() {
+        use Permission::*;
+        let cases: [(&str, Permission, Permission); 12] = [
+            ("viewer", IncidentRead, IncidentAcknowledge),
+            ("operator", IncidentAcknowledge, IncidentClose),
+            ("senior_operator", IncidentClose, MitigationApprove),
+            ("noc_lead", MitigationApprove, TenantTokenAdmin),
+            ("customer_admin", TenantTokenAdmin, PlatformTenantAdmin),
+            ("security_analyst", IncidentExport, IncidentAcknowledge),
+            ("automation", IncidentCreate, IncidentClose),
+            ("noc_operator", PlatformIncidentReadAll, MitigationApprove),
+            ("noc_admin", MitigationApprove, PlatformTenantAdmin),
+            ("auditor", IncidentAuditRead, IncidentNoteCreate),
+            ("platform_admin", PlatformTenantAdmin, IncidentClose),
+            ("super_admin", IncidentClosurePolicyOverride, IncidentIngest),
+        ];
+        assert_eq!(
+            cases.iter().map(|case| case.0).collect::<Vec<_>>(),
+            all_roles().collect::<Vec<_>>(),
+            "one case per role, in order"
+        );
+        for (role, allowed, denied) in cases {
+            let granted = FixedBundleResolver.permissions_for(role);
+            assert!(
+                granted.contains(&allowed),
+                "{role} lacks {}",
+                allowed.name()
+            );
+            assert!(!granted.contains(&denied), "{role} holds {}", denied.name());
+        }
+    }
+
+    /// A tenant role never reaches across tenants or administers the
+    /// platform (BQ-21).
+    #[test]
+    fn tenant_roles_carry_no_platform_permission() {
+        use Permission::*;
+        for role in TENANT_ROLES {
+            let granted = FixedBundleResolver.permissions_for(role);
+            for platform in [
+                PlatformIncidentReadAll,
+                PlatformIncidentAdmin,
+                PlatformTenantAdmin,
+                MitigationKillSwitchRelease,
+                IncidentClosurePolicyOverride,
+            ] {
+                assert!(
+                    !granted.contains(&platform),
+                    "{role} holds {}",
+                    platform.name()
+                );
+            }
+        }
+        for role in PLATFORM_ROLES {
+            assert!(
+                FixedBundleResolver
+                    .permissions_for(role)
+                    .contains(&PlatformIncidentReadAll),
+                "{role} reads across tenants, and says so"
+            );
+        }
+    }
+
+    #[test]
+    fn super_admin_holds_every_other_bundle() {
+        let all = FixedBundleResolver.permissions_for("super_admin");
+        for role in all_roles() {
+            for permission in FixedBundleResolver.permissions_for(role) {
+                assert!(all.contains(&permission), "{role}: {}", permission.name());
+            }
         }
     }
 
     #[test]
     fn closure_policy_override_is_in_no_default_bundle() {
-        let resolver = FixedBundleResolver;
-        for role in ["viewer", "operator", "senior_operator", "noc_lead"] {
-            let granted = resolver.permissions_for(role);
+        for role in all_roles().filter(|role| *role != "super_admin") {
             assert!(
-                !granted.contains(&Permission::IncidentClosurePolicyOverride),
+                !FixedBundleResolver
+                    .permissions_for(role)
+                    .contains(&Permission::IncidentClosurePolicyOverride),
                 "{role} must not carry the closure-policy override permission"
             );
         }
     }
 
     #[test]
-    fn platform_admin_carries_the_override_explicitly() {
-        let resolver = FixedBundleResolver;
-        assert!(resolver
-            .permissions_for("platform_admin")
-            .contains(&Permission::IncidentClosurePolicyOverride));
-    }
-
-    #[test]
     fn ingestion_service_account_permission_is_not_in_any_human_bundle() {
-        let resolver = FixedBundleResolver;
-        for role in [
-            "viewer",
-            "operator",
-            "senior_operator",
-            "noc_lead",
-            "platform_admin",
-        ] {
-            assert!(!resolver
+        for role in all_roles() {
+            assert!(!FixedBundleResolver
                 .permissions_for(role)
                 .contains(&Permission::IncidentIngest));
         }
@@ -354,15 +543,8 @@ mod tests {
 
     #[test]
     fn only_the_mitigator_proposes_or_executes() {
-        let resolver = FixedBundleResolver;
-        for role in [
-            "viewer",
-            "operator",
-            "senior_operator",
-            "noc_lead",
-            "platform_admin",
-        ] {
-            let granted = resolver.permissions_for(role);
+        for role in all_roles() {
+            let granted = FixedBundleResolver.permissions_for(role);
             assert!(!granted.contains(&Permission::MitigationPropose), "{role}");
             assert!(!granted.contains(&Permission::MitigationExecute), "{role}");
         }

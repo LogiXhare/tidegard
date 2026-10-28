@@ -201,4 +201,122 @@ async fn issued_tokens_authenticate_until_revoked_or_expired() {
             "{role} / {days} days / {hash_len}-byte hash"
         );
     }
+
+    // --- Platform tokens (ADR 0060): a provider role, no tenant, at most
+    // 90 days ---
+    let provider = token_admin::NewPlatformToken {
+        actor_type: ActorType::Operator,
+        actor_id: "nora".to_string(),
+        role: Role::NocAdmin,
+        lifetime_days: 90,
+        description: String::new(),
+    };
+    let issued = token_admin::create_platform(&admin, &provider)
+        .await
+        .unwrap();
+    assert_eq!(
+        authenticator.authenticate(&issued.secret).await.unwrap(),
+        Principal {
+            tenant: TenantId::new(tidegard_api::auth::PLATFORM_TENANT),
+            actor: Actor::Operator {
+                id: "nora".to_string()
+            },
+            role: Role::NocAdmin,
+        }
+    );
+    let listed = token_admin::list_platform(&admin).await.unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].role, "noc_admin");
+    assert!(
+        token_admin::list(&admin, "acme")
+            .await
+            .unwrap()
+            .iter()
+            .all(|token| token.token_id != issued.token_id),
+        "a platform token is in no tenant's list"
+    );
+    // Suspending a tenant does not touch a platform token.
+    tenants::set_status(&admin, "acme", TenantStatus::Suspended)
+        .await
+        .unwrap();
+    assert!(authenticator.authenticate(&issued.secret).await.is_ok());
+    tenants::set_status(&admin, "acme", TenantStatus::Active)
+        .await
+        .unwrap();
+
+    // --- The application keeps each role in its scope ---
+    assert!(matches!(
+        token_admin::create_platform(
+            &admin,
+            &token_admin::NewPlatformToken {
+                lifetime_days: 91,
+                ..provider.clone()
+            }
+        )
+        .await,
+        Err(token_admin::AdminError::PlatformLifetime(91))
+    ));
+    assert!(matches!(
+        token_admin::create_platform(
+            &admin,
+            &token_admin::NewPlatformToken {
+                role: Role::NocLead,
+                ..provider.clone()
+            }
+        )
+        .await,
+        Err(token_admin::AdminError::WrongScope(Role::NocLead))
+    ));
+    assert!(matches!(
+        token_admin::create(&admin, &alice(Role::SuperAdmin)).await,
+        Err(token_admin::AdminError::WrongScope(Role::SuperAdmin))
+    ));
+    assert!(matches!(
+        token_admin::create(&admin, &alice(Role::Automation)).await,
+        Err(token_admin::AdminError::AutomationIsAService)
+    ));
+    let robot = token_admin::create(
+        &admin,
+        &NewToken {
+            actor_type: ActorType::ServiceAccount,
+            actor_id: "soar".to_string(),
+            ..alice(Role::Automation)
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        authenticator
+            .authenticate(&robot.secret)
+            .await
+            .unwrap()
+            .role,
+        Role::Automation
+    );
+
+    // --- And so does the table ---
+    for (scope, tenant, role, actor_type, days) in [
+        ("tenant", Some("acme"), "noc_admin", "operator", 30),
+        ("platform", None, "noc_lead", "operator", 30),
+        ("platform", Some("acme"), "noc_admin", "operator", 30),
+        ("tenant", None, "viewer", "operator", 30),
+        ("platform", None, "noc_admin", "operator", 91),
+        ("tenant", Some("acme"), "automation", "operator", 30),
+        ("other", None, "noc_admin", "operator", 30),
+    ] {
+        let refused = admin
+            .execute(
+                "INSERT INTO api_tokens
+                     (token_id, tenant_id, actor_type, actor_id, role, token_hash, expires_at, scope)
+                 VALUES (gen_random_uuid(), $2, $4, 'mallory', $3,
+                         decode(repeat('cd', 32), 'hex'),
+                         transaction_timestamp() + $5::integer * interval '1 day', $1)",
+                &[&scope, &tenant, &role, &actor_type, &days],
+            )
+            .await;
+        assert!(
+            refused.is_err(),
+            "{scope} / {tenant:?} / {role} / {actor_type} / {days} days"
+        );
+    }
 }

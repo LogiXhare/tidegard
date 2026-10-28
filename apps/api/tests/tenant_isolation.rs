@@ -497,4 +497,75 @@ async fn no_endpoint_crosses_the_tenant_boundary() {
         .collect();
     assert!(permissions.contains(&"incident.export"), "{permissions:?}");
     assert!(!permissions.contains(&"incident.closure_policy.override"));
+
+    // --- A platform principal acts only in the tenant it names, and a
+    // tenant principal cannot name another (ADR 0060) ---
+    let provider = token_admin::create_platform(
+        &admin,
+        &token_admin::NewPlatformToken {
+            actor_type: token_admin::ActorType::Operator,
+            actor_id: "nora".into(),
+            role: Role::NocOperator,
+            lifetime_days: 1,
+            description: String::new(),
+        },
+    )
+    .await
+    .unwrap()
+    .secret;
+    let (status, read) = get_in(&app, &base, &provider, Some("acme")).await;
+    assert_eq!(status, StatusCode::OK, "{read}");
+    assert_eq!(read["incident_id"], id.as_str());
+    let (status, read) = get_in(&app, &base, &provider, Some("globex")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{read}");
+    assert_eq!(read["error"], "incident.not_found");
+    for (tenant, error) in [
+        (None, "api.tenant_required"),
+        (Some("nobody"), "api.tenant_unknown"),
+        (Some("platform"), "api.tenant_unknown"),
+    ] {
+        let (status, read) = get_in(&app, &base, &provider, tenant).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{tenant:?}");
+        assert_eq!(read["error"], error, "{tenant:?}");
+    }
+    let (status, read) = get_in(&app, &base, &outsider, Some("acme")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{read}");
+    assert_eq!(read["error"], "api.forbidden");
+    let (status, me) = get_in(&app, "/api/v1/whoami", &provider, None).await;
+    assert_eq!(status, StatusCode::OK, "{me}");
+    assert_eq!(me["scope"], "platform");
+    assert_eq!(me["tenant_id"], "platform");
+    assert_eq!(me["role"], "noc_operator");
+    let (_, me) = get_in(&app, "/api/v1/whoami", &provider, Some("globex")).await;
+    assert_eq!(me["tenant_id"], "globex");
+    let (_, me) = get_in(&app, "/api/v1/whoami", &outsider, None).await;
+    assert_eq!(me["scope"], "tenant");
+}
+
+/// A GET with an optional `Tidegard-Tenant` header.
+async fn get_in(
+    app: &axum::Router,
+    path: &str,
+    token: &str,
+    tenant: Option<&str>,
+) -> (StatusCode, Value) {
+    let mut request = Request::builder()
+        .uri(path)
+        .header(header::AUTHORIZATION, format!("Bearer {token}"));
+    if let Some(tenant) = tenant {
+        request = request.header(tidegard_api::auth::TENANT_HEADER, tenant);
+    }
+    let response = app
+        .clone()
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), 1 << 22)
+        .await
+        .unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }

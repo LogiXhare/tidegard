@@ -84,7 +84,7 @@ fn platform_admin() -> PlatformAuthority {
         Actor::Operator {
             id: "platform-admin".to_string(),
         },
-        FixedBundleResolver.permissions_for("platform_admin"),
+        FixedBundleResolver.permissions_for("super_admin"),
     );
     PlatformAuthority::from_context(&context).expect("a platform admin is authorized")
 }

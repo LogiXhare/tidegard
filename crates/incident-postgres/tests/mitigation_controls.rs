@@ -101,7 +101,7 @@ async fn the_kill_switch_work_list_and_candidates_behave() {
     );
     let senior = person("alice", "senior_operator");
     let lead = person("lead", "noc_lead");
-    let admin = person("root", "platform_admin");
+    let admin = person("root", "super_admin");
     let mitigator = AuthorizationContext::mitigator(TenantId::new("acme"), "mitigator-1");
 
     // --- Off by default; a senior operator cannot turn it on ---

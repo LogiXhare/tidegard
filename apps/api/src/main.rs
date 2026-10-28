@@ -203,21 +203,27 @@ usage:
   tidegard-api token create --tenant T --actor-id ID --role ROLE
                                  [--actor-type operator|service_account]
                                  [--days 1-366 (default 90)] [--description TEXT]
+  tidegard-api token create --platform --actor-id ID --role ROLE
+                                 [--actor-type operator|service_account]
+                                 [--days 1-90 (default 30)] [--description TEXT]
   tidegard-api token revoke --token-id UUID
-  tidegard-api token list --tenant T
-roles: viewer, operator, senior_operator, noc_lead";
+  tidegard-api token list --tenant T | --platform
+tenant roles: viewer, operator, senior_operator, noc_lead, customer_admin,
+              security_analyst, automation (service accounts only)
+platform roles: noc_operator, noc_admin, auditor, platform_admin, super_admin";
 
 /// `tidegard-api token ...`: the bootstrap path for API tokens. Output
 /// goes to stdout for the operator; the secret is printed once.
 async fn token_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
-    use tidegard_api::auth::Role;
-    use tidegard_api::token_admin::{self, ActorType, NewToken};
+    use tidegard_api::auth::{Role, Scope};
+    use tidegard_api::token_admin::{self, ActorType, NewPlatformToken, NewToken};
 
     let flag = |name: &str| {
         args.windows(2)
             .find(|pair| pair[0] == name)
             .map(|pair| pair[1].clone())
     };
+    let platform = args.iter().any(|arg| arg == "--platform");
     let client = match tidegard_incident_postgres::pool::acquire(pool).await {
         Ok(client) => client,
         Err(error) => {
@@ -227,45 +233,81 @@ async fn token_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
     };
     let result = match args.first().map(String::as_str) {
         Some("create") => {
-            let (Some(tenant), Some(actor_id), Some(role)) =
-                (flag("--tenant"), flag("--actor-id"), flag("--role"))
-            else {
+            let tenant = flag("--tenant");
+            let (Some(actor_id), Some(role)) = (flag("--actor-id"), flag("--role")) else {
                 eprintln!("{TOKEN_USAGE}");
                 return 2;
             };
+            if platform == tenant.is_some() {
+                eprintln!("name a --tenant or --platform, not both\n{TOKEN_USAGE}");
+                return 2;
+            }
             let Some(role) = Role::parse(&role) else {
                 eprintln!("unknown role '{role}'\n{TOKEN_USAGE}");
                 return 2;
             };
+            let scope = if platform {
+                Scope::Platform
+            } else {
+                Scope::Tenant
+            };
+            if role.scope() != scope {
+                eprintln!(
+                    "{} is a {} role\n{TOKEN_USAGE}",
+                    role.as_str(),
+                    role.scope().as_str()
+                );
+                return 2;
+            }
             let actor_type = flag("--actor-type").unwrap_or_else(|| "operator".to_string());
             let Some(actor_type) = ActorType::parse(&actor_type) else {
                 eprintln!("unknown actor type '{actor_type}'\n{TOKEN_USAGE}");
                 return 2;
             };
-            let Ok(lifetime_days) = flag("--days").unwrap_or_else(|| "90".to_string()).parse()
+            let default_days = if platform { "30" } else { "90" };
+            let Ok(lifetime_days) = flag("--days")
+                .unwrap_or_else(|| default_days.to_string())
+                .parse()
             else {
                 eprintln!("--days must be a number\n{TOKEN_USAGE}");
                 return 2;
             };
-            // A tenant named for the first time is registered, as v1.0.0
-            // scripts expect (ADR 0060). The API itself never does this.
-            match tidegard_incident_postgres::tenants::ensure(&**client, &tenant).await {
-                Ok(true) => eprintln!("registered tenant '{tenant}'"),
-                Ok(false) => {}
-                Err(error) => {
-                    eprintln!("{error}");
-                    return 1;
+            let description = flag("--description").unwrap_or_default();
+            let issued = match tenant {
+                None => {
+                    let new = NewPlatformToken {
+                        actor_type,
+                        actor_id,
+                        role,
+                        lifetime_days,
+                        description,
+                    };
+                    token_admin::create_platform(&**client, &new).await
                 }
-            }
-            let new = NewToken {
-                tenant,
-                actor_type,
-                actor_id,
-                role,
-                lifetime_days,
-                description: flag("--description").unwrap_or_default(),
+                Some(tenant) => {
+                    // A tenant named for the first time is registered, as
+                    // v1.0.0 scripts expect (ADR 0060). The API itself never
+                    // does this.
+                    match tidegard_incident_postgres::tenants::ensure(&**client, &tenant).await {
+                        Ok(true) => eprintln!("registered tenant '{tenant}'"),
+                        Ok(false) => {}
+                        Err(error) => {
+                            eprintln!("{error}");
+                            return 1;
+                        }
+                    }
+                    let new = NewToken {
+                        tenant,
+                        actor_type,
+                        actor_id,
+                        role,
+                        lifetime_days,
+                        description,
+                    };
+                    token_admin::create(&**client, &new).await
+                }
             };
-            token_admin::create(&**client, &new).await.map(|issued| {
+            issued.map(|issued| {
                 println!("token_id:   {}", issued.token_id);
                 println!("expires_at: {}", issued.expires_at);
                 println!("token:      {}", issued.secret);
@@ -288,11 +330,15 @@ async fn token_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
                 })
         }
         Some("list") => {
-            let Some(tenant) = flag("--tenant") else {
-                eprintln!("{TOKEN_USAGE}");
-                return 2;
+            let listed = match (flag("--tenant"), platform) {
+                (Some(tenant), false) => token_admin::list(&**client, &tenant).await,
+                (None, true) => token_admin::list_platform(&**client).await,
+                _ => {
+                    eprintln!("{TOKEN_USAGE}");
+                    return 2;
+                }
             };
-            token_admin::list(&**client, &tenant).await.map(|tokens| {
+            listed.map(|tokens| {
                 for token in tokens {
                     println!(
                         "{}  {}:{}  {}  created {}  expires {}  {}  {}",

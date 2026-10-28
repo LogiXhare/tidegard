@@ -17,6 +17,16 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
   `/16`, and a tenant named `platform`.
 - `tidegard-api tenant create|list|suspend|activate` and
   `tidegard-api tenant prefix add|remove|list` on the host.
+- The roles of FR-12.2: tenant roles `customer_admin`, `security_analyst`
+  and `automation` (service accounts only), and the provider roles
+  `noc_operator`, `noc_admin`, `auditor`, `platform_admin` and
+  `super_admin`. The four v1.0.0 roles are unchanged.
+- Platform tokens (migration V23): a provider role, no tenant, at most 90
+  days, from `tidegard-api token create --platform`. A platform principal
+  names the tenant it acts in with the `Tidegard-Tenant` header; without
+  one, only `whoami`, the session and the platform endpoints answer
+  (`api.tenant_required`, `api.tenant_unknown`).
+- `whoami` returns the principal's `scope`.
 
 ### Changed
 
@@ -27,6 +37,11 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
   scripts keep working.
 - Upgrading registers every tenant id already in use, active and named by
   its id. Nothing needs to be done by hand.
+- The `platform_admin` permission bundle no longer changes incidents;
+  `super_admin` holds every human permission. No token could carry
+  `platform_admin` before.
+- A tenant token sent with another tenant's `Tidegard-Tenant` header is
+  refused with `403 api.forbidden`.
 
 ### Security — RUSTSEC-2026-0414
 

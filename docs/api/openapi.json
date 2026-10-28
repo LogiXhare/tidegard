@@ -7100,6 +7100,7 @@
         "description": "The caller, as its token identifies it.",
         "required": [
           "tenant_id",
+          "scope",
           "actor_type",
           "actor_id",
           "role",
@@ -7122,10 +7123,15 @@
           },
           "role": {
             "type": "string",
-            "description": "viewer, operator, senior_operator or noc_lead."
+            "description": "A tenant role (viewer, operator, senior_operator, noc_lead,\ncustomer_admin, security_analyst, automation) or a platform role\n(noc_operator, noc_admin, auditor, platform_admin, super_admin)."
+          },
+          "scope": {
+            "type": "string",
+            "description": "`tenant` or `platform` (ADR 0060)."
           },
           "tenant_id": {
-            "type": "string"
+            "type": "string",
+            "description": "The tenant this request acts in. For a platform principal, the one\nits `Tidegard-Tenant` header named, or `platform` without one."
           }
         }
       }

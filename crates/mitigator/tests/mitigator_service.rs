@@ -349,12 +349,7 @@ async fn the_mitigator_announces_withdraws_reconciles_and_obeys_the_kill_switch(
     {
         let mut c = pool.get().await.unwrap();
         store(guard(true, true))
-            .set_kill_switch(
-                &mut c,
-                &person("root", "platform_admin"),
-                false,
-                "drill over",
-            )
+            .set_kill_switch(&mut c, &person("root", "super_admin"), false, "drill over")
             .await
             .unwrap();
     }

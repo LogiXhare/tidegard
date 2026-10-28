@@ -319,7 +319,7 @@ async fn measure_round(client: &mut Client, history: u32, report: &mut String) {
         Actor::Operator {
             id: "platform-admin".to_string(),
         },
-        FixedBundleResolver.permissions_for("platform_admin"),
+        FixedBundleResolver.permissions_for("super_admin"),
     ))
     .unwrap();
     let consumer = OutboxConsumer::new(&platform, "bench", OutboxPolicy::default());

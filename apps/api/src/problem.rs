@@ -65,6 +65,8 @@ error_codes! {
     RateLimited => ("api.rate_limited", 429, "Rate limit exceeded"),
     Unavailable => ("api.unavailable", 503, "Service unavailable"),
     Internal => ("api.internal", 500, "Internal error"),
+    TenantRequired => ("api.tenant_required", 400, "Tenant required"),
+    TenantUnknown => ("api.tenant_unknown", 400, "Unknown tenant"),
     IncidentNotFound => ("incident.not_found", 404, "Incident not found"),
     IllegalTransition => ("incident.illegal_transition", 409, "Illegal state transition"),
     VersionConflict => ("incident.version_conflict", 409, "Version conflict"),

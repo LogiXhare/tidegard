@@ -24,6 +24,8 @@ status.
 | `api.rate_limited` | 429 | Over the rate limit. Sent with `Retry-After`. |
 | `api.unavailable` | 503 | The database cannot be reached. The API fails closed. Sent with `Retry-After`. |
 | `api.internal` | 500 | Unexpected. The body carries nothing but this code and the request id. |
+| `api.tenant_required` | 400 | A platform principal called an endpoint that acts in a tenant without naming one in the `Tidegard-Tenant` header ([ADR 0060](../architecture/decisions/0060-phase8a-tenant-registry.md)). |
+| `api.tenant_unknown` | 400 | The `Tidegard-Tenant` header names no registered tenant. Sent only to platform principals; a tenant principal that names another tenant gets `api.forbidden`. |
 | `incident.not_found` | 404 | No such incident, **or another tenant's**. The two are indistinguishable by design. |
 | `incident.illegal_transition` | 409 | The state machine does not allow this transition from the current state. |
 | `incident.version_conflict` | 409 | `expected_version` is stale. Re-read the incident and retry. |
