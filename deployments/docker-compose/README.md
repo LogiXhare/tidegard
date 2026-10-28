@@ -83,3 +83,26 @@ incident manager applies new migrations when it starts.
 `tls/`, `secrets/` and `.env` hold this host's keys and passwords. They
 are in `.gitignore`; keep them out of any repository and back them up
 with the host's other secrets.
+
+## Certificates and passwords
+
+The certificates `setup.sh` issues last 825 days. Run `sudo ./setup.sh`
+monthly, or before an upgrade: it issues again any certificate within
+30 days of expiry, or not signed by the stack's CA, and says "renewed";
+then run `docker compose up -d --force-recreate`. The header of
+`setup.sh` lists how to rotate each file.
+
+### Rotating the PostgreSQL password
+
+PostgreSQL reads `secrets/postgres-password` only when its volume is
+first created, so a new file alone changes nothing. Change the role,
+then the two files that hold the password, then restart:
+
+```sh
+new=$(openssl rand -hex 24)
+docker compose exec -T postgres psql -U tidegard -d tidegard \
+  -c "ALTER ROLE tidegard PASSWORD '$new'"
+sudo sh -c "printf '%s\n' '$new' > secrets/postgres-password"
+sudo sed -i "s/password=[^ ]*/password=$new/" .env
+docker compose up -d --force-recreate
+```

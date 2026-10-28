@@ -267,6 +267,12 @@ async fn main() -> std::io::Result<()> {
     socket.connect(&args.target).await?;
 
     if let Some(rate) = args.rate {
+        if args.exporters != 1 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "--rate sends from one observation domain; --exporters does not apply",
+            ));
+        }
         // One line a script can read: what was sent, and how fast.
         let report = load::run(
             &socket,

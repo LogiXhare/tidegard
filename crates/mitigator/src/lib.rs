@@ -30,6 +30,8 @@ pub use config::Config;
 
 /// How long to wait after a database or GoBGP error.
 const ERROR_WAIT: Duration = Duration::from_secs(5);
+/// How long the check that the lock's connection is alive may take.
+const LOCK_CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 /// The advisory lock that keeps a second mitigator from acting alongside
 /// the first: one writer to GoBGP per installation.
 pub const SINGLE_MITIGATOR_LOCK: i64 = 0x574E_4D00_0007;
@@ -42,6 +44,8 @@ pub enum StartupError {
     Database(String),
     #[error("GoBGP cannot be used: {0}")]
     GoBgp(#[from] gobgp::GoBgpError),
+    #[error("the connection holding the single-mitigator lock was lost; another mitigator may be active")]
+    LockLost,
 }
 
 /// The mitigator's cross-tenant authority, as the notifier's: a platform
@@ -138,11 +142,29 @@ pub async fn run(
     let reconcile_every = config.file.reconcile_interval();
     // Reconcile at start: a restart may have left routes behind or lost them.
     let mut next_reconcile = Instant::now();
+    let mut gobgp_reachable = true;
     loop {
+        // The lock is the session's: if its connection is gone, so is the
+        // lock, and a standby may already act. Stop rather than act
+        // alongside it; the service manager restarts this one as a
+        // standby.
+        let held = tokio::time::timeout(LOCK_CHECK_TIMEOUT, lock.query_one("SELECT 1", &[])).await;
+        if !matches!(held, Ok(Ok(_))) {
+            readiness.set(false);
+            tracing::error!("the connection holding the single-mitigator lock was lost; stopping");
+            server.abort();
+            return Err(StartupError::LockLost);
+        }
         if mitigator.has_bgp() && Instant::now() >= next_reconcile {
             match mitigator.reconcile(&pool).await {
-                Ok(report) => tracing::debug!(?report, "reconciled"),
-                Err(error) => tracing::warn!(error = %error, "reconciliation failed"),
+                Ok(report) => {
+                    gobgp_reachable = true;
+                    tracing::debug!(?report, "reconciled");
+                }
+                Err(error) => {
+                    gobgp_reachable = !error.is_unreachable();
+                    tracing::warn!(error = %error, "reconciliation failed");
+                }
             }
             if let Err(error) = mitigator.check_peers(&pool).await {
                 tracing::warn!(error = %error, "GoBGP's peers could not be listed");
@@ -150,9 +172,17 @@ pub async fn run(
             next_reconcile = Instant::now() + reconcile_every;
         }
         let outcome = mitigator.run_once(&pool).await;
-        // Ready while passes succeed; a standby never gets here, so it
-        // stays not ready (ADR 0052).
-        readiness.set(outcome.is_ok());
+        if let Ok(report) = &outcome {
+            if report.unreachable > 0 {
+                gobgp_reachable = false;
+            } else if report.announced + report.withdrawn > 0 {
+                gobgp_reachable = true;
+            }
+        }
+        // Ready while it holds the lock, passes succeed and GoBGP
+        // answers; a standby never gets here, so it stays not ready
+        // (ADR 0052).
+        readiness.set(outcome.is_ok() && gobgp_reachable);
         let wait = match outcome {
             Ok(_) => config.file.poll_interval(),
             Err(error) => {

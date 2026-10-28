@@ -5,10 +5,10 @@
 //! else needs TLS verified against a configured CA bundle. Every call has a
 //! deadline.
 
-use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use tidegard_common::http_endpoint;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity};
 
 use crate::api;
@@ -40,46 +40,14 @@ impl From<tonic::Status> for GoBgpError {
     }
 }
 
-/// Splits `http://host:port` or `https://host:port`. Nothing else is
-/// allowed in the URL.
+/// Splits `http://host:port` or `https://host:port`, by the rule every
+/// service's endpoints follow (ADR 0053). GoBGP has no customary port,
+/// so the URL must give one.
 pub fn parse_endpoint(url: &str) -> Result<(bool, String, u16), GoBgpError> {
-    let setup = |what: &str| GoBgpError::Setup(what.to_string());
-    let (tls, rest) = if let Some(rest) = url.strip_prefix("https://") {
-        (true, rest)
-    } else if let Some(rest) = url.strip_prefix("http://") {
-        (false, rest)
-    } else {
-        return Err(setup("the endpoint must start with http:// or https://"));
-    };
-    if rest.contains(['/', '?', '#', '@']) {
-        return Err(setup("the endpoint may hold only a host and a port"));
-    }
-    let (host, port) = if let Some(bracketed) = rest.strip_prefix('[') {
-        let (host, after) = bracketed
-            .split_once(']')
-            .ok_or_else(|| setup("an IPv6 host needs its closing bracket"))?;
-        (host.to_string(), after.strip_prefix(':'))
-    } else {
-        match rest.rsplit_once(':') {
-            Some((host, port)) => (host.to_string(), Some(port)),
-            None => (rest.to_string(), None),
-        }
-    };
-    let port = port
-        .ok_or_else(|| setup("the endpoint needs a port"))?
-        .parse::<u16>()
-        .ok()
-        .filter(|port| *port > 0)
-        .ok_or_else(|| setup("the port is not a number from 1 to 65535"))?;
-    if host.is_empty() {
-        return Err(setup("the endpoint has no host"));
-    }
-    Ok((tls, host, port))
-}
-
-fn is_loopback(host: &str) -> bool {
-    host.eq_ignore_ascii_case("localhost")
-        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+    let (scheme, host, port) =
+        http_endpoint::parse_url_with_port(url).map_err(GoBgpError::Setup)?;
+    let port = port.ok_or_else(|| GoBgpError::Setup("the endpoint needs a port".into()))?;
+    Ok((scheme == http_endpoint::Scheme::Https, host, port))
 }
 
 /// The families Tidegard announces in.
@@ -182,7 +150,7 @@ impl GoBgp {
                     "a client certificate was given for a plain http:// endpoint".into(),
                 ))
             }
-            (false, None) if is_loopback(&host) => {}
+            (false, None) if http_endpoint::is_loopback(&host) => {}
             (false, None) => {
                 return Err(GoBgpError::Setup(
                     "GoBGP's API has no authentication: plain HTTP is allowed to loopback only; \

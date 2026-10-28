@@ -11,8 +11,20 @@
 # - .env: the image version and the database URL (it holds the
 #   PostgreSQL password), readable by the user who ran sudo.
 #
-# Nothing that exists is overwritten, so running it again is safe. To
-# rotate, stop the stack, remove the file in question and run it again.
+# Nothing that exists is overwritten, so running it again is safe, with
+# one exception: a certificate within 30 days of expiry, or not signed by
+# the stack's CA, is issued again. Run it monthly, or before an upgrade,
+# and restart the stack when it says "renewed".
+#
+# To rotate:
+# - the CA: stop the stack, remove tls/ca.pem and run it again; every
+#   certificate is issued again from the new CA.
+# - a certificate: remove its .crt and run it again.
+# - the ClickHouse password: remove secrets/clickhouse-password and run
+#   it again; ClickHouse takes it at its next start.
+# - the PostgreSQL password: PostgreSQL reads its file only when its
+#   volume is first created, so change the role first, then the files:
+#   see README.md, "Rotating the PostgreSQL password".
 # These files are never committed (.gitignore).
 set -euo pipefail
 
@@ -37,7 +49,9 @@ umask 077
 mkdir -p tls secrets
 chmod 0755 tls secrets
 
+new_ca=false
 if [ ! -e tls/ca.pem ]; then
+  new_ca=true
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
     -subj "/CN=Tidegard stack CA" \
     -addext "basicConstraints=critical,CA:TRUE" \
@@ -50,9 +64,15 @@ fi
 
 # certificate <name> <owner uid> <subjectAltName>
 certificate() {
+  local outcome=created
   if [ -e "tls/$1.crt" ]; then
-    echo "kept     tls/$1.crt"
-    return
+    if [ "$new_ca" = false ] \
+      && openssl verify -CAfile tls/ca.pem "tls/$1.crt" >/dev/null 2>&1 \
+      && openssl x509 -checkend 2592000 -noout -in "tls/$1.crt" >/dev/null; then
+      echo "kept     tls/$1.crt"
+      return
+    fi
+    outcome=renewed
   fi
   openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=$1" \
     -keyout "tls/$1.key" -out "tls/$1.csr" 2>/dev/null
@@ -64,7 +84,7 @@ certificate() {
   chown "$2:$2" "tls/$1.key"
   chmod 0400 "tls/$1.key"
   chmod 0644 "tls/$1.crt"
-  echo "created  tls/$1.crt"
+  printf '%-8s tls/%s.crt\n' "$outcome" "$1"
 }
 certificate postgres "$POSTGRES_UID" "DNS:postgres"
 certificate clickhouse "$CLICKHOUSE_UID" "DNS:clickhouse"

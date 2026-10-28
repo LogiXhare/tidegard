@@ -107,7 +107,7 @@ jobs:
             -e CLICKHOUSE_USER=tidegard \
             -e CLICKHOUSE_PASSWORD="$(cat "$RUNNER_TEMP/clickhouse-password")" \
             -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
-            clickhouse/clickhouse-server:26.8.14.3@sha256:4769eec6a9b9842a7d102c8bdfca0400128bc6edf65dec4e19a7d3a2b25f32db
+            clickhouse/clickhouse-server:26.8.24.9@sha256:35b2bc23277259a249af5fbb199ca9ce5042eb249ecbbcbb15b19256a1f41660
           for _ in $(seq 60); do
             curl -sf http://127.0.0.1:18123/ping >/dev/null && break
             sleep 1
@@ -231,24 +231,29 @@ jobs:
           for port in 8080 9090 9093 9094; do ready "$port"; done
           # The collector creates its tables before it says so.
           for _ in $(seq 30); do
-            sudo journalctl -u tidegard-collector --no-pager | grep -q "ClickHouse export enabled" && break
+            sudo journalctl -u tidegard-collector --no-pager | grep "ClickHouse export enabled" >/dev/null && break
             sleep 1
           done
-          sudo journalctl -u tidegard-collector --no-pager | grep -q "ClickHouse export enabled"
+          sudo journalctl -u tidegard-collector --no-pager | grep "ClickHouse export enabled" >/dev/null
           # token <actor> <role>
           token() {
             sudo bash -c "set -a; . /etc/tidegard/api.env; exec /opt/tidegard/bin/tidegard-api \
               token create --tenant default --actor-id $1 --role $2 --days 1" \
               | awk '/^token:/ {print $2}'
           }
-          # Four eyes: an operator requests, a lead approves.
+          # Four eyes: a lead requests, and only another lead may approve.
+          # The requester holds the approval permission, so a refusal comes
+          # from the self-approval rule and not the role check.
           operator=$(token acceptance-operator senior_operator)
           lead=$(token acceptance-lead noc_lead)
-          [ -n "$operator" ] && [ -n "$lead" ]
+          second_lead=$(token acceptance-second-lead noc_lead)
+          [ -n "$operator" ] && [ -n "$lead" ] && [ -n "$second_lead" ]
           echo "::add-mask::$operator"
           echo "::add-mask::$lead"
+          echo "::add-mask::$second_lead"
           echo "OPERATOR=$operator" >> "$GITHUB_ENV"
           echo "LEAD=$lead" >> "$GITHUB_ENV"
+          echo "SECOND_LEAD=$second_lead" >> "$GITHUB_ENV"
       - name: Flows become an incident
         run: |
           set -euo pipefail
@@ -283,24 +288,33 @@ jobs:
         run: |
           set -euo pipefail
           curl -sS --fail-with-body -X POST "$API/api/v1/mitigations" \
-            -H "Authorization: Bearer $OPERATOR" -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $LEAD" -H "Content-Type: application/json" \
             -H "Idempotency-Key: acceptance-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             --data "{\"prefix\": \"$TARGET/128\", \"action\": \"rtbh\", \"reason\": \"Release acceptance\", \"duration_seconds\": 600, \"incident_id\": \"$INCIDENT\"}" \
             > mitigation.json
           id=$(python3 -c 'import json; print(json.load(open("mitigation.json"))["mitigation_id"])')
           version=$(python3 -c 'import json; print(json.load(open("mitigation.json"))["version"])')
           echo "MITIGATION=$id" >> "$GITHUB_ENV"
-          # The operator may not approve their own request.
-          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/api/v1/mitigations/$id/approve" \
-            -H "Authorization: Bearer $OPERATOR" -H "Content-Type: application/json" \
-            --data "{\"expected_version\": $version}")
+          # approve <token> <body file>: prints the HTTP status.
+          approve() {
+            curl -s -o "$2" -w '%{http_code}' -X POST "$API/api/v1/mitigations/$id/approve" \
+              -H "Authorization: Bearer $1" -H "Content-Type: application/json" \
+              --data "{\"expected_version\": $version}"
+          }
+          # The requester may not approve their own request, though their
+          # role may approve; an operator may not approve at all.
+          status=$(approve "$LEAD" self.json)
+          cat self.json; echo
           [ "$status" = 403 ] || { echo "the requester's own approval returned $status"; exit 1; }
-          curl -sS --fail-with-body -X POST "$API/api/v1/mitigations/$id/approve" \
-            -H "Authorization: Bearer $LEAD" -H "Content-Type: application/json" \
-            --data "{\"expected_version\": $version}" >/dev/null
+          grep -q "mitigation.self_approval" self.json
+          status=$(approve "$OPERATOR" operator.json)
+          [ "$status" = 403 ] || { echo "an operator's approval returned $status"; exit 1; }
+          status=$(approve "$SECOND_LEAD" approved.json)
+          [ "$status" = 200 ] || { cat approved.json; echo "the second lead's approval returned $status"; exit 1; }
+          # A failed poll is retried, not fatal.
           for _ in $(seq 60); do
             state=$(curl -sf -H "Authorization: Bearer $LEAD" "$API/api/v1/mitigations/$id" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])')
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])') || state=unknown
             [ "$state" = active ] && break
             sleep 1
           done
@@ -326,7 +340,7 @@ jobs:
             --data "{\"expected_version\": $version, \"reason\": \"Release acceptance complete\"}" >/dev/null
           for _ in $(seq 60); do
             state=$(curl -sf -H "Authorization: Bearer $LEAD" "$API/api/v1/mitigations/$MITIGATION" \
-              | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])')
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])') || state=unknown
             [ "$state" = withdrawn ] && break
             sleep 1
           done

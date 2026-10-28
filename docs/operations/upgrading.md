@@ -130,7 +130,24 @@ under the product's new name:
   settings into the `.env` files.
 - **Settings are `TIDEGARD_*` now.** Your `WETECHINETMON_*` settings
   still work through the 1.x series: each service reads the old name
-  when the new one is unset, and warns. Rename them when you can.
+  when the new one is unset or blank, and logs a warning. Rename them
+  when you can. `tidegardctl` reads its profiles from
+  `~/.config/tidegard/cli.json` (`%APPDATA%\tidegard\cli.json` on
+  Windows), and still finds the `wetechinetmon` one, with a warning.
+- **Two names inside messages changed with the product**, and a
+  program that checks them needs the new one:
+  - the webhook body's `schema` is `tidegard.notification.v1` and its
+    `product` `Tidegard`. The `X-WNM-*` headers and their signature
+    are unchanged, so a receiver that verifies the signature and reads
+    the fields keeps working; one that compares `schema` needs
+    `tidegard.notification.v1` added;
+  - an incident export's `format` is `tidegard.incident-export`, still
+    version 1. Bundles exported by v0.9.0 keep
+    `wetechinetmon.incident-export`; tooling that reads both should
+    accept both.
+
+  A web UI page left open across the upgrade keeps its sign-in and
+  keeps working.
 - The database role `wetechinetmon_app`, the ClickHouse tables and the
   API token prefix keep their names, so your data and tokens need
   nothing.

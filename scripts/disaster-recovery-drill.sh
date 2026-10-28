@@ -29,6 +29,8 @@ for _ in $(seq 60); do
   docker exec dr-postgres pg_isready -U tidegard -d tidegard >/dev/null 2>&1 && break
   sleep 1
 done
+docker exec dr-postgres pg_isready -U tidegard -d tidegard >/dev/null 2>&1 \
+  || { echo "dr: PostgreSQL never became ready"; docker logs dr-postgres; exit 1; }
 sleep 2
 psql_() { docker exec -i dr-postgres psql -X -U tidegard -d "${1:-tidegard}" "${@:2}"; }
 
@@ -53,11 +55,13 @@ docker run -d --name dr-clickhouse -p 127.0.0.1:8123:8123 \
   -e CLICKHOUSE_USER=tidegard -e CLICKHOUSE_PASSWORD="$CH_PASSWORD" \
   -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
   -v "$DR/backups.xml:/etc/clickhouse-server/config.d/backups.xml:ro" \
-  -v "$DR/backups:/backups" clickhouse/clickhouse-server:26.8.24.9 > /dev/null
+  -v "$DR/backups:/backups" clickhouse/clickhouse-server:26.8.24.9@sha256:35b2bc23277259a249af5fbb199ca9ce5042eb249ecbbcbb15b19256a1f41660 > /dev/null
 for _ in $(seq 60); do
   curl -sf http://127.0.0.1:8123/ping >/dev/null && break
   sleep 1
 done
+curl -sf http://127.0.0.1:8123/ping >/dev/null \
+  || { echo "dr: ClickHouse never became ready"; docker logs dr-clickhouse; exit 1; }
 ch() { curl -sS --fail-with-body --user "tidegard:$CH_PASSWORD" --data-binary "$1" http://127.0.0.1:8123/; }
 tables=$(cut -d' ' -f1 before.txt)
 list=$(echo "$tables" | sed 's/^/TABLE default./' | paste -sd, -)
@@ -114,9 +118,9 @@ echo "dr: the API serves all $total incidents"
 TIDEGARD_API_URL=http://127.0.0.1:8080 TIDEGARD_API_TOKEN="$token" \
   /opt/tidegard/bin/tidegardctl incidents list > /dev/null
 for _ in $(seq 30); do
-  sudo journalctl -u tidegard-collector --no-pager | grep -q "ClickHouse export enabled" && break
+  sudo journalctl -u tidegard-collector --no-pager | grep "ClickHouse export enabled" >/dev/null && break
   sleep 1
 done
-sudo journalctl -u tidegard-collector --no-pager | grep -q "ClickHouse export enabled"
+sudo journalctl -u tidegard-collector --no-pager | grep "ClickHouse export enabled" >/dev/null
 echo "dr: the collector exports to the restored ClickHouse"
 echo "dr: passed"

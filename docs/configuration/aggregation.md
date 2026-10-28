@@ -56,13 +56,13 @@ provides `bgpSourceAsNumber`/`bgpDestinationAsNumber`). Default `10000`.
 | Default | `1000` |
 | Security implications | Bounds the exporters tracked, each a source address and observation domain with its own template cache of at most 512 templates and 8,192 fields: about 125 MiB at the default, whatever is sent |
 | Related metrics | `tidegard_collector_active_exporters`, `tidegard_collector_datagrams_refused_total{reason="exporter_limit"}` |
-| Troubleshooting | Past the limit, a new exporter's datagrams are dropped and counted; those already tracked carry on |
+| Troubleshooting | A new exporter keeps its place only once a datagram from it decodes. Past the limit, it takes the place of the longest-silent exporter that has defined no template; when every one has, its datagrams are dropped and counted, and those already tracked carry on |
 
 ## `TIDEGARD_COLLECTOR_EXPORTER_IDLE_SECS`
 
 | Field | Value |
 |---|---|
-| Type | Non-negative integer (seconds) |
+| Type | Positive integer (seconds); `0` stops the collector at startup |
 | Default | `3600` |
 | Related metrics | `tidegard_collector_active_exporters`, `tidegard_collector_template_cache_size` |
 | Troubleshooting | An exporter silent this long is forgotten with its templates, swept every 30 seconds. When it returns, its data is unknown until it sends templates again |

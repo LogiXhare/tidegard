@@ -81,11 +81,11 @@ impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
         Self::from_lookup(|var| match tidegard_common::env::var(var) {
             Ok(value) => Ok(value),
-            Err(std::env::VarError::NotPresent) => Ok(None),
-            Err(std::env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidValue {
+            // Unset is Ok(None); only a value that is not text is left.
+            Err(_) => Err(ConfigError::InvalidValue {
                 var: var.to_string(),
                 value: "<non-utf8>".to_string(),
-                expected: "a UTF-8 string",
+                expected: "a UTF-8 string, under this name or its deprecated one",
             }),
         })
     }

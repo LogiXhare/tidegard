@@ -85,8 +85,10 @@ pub struct ExporterLimits {
     /// Source networks the collector accepts datagrams from. Empty means
     /// any source, for a port only the routers can reach.
     pub allowed: Vec<AllowedNetwork>,
-    /// The most exporters tracked at once. A new one past it is refused
-    /// until an idle one is forgotten.
+    /// The most exporters tracked at once. A new one past it takes the
+    /// place of the longest-silent exporter that holds no template, and
+    /// is refused when every one holds some, until an idle one is
+    /// forgotten.
     pub max_exporters: usize,
     /// How long an exporter may stay silent before its state, templates
     /// included, is forgotten.
@@ -181,15 +183,34 @@ impl ExporterRegistry {
     }
 
     /// Returns the state for `key`, creating it if this is the first
-    /// datagram from it, or `None` when `max_exporters` are already
-    /// tracked and `key` is not one of them.
+    /// datagram from it. When `max_exporters` are already tracked, a new
+    /// key takes the place of the longest-silent exporter that holds no
+    /// template, so senders that never define one cannot keep a router
+    /// out; `None` when every tracked exporter holds templates.
     pub fn get_or_create(&mut self, key: ExporterKey) -> Option<&mut ExporterState> {
-        let full = self.exporters.len() >= self.limits.max_exporters;
+        if !self.exporters.contains_key(&key) && self.exporters.len() >= self.limits.max_exporters {
+            let idlest = self
+                .exporters
+                .iter()
+                .filter(|(_, state)| state.template_cache.is_empty())
+                .min_by_key(|(_, state)| state.last_seen)
+                .map(|(key, _)| *key)?;
+            self.exporters.remove(&idlest);
+        }
         match self.exporters.entry(key) {
             Entry::Occupied(entry) => Some(entry.into_mut()),
-            Entry::Vacant(_) if full => None,
             Entry::Vacant(entry) => Some(entry.insert(ExporterState::new())),
         }
+    }
+
+    pub fn contains(&self, key: &ExporterKey) -> bool {
+        self.exporters.contains_key(key)
+    }
+
+    /// Forgets one exporter: a new one whose first datagram did not
+    /// decode keeps no place.
+    pub fn remove(&mut self, key: &ExporterKey) {
+        self.exporters.remove(key);
     }
 
     /// Forgets every exporter silent for longer than the idle timeout,
@@ -292,6 +313,23 @@ mod tests {
         assert_eq!(registry.exporter_count(), 2);
     }
 
+    fn with_template(registry: &mut ExporterRegistry, key: ExporterKey) {
+        registry
+            .get_or_create(key)
+            .unwrap()
+            .template_cache
+            .insert(tidegard_protocol_ipfix::Template {
+                template_id: 256,
+                scope_field_count: 0,
+                fields: vec![tidegard_protocol_ipfix::FieldSpecifier {
+                    information_element_id: 8,
+                    field_length: 4,
+                    enterprise_number: None,
+                }],
+            })
+            .unwrap();
+    }
+
     #[test]
     fn a_new_exporter_past_the_limit_is_refused_until_one_goes_idle() {
         let mut registry = ExporterRegistry::with_limits(ExporterLimits {
@@ -299,8 +337,8 @@ mod tests {
             idle_timeout: Duration::from_secs(60),
             ..ExporterLimits::default()
         });
-        registry.get_or_create((addr(1), 0)).unwrap();
-        registry.get_or_create((addr(2), 0)).unwrap();
+        with_template(&mut registry, (addr(1), 0));
+        with_template(&mut registry, (addr(2), 0));
         assert!(registry.get_or_create((addr(3), 0)).is_none());
         assert!(registry.get_or_create((addr(1), 7)).is_none());
         // Those already tracked carry on.
@@ -310,6 +348,29 @@ mod tests {
         assert_eq!(registry.evict_idle(Instant::now()), 0);
         assert_eq!(registry.evict_idle(later), 2);
         assert!(registry.get_or_create((addr(3), 0)).is_some());
+    }
+
+    /// Senders that define no template cannot fill every place: a new
+    /// exporter takes the longest-silent such one's.
+    #[test]
+    fn a_new_exporter_replaces_the_idlest_one_without_templates() {
+        let mut registry = ExporterRegistry::with_limits(ExporterLimits {
+            max_exporters: 3,
+            ..ExporterLimits::default()
+        });
+        with_template(&mut registry, (addr(1), 0));
+        registry.get_or_create((addr(2), 0)).unwrap();
+        std::thread::sleep(Duration::from_millis(2));
+        registry
+            .get_or_create((addr(3), 0))
+            .unwrap()
+            .observe_sequence(1);
+
+        assert!(registry.get_or_create((addr(4), 0)).is_some());
+        assert_eq!(registry.exporter_count(), 3);
+        assert!(registry.contains(&(addr(1), 0)));
+        assert!(!registry.contains(&(addr(2), 0)));
+        assert!(registry.contains(&(addr(3), 0)));
     }
 
     fn network(text: &str) -> Option<AllowedNetwork> {
