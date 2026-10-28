@@ -21,6 +21,7 @@ pub mod incidents;
 pub mod list;
 pub mod mitigations;
 pub mod openapi;
+pub mod platform;
 pub mod problem;
 pub mod rate_limit;
 pub mod request_id;
@@ -28,6 +29,7 @@ pub mod server;
 pub mod session;
 pub mod time;
 pub mod token_admin;
+pub mod tokens;
 pub mod traffic;
 pub mod transitions;
 pub mod web;
@@ -36,7 +38,7 @@ pub mod whoami;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post, put};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use deadpool_postgres::Pool;
 use serde::Serialize;
@@ -234,6 +236,32 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/bgp/routes", get(mitigations::bgp_routes))
         .route("/bgp/peers", get(mitigations::bgp_peers))
+        .route(
+            "/platform/tenants",
+            get(platform::list_tenants).post(platform::create_tenant),
+        )
+        .route("/platform/tenants/{tenant_id}", get(platform::get_tenant))
+        .route(
+            "/platform/tenants/{tenant_id}/suspend",
+            post(platform::suspend_tenant),
+        )
+        .route(
+            "/platform/tenants/{tenant_id}/activate",
+            post(platform::activate_tenant),
+        )
+        .route(
+            "/platform/tenants/{tenant_id}/prefixes",
+            post(platform::add_prefix),
+        )
+        .route(
+            "/platform/tenants/{tenant_id}/prefixes/{address}/{length}",
+            delete(platform::remove_prefix),
+        )
+        .route(
+            "/tokens",
+            get(tokens::list_tokens).post(tokens::create_token),
+        )
+        .route("/tokens/{token_id}/revoke", post(tokens::revoke_token))
         .route_layer(axum::middleware::from_fn_with_state(
             state.auth.clone(),
             auth::require_principal,

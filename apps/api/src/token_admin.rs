@@ -222,6 +222,23 @@ async fn insert(
     })
 }
 
+/// Revokes a live token of `tenant`. `false` for another tenant's token, a
+/// platform token, a revoked one, or none (ADR 0060).
+pub async fn revoke_in_tenant(
+    client: &impl GenericClient,
+    tenant: &str,
+    token_id: &str,
+) -> Result<bool, AdminError> {
+    Ok(client
+        .execute(REVOKE_IN_TENANT, &[&token_id, &tenant])
+        .await?
+        == 1)
+}
+
+const REVOKE_IN_TENANT: &str = "\
+UPDATE api_tokens SET revoked_at = transaction_timestamp()
+WHERE token_id = $1::text::uuid AND tenant_id = $2 AND revoked_at IS NULL";
+
 /// `false` if no live token has this id.
 pub async fn revoke(client: &impl GenericClient, token_id: &str) -> Result<bool, AdminError> {
     Ok(client.execute(REVOKE, &[&token_id]).await? == 1)

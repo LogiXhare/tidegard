@@ -80,6 +80,16 @@ pub struct ProblemDocument {
         crate::mitigations::set_kill_switch,
         crate::mitigations::bgp_routes,
         crate::mitigations::bgp_peers,
+        crate::platform::list_tenants,
+        crate::platform::create_tenant,
+        crate::platform::get_tenant,
+        crate::platform::suspend_tenant,
+        crate::platform::activate_tenant,
+        crate::platform::add_prefix,
+        crate::platform::remove_prefix,
+        crate::tokens::list_tokens,
+        crate::tokens::create_token,
+        crate::tokens::revoke_token,
     ),
     components(schemas(
         ProblemDocument,
@@ -141,6 +151,15 @@ pub struct ProblemDocument {
         crate::mitigations::BgpRouteList,
         crate::mitigations::BgpPeer,
         crate::mitigations::BgpPeerList,
+        crate::platform::TenantView,
+        crate::platform::TenantList,
+        crate::platform::NewTenantBody,
+        crate::platform::PrefixBody,
+        crate::platform::PrefixView,
+        crate::tokens::TokenView,
+        crate::tokens::TokenList,
+        crate::tokens::NewTokenBody,
+        crate::tokens::IssuedTokenView,
     )),
     modifiers(&BearerAuth),
     tags(
@@ -149,6 +168,8 @@ pub struct ProblemDocument {
         (name = "identity", description = "Who the bearer token identifies"),
         (name = "traffic", description = "Deployment-wide traffic, for the one traffic tenant (ADR 0042)"),
         (name = "mitigations", description = "Mitigations in the caller's tenant, the kill switch and BGP status (ADR 0050)"),
+        (name = "platform", description = "The tenant registry: platform roles only (ADR 0060)"),
+        (name = "tokens", description = "The API tokens of the tenant acted in (ADR 0060)"),
     )
 )]
 pub struct ApiDoc;
