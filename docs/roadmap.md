@@ -1,7 +1,7 @@
 # Roadmap
 
-Status: Phases 0–7 complete; Phases 9 and 10 planned
-Last updated: 2026-10-12
+Status: Phases 0–7, 9 and 10 complete (v1.0.0); Phase 8 planned
+Last updated: 2026-10-28
 
 This roadmap mirrors the phased delivery model and versioning plan in the
 master prompt (sections 28–29). No phase begins until the prior phase has
@@ -22,8 +22,8 @@ an explicit decision record, a commit, and updated documentation.
 | Phase 6 | v0.7.0 | Grafana and native UI — ✅ complete |
 | Phase 6 (cont.) | v0.8.0 | Notification integrations — ✅ complete |
 | Phase 7 | v0.9.0 | BGP mitigation lab — ✅ complete |
-| Phase 8 | v1.1.0 | Multi-tenancy |
-| Phase 8 (cont.) | v1.2.0 | Enterprise authentication |
+| Phase 8 | v1.1.0 | Multi-tenancy — planned |
+| Phase 8 (cont.) | v1.2.0 | Enterprise authentication — planned |
 | Phase 9 | — | Production hardening (feeds into v1.0.0) — ✅ complete |
 | Phase 10 | v1.0.0 | Production-ready single-tenant release — ✅ released 2026-10-28 |
 | Future | v2.0.0 | Distributed high-availability architecture |
@@ -136,6 +136,20 @@ than configured — see
 
 Not covered, and deliberately: incident lifecycle (Phase 5),
 notifications (Phase 6), and any form of mitigation (Phase 7).
+
+## Phase 8: Multi-Tenancy and Enterprise Authentication — Planned
+
+Planned on 2026-10-28, after v1.0.0, with the owner's decisions on BQ-19
+to BQ-22. It ships in two releases. **v1.1.0** brings a tenant registry
+with prefix ownership in PostgreSQL (8A), row-level security (8B),
+traffic scoped to its tenant (8C), configuration checked against the
+registry and platform-only deployment controls (8D), and the UI and
+release (8E). **v1.2.0** brings a user directory with local accounts and
+TOTP (8F), OIDC and Microsoft Entra ID (8G), and hardening and release
+(8H). The ten roles of FR-12.2 arrive in 8A; a provider's NOC works
+across tenants through the API, every access audited. See the
+[Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md) and its
+[acceptance criteria](development/phase8-acceptance-criteria.md).
 
 ## Phases 9 and 10: Production Hardening and v1.0.0 — Complete
 

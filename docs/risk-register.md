@@ -1,7 +1,7 @@
 # Risk Register
 
-Status: Phases 9 and 10 planning, R30–R34 added
-Last updated: 2026-10-12
+Status: Phase 8 planning, R35–R40 added
+Last updated: 2026-10-28
 
 Scale: Likelihood (L) and Impact (I) rated Low/Medium/High. This register
 is reviewed and updated at the end of every phase per the master prompt's
@@ -43,6 +43,12 @@ phase-summary requirement.
 | R32 | Container base images bring known vulnerabilities | M | M | A minimal base, a Trivy gate in CI, Dependabot for base images, and a rebuild for every release ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9A) |
 | R33 | An upgrade from v0.9.0 loses or corrupts data | L | H | A mandatory backup before upgrading, an upgrade test with real data in CI, and a rollback proven by restore ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9C) |
 | R34 | The repository becoming permanently public exposes something in its history | L | H | A full-history gitleaks scan and a review of the history before v1.0.0 ([Phases 9 and 10 plan](architecture/phase9-10-production-release-plan.md), 9D) |
+| R35 | A new tenant-owned table is created without a row-level security policy | M | H | A catalog test fails any table with a `tenant_id` and no forced policy ([Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md), 8B) |
+| R36 | A stolen provider token or account reaches every tenant | L | H | Shorter expiry for platform tokens, MFA required for platform roles, and every cross-tenant access audited ([Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md), 8A, 8D, 8F) |
+| R37 | The upgrade from v1.0.0 breaks a running install: the role change, or policies hiding rows | M | H | An upgrade test with v1.0.0 data in CI, tenants registered by the migration, and the steps in the upgrade guide ([Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md), 8A, 8B, 8E) |
+| R38 | Filtering traffic by prefix at query time is slow for a tenant with many prefixes | M | M | A bounded prefix count per tenant, measured before the decision ([Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md), 8C) |
+| R39 | A flaw in OIDC validation lets a forged or foreign token sign in | L | H | A reviewed library, a negative test for each validation, and an independent review ([Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md), 8G, 8H) |
+| R40 | Local passwords bring credential stuffing and a stored-hash target | M | H | argon2id, rate limits per account and address, TOTP, and OIDC preferred in the guides ([Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md), 8F) |
 
 ## Review Trigger
 

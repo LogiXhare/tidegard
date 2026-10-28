@@ -1,8 +1,8 @@
 # Blocking Questions
 
-Status: Phases 9 and 10 planning — **BQ-3 and BQ-16 to BQ-18 resolved**
-2026-10-12. No decision blocking v1.0.0 remains outstanding.
-Last updated: 2026-10-12
+Status: Phase 8 planning — **BQ-19 to BQ-22 resolved** 2026-10-28. No
+Phase 8 decision remains outstanding.
+Last updated: 2026-10-28
 
 ## Decision summary
 
@@ -26,6 +26,10 @@ Last updated: 2026-10-12
 | BQ-16 | How v1.0.0 is published and signed | **Resolved 2026-10-12** — public release, cosign keyless | — |
 | BQ-17 | Automatic mitigation in v1.0.0 | **Resolved 2026-10-12** — no, manual approval stays | — |
 | BQ-18 | A real-traffic pilot before v1.0.0 | **Resolved 2026-10-12** — no, lab and synthetic only | — |
+| BQ-19 | Phase 8 order | **Resolved 2026-10-28** — v1.1.0 multi-tenancy, then v1.2.0 enterprise authentication | — |
+| BQ-20 | Where tenants and their prefixes live | **Resolved 2026-10-28** — a PostgreSQL registry; policy stays in files | — |
+| BQ-21 | Cross-tenant work through the API | **Resolved 2026-10-28** — provider roles, every access audited | — |
+| BQ-22 | Sign-in methods | **Resolved 2026-10-28** — OIDC, Entra ID, local accounts, TOTP; no LDAP yet | — |
 
 These are the only questions treated as genuinely blocking for Phase 1+
 architecture and legal posture. Per master prompt §31, minor questions are
@@ -478,3 +482,51 @@ with real traffic.
 **Resolved 2026-10-12. No.** Phases 9 and 10 use lab and synthetic
 traffic only, and change nothing on a live network. A pilot is the
 owner's to run after the release.
+
+## BQ-19: In what order does Phase 8 ship?
+
+The roadmap lists multi-tenancy as v1.1.0 and enterprise authentication
+as v1.2.0. The options were those two releases, one release with both,
+or authentication first.
+
+**Resolved 2026-10-28.** Two releases, in the roadmap's order: v1.1.0
+brings the tenant registry, row-level security, traffic tenancy and the
+platform roles; v1.2.0 brings the user directory, local accounts, OIDC,
+Entra ID and MFA. Each is smaller to review and to roll back. See the
+[Phase 8 plan](architecture/phase8-multi-tenancy-enterprise-auth-plan.md).
+
+## BQ-20: Where do tenants and their prefixes live?
+
+Tenants exist today only as ids on tokens and records, and their
+prefixes only in the detector's and the mitigator's configuration files.
+The options were a registry in PostgreSQL, moving all per-tenant policy
+into the database behind the API, or keeping everything in files.
+
+**Resolved 2026-10-28.** A tenant registry in PostgreSQL holds tenants
+and their prefixes, managed through the API and CLI by platform roles,
+and every service reads it. Detection, notification and mitigation
+policy stay in configuration files keyed by tenant, and each service
+checks them against the registry. Editing policy through the API waits
+for a later release.
+
+## BQ-21: Does a provider's NOC work across tenants through the API?
+
+Since Phase 5, cross-tenant authority has never travelled over the API:
+a token belongs to one tenant, and `platform_admin` is refused. A
+provider running Tidegard for its customers needs its NOC to see and act
+on every customer's incidents.
+
+**Resolved 2026-10-28. Yes.** The provider roles of FR-12.2 act across
+tenants through the API, and every cross-tenant access is audited with
+the provider's identity and readable by the tenant concerned.
+Deployment-wide controls, the kill switch and the BGP peers, move to
+platform roles (FU-65).
+
+## BQ-22: Which sign-in methods does v1.2.0 support?
+
+FR-12.1 lists local accounts, OIDC, Microsoft Entra ID, optional LDAP and
+MFA compatibility.
+
+**Resolved 2026-10-28.** Generic OIDC and Entra ID through its OIDC
+endpoints, local accounts with argon2id password hashes, and TOTP for
+MFA, required for platform roles. LDAP waits for a later release.
