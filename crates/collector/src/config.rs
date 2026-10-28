@@ -170,6 +170,15 @@ impl Config {
                 expected: "at least 1",
             });
         }
+        // Exporters are swept every 30 s: a timeout of 0 would forget every
+        // template at each sweep.
+        if exporters.idle_timeout.is_zero() {
+            return Err(ConfigError::InvalidValue {
+                var: EXPORTER_IDLE_SECS_ENV_VAR.to_string(),
+                value: "0".to_string(),
+                expected: "at least 1",
+            });
+        }
         let clickhouse = match env_value(CLICKHOUSE_URL_ENV_VAR)? {
             Some(url) if !url.trim().is_empty() => {
                 let settings = ClickHouseSettings {
@@ -462,6 +471,9 @@ mod tests {
         }
         std::env::remove_var(ALLOWED_EXPORTERS_ENV_VAR);
         std::env::set_var(MAX_EXPORTERS_ENV_VAR, "0");
+        assert!(Config::from_env().is_err());
+        std::env::remove_var(MAX_EXPORTERS_ENV_VAR);
+        std::env::set_var(EXPORTER_IDLE_SECS_ENV_VAR, "0");
         assert!(Config::from_env().is_err());
         clear_all();
     }
