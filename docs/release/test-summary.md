@@ -96,6 +96,8 @@ Details and links: [capacity planning](../operations/capacity-planning.md).
   the owner. The owner makes each of the five packages public in the
   GitHub web interface. This cannot be undone, and BQ-16 already decided
   it for v1.0.0. The acceptance test's anonymous job then passes.
-- The independent review of the release candidate
-  ([security review](../security/security-review.md)).
+- ~~The independent review of the release candidate~~: done
+  2026-10-28, 40 findings, the one High fixed
+  ([security review](../security/security-review.md#release-candidate-review)).
+  Release candidate 1.0.0-rc.3 carries the fixes and is tested again.
 - The owner's sign-off of both checklists.

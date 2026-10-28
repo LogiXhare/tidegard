@@ -8,6 +8,56 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+The fixes from the independent review of 1.0.0-rc.2: 40 findings, one of
+them High, every one listed with its disposition in the
+[security review](docs/security/security-review.md#release-candidate-review).
+
+### Security — rc.2 review
+
+- The collector keeps an exporter's place only once a datagram from it
+  decodes. When every place is taken, a new exporter replaces the
+  longest-silent one that has defined no template. Before this, 16-byte
+  headers from spoofed addresses could fill all 1,000 places and keep
+  real routers out (R-2).
+- When the database session holding the single-mitigator lock ends, the
+  active mitigator stops, and its service manager restarts it as a
+  standby. Before this, a standby could take the lock and act alongside
+  it (R-11).
+- The release pipeline builds with a pinned Rust (1.99.1) and a pinned,
+  checksummed rustup. It verifies the images without signing in to
+  GHCR, as an operator pulls them (R-24, R-26).
+
+### Fixed — rc.2 review
+
+- IPFIX: an Options Template Withdrawal is read as four bytes.
+  Template ID 2 withdraws only Templates, and 3 only Options Templates
+  and the sampling learned from them (R-1, R-3).
+- The collector reports ready once startup is over. ClickHouse
+  migrations get 30 seconds. An unreadable ClickHouse CA or password
+  file stops it at startup (R-4, R-5).
+- `TIDEGARD_COLLECTOR_EXPORTER_IDLE_SECS=0` is refused. A URL with
+  anything but a port after an IPv6 host's closing bracket is refused
+  (R-6, R-8).
+- The mitigator is not ready while GoBGP does not answer (R-12).
+- A blank `TIDEGARD_X` no longer hides a set `WETECHINETMON_X`.
+  `tidegardctl` still finds a profile file written before the rename.
+  A web UI page left open across the upgrade keeps working. The
+  deprecated-name warning goes to the service's JSON log (R-14 to R-17).
+- Compose: `setup.sh` issues certificates again under a new CA or
+  within 30 days of expiry. The README shows how to rotate the
+  PostgreSQL password. ClickHouse is 26.8.24.9, pinned by digest
+  (R-30, R-32, R-33, R-36).
+- CI and the drills: checks that could not fail now can (R-21, R-35,
+  R-38). The release acceptance test exercises the self-approval rule
+  itself (R-22). A soak is no longer cancelled by a benchmark run, and
+  its length is a choice (R-23, R-28).
+
+### Documentation — rc.2 review
+
+- [Upgrading](docs/operations/upgrading.md) from v0.9.0 now covers the
+  webhook `schema` and the incident export `format` that changed with
+  the rename (R-13, R-18).
+
 ## [1.0.0-rc.2] - 2026-10-26
 
 The second release candidate of Tidegard 1.0.0. It changes no feature,
