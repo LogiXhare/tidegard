@@ -195,7 +195,14 @@ by the customer (BQ-21). A change that cannot be audited does not
 happen. No secret is in any record. The host commands are not audited:
 they act with the host's own authority, as before.
 
-## Later in 8A
+## 8A-4: the CLI
 
-- **8A-4:** `tidegardctl tenants` and `tokens`, and a `--tenant` option
-  for platform principals.
+`tidegardctl tenants list|show|create|suspend|activate` and
+`tenants prefix add|remove` drive the registry; `tokens list|create|revoke`
+drive a tenant's tokens. A platform principal names the tenant it acts
+in with `--tenant`, `TIDEGARD_TENANT` or a profile's `tenant`, the flag
+winning, sent as `Tidegard-Tenant`. Suspending and revoking ask first.
+A prefix is removed by its address and length, each percent-encoded, so
+an IPv6 address's colons survive the path.
+
+With 8A-4, 8A is complete.

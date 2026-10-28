@@ -22,6 +22,7 @@ history. The environment overrides the config file, field by field.
 | API URL | `TIDEGARD_API_URL` | `url` |
 | Token | `TIDEGARD_API_TOKEN` | `token` |
 | CA bundle (PEM) | `TIDEGARD_API_CA_FILE` | `ca_file` |
+| Tenant acted in | `TIDEGARD_TENANT` | `tenant` |
 
 The config file is JSON, at `$TIDEGARD_CONFIG`. By default it is at
 `~/.config/tidegard/cli.json`, or `%APPDATA%\tidegard\cli.json`
@@ -47,11 +48,16 @@ Keep the file readable only by you, because it holds a token.
   On Linux, the system bundle works, for example
   `/etc/ssl/certs/ca-certificates.crt`.
 - **`http://` is accepted only for a loopback API.**
+- **A platform token names the tenant it acts in** ([ADR 0060](../../docs/architecture/decisions/0060-phase8a-tenant-registry.md)):
+  `--tenant T`, which wins, or `TIDEGARD_TENANT`, or a profile's `tenant`.
+  It is sent as the `Tidegard-Tenant` header. A tenant token acts in its
+  own tenant, and naming another is refused.
 
 ## Commands
 
 ```text
-tidegardctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
+tidegardctl [--output table|wide|json] [--profile NAME] [--tenant T]
+            <noun> <verb> ...
 
 incidents list [--state S] [--severity S] [--priority P] [--direction D]
                [--target-type T] [--sort opened_at|last_detected_at]
@@ -130,6 +136,32 @@ The CLI talks only to the API. It never talks to GoBGP.
   shown may no longer be up.
 
 `MITIGATION` is a mitigation id, as shown by `mitigations list`.
+
+### Tenants and tokens
+
+```text
+tenants list                                   (platform roles)
+tenants show TENANT
+tenants create TENANT [--name TEXT]
+tenants suspend TENANT                         (confirms)
+tenants activate TENANT
+tenants prefix add TENANT PREFIX
+tenants prefix remove TENANT PREFIX
+tokens list                                    (the tenant acted in)
+tokens create --actor-id ID --role ROLE [--actor-type operator|service_account]
+              [--days N] [--description TEXT]
+tokens revoke TOKEN_ID                         (confirms)
+```
+
+- **`tenants` is the registry**, for platform roles. It names the tenant
+  in the command, so it needs no `--tenant`.
+- **`tokens` acts in one tenant**: a `customer_admin`'s own, or the one a
+  `platform_admin` names with `--tenant`. A tenant principal cannot issue
+  a role with a permission it lacks. Platform tokens are issued on the
+  API host only, with `tidegard-api token create --platform`.
+- **Suspending a tenant and revoking a token ask first**, as closing an
+  incident does. `--yes` answers in advance.
+- **An issued token is printed once.** Store it then.
 
 ### Output formats
 
