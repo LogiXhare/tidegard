@@ -8,6 +8,13 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Security — RUSTSEC-2026-0414
+
+- `pulldown-cmark` 0.13.5 (RUSTSEC-2026-0414, event growth with
+  `ENABLE_WIKILINKS`). Build-time only: `prost-build` formats the vendored
+  GoBGP protocol files' comments with it, and nothing it handles comes
+  from outside. The 1.0.0 binaries do not contain it.
+
 ## [1.0.0] - 2026-10-28
 
 Tidegard 1.0.0, the production-ready single-tenant release (Phase 10).
