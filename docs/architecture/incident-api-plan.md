@@ -60,7 +60,7 @@ is refused with `400`.
 
 ```json
 {
-  "type": "https://wetechi.com/probs/incident-version-conflict",
+  "type": "https://logixhare.com/tidegard/problems/incident-version-conflict",
   "title": "Version conflict",
   "status": 409,
   "detail": "The incident was modified by another actor.",

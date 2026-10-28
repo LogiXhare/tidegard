@@ -145,7 +145,7 @@ Every error body is `application/problem+json`:
 
 ```json
 {
-  "type": "https://wetechi.com/probs/incident-version-conflict",
+  "type": "https://logixhare.com/tidegard/problems/incident-version-conflict",
   "title": "Version conflict",
   "status": 409,
   "detail": "The incident was modified by another actor.",
@@ -164,8 +164,10 @@ Every error body is `application/problem+json`:
     `api.internal`.
   - A code, once published, is never reused for another meaning.
   - `docs/api/error-codes.md` lists every code with its status.
-- **`type`** is `https://wetechi.com/probs/` followed by the code with
+- **`type`** is `https://logixhare.com/tidegard/problems/` followed by the code with
   `.` and `_` turned into `-`. It is an identifier and need not resolve.
+  (It was `https://wetechi.com/probs/` until 1.0.0-rc.3; the product's
+  rename moved it, ADR 0058.)
 - **`request_id`** is a UUIDv7. It is generated per request, returned in
   `X-Request-Id`, and logged with every line for that request, so a
   report can be matched to the logs.

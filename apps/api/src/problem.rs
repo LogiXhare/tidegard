@@ -22,7 +22,7 @@ use tidegard_mitigation::{GuardRefusal, MitigationError};
 use crate::request_id;
 
 pub const PROBLEM_CONTENT_TYPE: &str = "application/problem+json";
-const TYPE_BASE: &str = "https://wetechi.com/probs/";
+const TYPE_BASE: &str = "https://logixhare.com/tidegard/problems/";
 
 macro_rules! error_codes {
     ($($variant:ident => ($code:literal, $status:literal, $title:literal),)+) => {
@@ -97,7 +97,7 @@ error_codes! {
 }
 
 impl ErrorCode {
-    /// `https://wetechi.com/probs/` and the code with `.` and `_` as `-`.
+    /// `https://logixhare.com/tidegard/problems/` and the code with `.` and `_` as `-`.
     pub fn type_uri(self) -> String {
         format!("{TYPE_BASE}{}", self.code().replace(['.', '_'], "-"))
     }
@@ -356,7 +356,7 @@ mod tests {
             .body();
         assert_eq!(
             body["type"],
-            "https://wetechi.com/probs/incident-version-conflict"
+            "https://logixhare.com/tidegard/problems/incident-version-conflict"
         );
         assert_eq!(body["error"], "incident.version_conflict");
         assert_eq!(body["status"], 409);
