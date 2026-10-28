@@ -140,6 +140,11 @@ tidegard-api tenant list
   ones. Its data is kept.
 - `token create` registers a tenant it has not seen before.
 
+Platform roles manage the same registry over the API, under
+`/api/v1/platform/tenants`, and a tenant's `customer_admin` (or a
+`platform_admin` naming the tenant) issues and revokes its tokens under
+`/api/v1/tokens`. Every such change is audited on the tenant's trail.
+
 ## Changing the API
 
 Annotate every handler with `#[utoipa::path]` and list it in

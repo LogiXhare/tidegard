@@ -96,6 +96,13 @@ error_codes! {
     MitigationActionNotAllowed => ("mitigation.action_not_allowed", 403, "Action not allowed on this prefix"),
     MitigationTooWide => ("mitigation.too_wide", 422, "Prefix too wide"),
     MitigationTooLong => ("mitigation.too_long", 422, "Duration too long"),
+    TenantNotFound => ("tenant.not_found", 404, "Tenant not found"),
+    TenantExists => ("tenant.exists", 409, "Tenant already exists"),
+    TenantInvalid => ("tenant.invalid", 422, "Invalid tenant"),
+    PrefixOverlap => ("tenant.prefix_overlap", 409, "Prefix overlaps a registered prefix"),
+    PrefixNotFound => ("tenant.prefix_not_found", 404, "Prefix not found"),
+    TokenNotFound => ("token.not_found", 404, "Token not found"),
+    TokenInvalid => ("token.invalid", 422, "Invalid token request"),
 }
 
 impl ErrorCode {
@@ -305,7 +312,9 @@ mod tests {
             assert!(
                 code.code().starts_with("api.")
                     || code.code().starts_with("incident.")
-                    || code.code().starts_with("mitigation."),
+                    || code.code().starts_with("mitigation.")
+                    || code.code().starts_with("tenant.")
+                    || code.code().starts_with("token."),
                 "{}",
                 code.code()
             );

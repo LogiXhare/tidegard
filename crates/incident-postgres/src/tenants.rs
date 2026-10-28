@@ -84,6 +84,9 @@ pub enum RegistryError {
         existing: Prefix,
         owner: String,
     },
+    /// Another writer registered an overlapping prefix at the same moment.
+    #[error("{0} overlaps a prefix registered at the same moment")]
+    Contended(Prefix),
     #[error("a row the database returned is not valid: {0}")]
     Corrupt(String),
     #[error(transparent)]
@@ -224,6 +227,11 @@ pub async fn set_status(
 
 /// Registers `prefix` to `tenant_id`. Refused if it overlaps any
 /// registered prefix, the tenant's own included.
+///
+/// The overlap is looked for first, so that the refusal can name it: a
+/// failed insert would abort the caller's transaction before anything
+/// could be read. The exclusion constraint still decides a race, which is
+/// then refused without a name.
 pub async fn add_prefix(
     client: &impl GenericClient,
     tenant_id: &str,
@@ -231,6 +239,20 @@ pub async fn add_prefix(
 ) -> Result<(), RegistryError> {
     check_width(&prefix)?;
     let text = prefix.to_string();
+    let found = client
+        .query_opt(
+            "SELECT prefix::text AS prefix, tenant_id FROM tenant_prefixes \
+             WHERE prefix && $1::text::cidr ORDER BY prefix LIMIT 1",
+            &[&text],
+        )
+        .await?;
+    if let Some(row) = found {
+        return Err(RegistryError::Overlaps {
+            prefix,
+            existing: prefix_from(row.get("prefix"))?,
+            owner: row.get("tenant_id"),
+        });
+    }
     let result = client
         .execute(
             "INSERT INTO tenant_prefixes (prefix, tenant_id) VALUES ($1::text::cidr, $2)",
@@ -246,23 +268,7 @@ pub async fn add_prefix(
             if violates(&error, &SqlState::EXCLUSION_VIOLATION)
                 || violates(&error, &SqlState::UNIQUE_VIOLATION) =>
         {
-            let row = client
-                .query_opt(
-                    "SELECT prefix::text AS prefix, tenant_id FROM tenant_prefixes \
-                     WHERE prefix && $1::text::cidr ORDER BY prefix LIMIT 1",
-                    &[&text],
-                )
-                .await?;
-            // A conflicting row removed since the insert leaves nothing to
-            // name; the refusal stands, and a retry may succeed.
-            let Some(row) = row else {
-                return Err(error.into());
-            };
-            Err(RegistryError::Overlaps {
-                prefix,
-                existing: prefix_from(row.get("prefix"))?,
-                owner: row.get("tenant_id"),
-            })
+            Err(RegistryError::Contended(prefix))
         }
         Err(error) => Err(error.into()),
     }

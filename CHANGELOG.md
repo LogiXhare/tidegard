@@ -27,6 +27,14 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
   one, only `whoami`, the session and the platform endpoints answer
   (`api.tenant_required`, `api.tenant_unknown`).
 - `whoami` returns the principal's `scope`.
+- The registry over the API, for platform roles: `/api/v1/platform/tenants`
+  (list, register, read, suspend, activate) and their prefixes.
+- A tenant's tokens over the API, under `tenant.token.admin`:
+  `/api/v1/tokens` (list, issue) and `/api/v1/tokens/{token_id}/revoke`. A
+  tenant principal issues no role beyond its own permissions; platform
+  tokens are issued on the host only.
+- Every registry and token change through the API is audited on the
+  tenant's trail, in the same transaction.
 
 ### Changed
 

@@ -154,8 +154,48 @@ Every cross-tenant access is to be audited (BQ-21); that lands with 8D,
 where the provider's identity is recorded on the tenant's audit trail.
 The NOC UI cannot send the header yet; its tenant switcher is 8E.
 
+## 8A-3: the registry and tokens over the API
+
+### The registry
+
+`/api/v1/platform/tenants` lists and registers tenants;
+`/platform/tenants/{tenant_id}` reads one with its prefixes; `suspend` and
+`activate` change its status; `/prefixes` registers a prefix, and
+`/prefixes/{address}/{length}` removes one, the prefix's slash becoming a
+path separator. Reading needs `platform.incident.read_all`, which every
+provider role holds and no tenant role does; changing needs
+`platform.tenant.admin`. A tenant principal gets `403 api.forbidden`.
+
+The overlap is looked for before the insert, so the `409
+tenant.prefix_overlap` names the prefix in the way and its owner: an
+insert that failed would have aborted the transaction before anything
+could be read. The exclusion constraint still decides a race between two
+writers, which is refused without a name.
+
+### A tenant's tokens
+
+`/api/v1/tokens` lists and issues tokens in the tenant acted in, and
+`/tokens/{token_id}/revoke` revokes one, under `tenant.token.admin`:
+
+- **A platform principal may issue any tenant role.** That is how a
+  provider gives a new customer its first `customer_admin`.
+- **A tenant principal may issue only a role whose every permission it
+  holds itself**, so no token is worth more than its issuer.
+- **Platform tokens are issued on the host only.** The API never mints
+  a key to every tenant.
+- Another tenant's token, a platform token, a revoked one and a
+  malformed id are the same `404 token.not_found`.
+
+### Audit
+
+Every change, to the registry or to a token, writes an `incident_audit`
+row in the same transaction, on the tenant concerned, with the actor
+that made it: a provider's change is on its customer's trail, readable
+by the customer (BQ-21). A change that cannot be audited does not
+happen. No secret is in any record. The host commands are not audited:
+they act with the host's own authority, as before.
+
 ## Later in 8A
 
-- **8A-3:** `/api/v1/platform/tenants` and their prefixes,
-  `tidegardctl tenants`, tokens issued through the API under
-  `tenant.token.admin`, and audit of registry changes.
+- **8A-4:** `tidegardctl tenants` and `tokens`, and a `--tenant` option
+  for platform principals.

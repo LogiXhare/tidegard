@@ -55,6 +55,13 @@ status.
 | `mitigation.action_not_allowed` | 403 | The allowlist entry does not permit this action. |
 | `mitigation.too_wide` | 422 | The prefix is wider than the configured minimum length. |
 | `mitigation.too_long` | 422 | The duration is over the configured maximum. |
+| `tenant.not_found` | 404 | No such tenant ([ADR 0060](../architecture/decisions/0060-phase8a-tenant-registry.md)). Platform endpoints only. |
+| `tenant.exists` | 409 | A tenant with this id is already registered. |
+| `tenant.invalid` | 422 | A tenant id that is empty, over 128 characters or `platform`; a display name over 200 characters; or a prefix that is malformed, has host bits, or is wider than `/8` or `/16`. |
+| `tenant.prefix_overlap` | 409 | The prefix overlaps one already registered, to this tenant or another. Carries `existing` and `owner`. |
+| `tenant.prefix_not_found` | 404 | The tenant has no such prefix. |
+| `token.not_found` | 404 | No live token with this id in the tenant acted in. |
+| `token.invalid` | 422 | A lifetime out of range, a role from the other scope, or `automation` for a person. A role with any permission the issuer lacks is `api.forbidden`. |
 
 The `type` member is `https://logixhare.com/tidegard/problems/` followed by the code,
 with `.` and `_` written as `-`, for example
