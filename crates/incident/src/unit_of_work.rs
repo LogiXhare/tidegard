@@ -3291,7 +3291,7 @@ mod tests {
             Actor::Operator {
                 id: "u1".to_string(),
             },
-            resolver.permissions_for("platform_admin"),
+            resolver.permissions_for("super_admin"),
         );
         let addr: IpAddr = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 78));
         let incident_id = uow

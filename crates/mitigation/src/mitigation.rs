@@ -709,7 +709,7 @@ mod tests {
 
     #[test]
     fn people_cannot_drive_the_mitigators_steps() {
-        let lead = person("acme", "lead", "platform_admin");
+        let lead = person("acme", "lead", "super_admin");
         let mut m = approved();
         assert_eq!(
             m.begin_announcing(&lead, false).unwrap_err(),

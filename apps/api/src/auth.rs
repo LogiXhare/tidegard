@@ -14,9 +14,11 @@
 //! - **The database being down is not a failed login:** it is
 //!   `503 api.unavailable`. The API fails closed, and nobody is locked out
 //!   for an outage.
-//! - **A principal never carries cross-tenant authority.** The roles are
-//!   the four tenant bundles; `platform_admin` is refused here and by the
-//!   table's CHECK constraint.
+//! - **A principal acts in one tenant per request** (ADR 0060). A tenant
+//!   token's is its own. A platform token, which only the provider roles
+//!   of FR-12.2 may hold, names the tenant in the `Tidegard-Tenant` header;
+//!   without one it reaches only the endpoints that need no tenant. The
+//!   table refuses a provider role on a tenant token, and the reverse.
 //! - **A browser session is the other way in** (ADR 0043): without a
 //!   bearer token, a `wnm_session` cookie is looked up, and a request that
 //!   changes anything must also carry the session's CSRF value.
@@ -49,21 +51,57 @@ pub const FAILED_AUTH_QUOTA: Quota = Quota::per_minute(30);
 /// Source addresses tracked for failed authentication at once.
 const FAILED_AUTH_MAX_KEYS: usize = 100_000;
 
-/// A tenant role a token may carry. Never `platform_admin`.
+/// Where a principal's authority runs (ADR 0060).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scope {
+    /// One tenant, named by its token.
+    Tenant,
+    /// Every tenant, one per request, named by the [`TENANT_HEADER`].
+    Platform,
+}
+
+impl Scope {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Scope::Tenant => "tenant",
+            Scope::Platform => "platform",
+        }
+    }
+}
+
+/// A role a token may carry: the seven tenant roles, or the five provider
+/// roles of FR-12.2. The role decides the scope; the table refuses a
+/// mismatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
     Viewer,
     Operator,
     SeniorOperator,
     NocLead,
+    CustomerAdmin,
+    SecurityAnalyst,
+    Automation,
+    NocOperator,
+    NocAdmin,
+    Auditor,
+    PlatformAdmin,
+    SuperAdmin,
 }
 
 impl Role {
-    pub const ALL: [Role; 4] = [
+    pub const ALL: [Role; 12] = [
         Role::Viewer,
         Role::Operator,
         Role::SeniorOperator,
         Role::NocLead,
+        Role::CustomerAdmin,
+        Role::SecurityAnalyst,
+        Role::Automation,
+        Role::NocOperator,
+        Role::NocAdmin,
+        Role::Auditor,
+        Role::PlatformAdmin,
+        Role::SuperAdmin,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -72,15 +110,43 @@ impl Role {
             Role::Operator => "operator",
             Role::SeniorOperator => "senior_operator",
             Role::NocLead => "noc_lead",
+            Role::CustomerAdmin => "customer_admin",
+            Role::SecurityAnalyst => "security_analyst",
+            Role::Automation => "automation",
+            Role::NocOperator => "noc_operator",
+            Role::NocAdmin => "noc_admin",
+            Role::Auditor => "auditor",
+            Role::PlatformAdmin => "platform_admin",
+            Role::SuperAdmin => "super_admin",
         }
     }
 
     pub fn parse(text: &str) -> Option<Role> {
         Role::ALL.into_iter().find(|role| role.as_str() == text)
     }
+
+    pub fn scope(self) -> Scope {
+        match self {
+            Role::NocOperator
+            | Role::NocAdmin
+            | Role::Auditor
+            | Role::PlatformAdmin
+            | Role::SuperAdmin => Scope::Platform,
+            _ => Scope::Tenant,
+        }
+    }
 }
 
-/// Who is calling: one tenant, one actor, one role.
+/// The header a platform principal names the tenant it acts in with. A
+/// tenant principal may send it only with its own tenant.
+pub const TENANT_HEADER: &str = "tidegard-tenant";
+
+/// What a platform principal's `tenant` is before a request names one.
+/// Never a registered tenant (V22 refuses it), so it reads nothing.
+pub const PLATFORM_TENANT: &str = "platform";
+
+/// Who is calling: one actor and one role, acting in one tenant: its
+/// token's, or for a platform role the one the request names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Principal {
     pub tenant: TenantId,
@@ -121,7 +187,16 @@ pub trait Authenticator: Send + Sync {
     fn authenticate_session<'a>(&'a self, _session_id: &'a str) -> SessionFuture<'a> {
         Box::pin(async { Err(AuthError::Rejected) })
     }
+
+    /// Whether a platform principal may act in `tenant`: it is registered,
+    /// whatever its status, so a provider can look into a suspended one.
+    /// Without a registry, no tenant is.
+    fn tenant_registered<'a>(&'a self, _tenant: &'a str) -> TenantFuture<'a> {
+        Box::pin(async { Ok(false) })
+    }
 }
+
+pub type TenantFuture<'a> = Pin<Box<dyn Future<Output = Result<bool, AuthError>> + Send + 'a>>;
 
 /// A new token's secret: `wnm_` and 64 hex characters.
 pub fn generate_token() -> Result<String, getrandom::Error> {
@@ -150,14 +225,15 @@ pub fn is_well_formed(token: &str) -> bool {
 }
 
 /// A token of a suspended tenant is refused like an unknown one
-/// (ADR 0060).
+/// (ADR 0060). A platform token names no tenant, so only its own fields
+/// decide.
 const LOOKUP: &str = "\
 SELECT t.tenant_id, t.actor_type, t.actor_id, t.role FROM api_tokens t
-JOIN tenants ON tenants.tenant_id = t.tenant_id
+LEFT JOIN tenants ON tenants.tenant_id = t.tenant_id
 WHERE t.token_hash = $1
   AND t.revoked_at IS NULL
   AND t.expires_at > transaction_timestamp()
-  AND tenants.status = 'active'";
+  AND (t.scope = 'platform' OR tenants.status = 'active')";
 
 /// A session: live, not idle past the timeout, its token still valid and
 /// its tenant active. `stale` says `last_seen_at` is due a write.
@@ -166,19 +242,23 @@ SELECT t.token_id::text AS token_id, t.tenant_id, t.actor_type, t.actor_id, t.ro
     s.last_seen_at < transaction_timestamp() - $3::bigint * interval '1 second' AS stale
 FROM api_sessions s
 JOIN api_tokens t ON t.token_id = s.token_id
-JOIN tenants ON tenants.tenant_id = t.tenant_id
+LEFT JOIN tenants ON tenants.tenant_id = t.tenant_id
 WHERE s.session_hash = $1
   AND s.expires_at > transaction_timestamp()
   AND s.last_seen_at > transaction_timestamp() - $2::bigint * interval '1 second'
   AND t.revoked_at IS NULL
   AND t.expires_at > transaction_timestamp()
-  AND tenants.status = 'active'";
+  AND (t.scope = 'platform' OR tenants.status = 'active')";
+
+const TENANT_REGISTERED: &str = "SELECT EXISTS (SELECT 1 FROM tenants WHERE tenant_id = $1)";
 
 const SESSION_TOUCH: &str =
     "UPDATE api_sessions SET last_seen_at = transaction_timestamp() WHERE session_hash = $1";
 
-fn principal_from(row: &tokio_postgres::Row) -> Result<Principal, AuthError> {
-    let tenant: String = row.get("tenant_id");
+/// A principal from a token row. A platform token's tenant is
+/// [`PLATFORM_TENANT`] until the request names one.
+pub(crate) fn principal_from(row: &tokio_postgres::Row) -> Result<Principal, AuthError> {
+    let tenant: Option<String> = row.get("tenant_id");
     let actor_type: String = row.get("actor_type");
     let actor_id: String = row.get("actor_id");
     let role: String = row.get("role");
@@ -187,10 +267,18 @@ fn principal_from(row: &tokio_postgres::Row) -> Result<Principal, AuthError> {
         "service_account" => Actor::ServiceAccount { id: actor_id },
         _ => return Err(AuthError::Rejected),
     };
+    let role = Role::parse(&role).ok_or(AuthError::Rejected)?;
+    let tenant = match (role.scope(), tenant) {
+        (Scope::Tenant, Some(tenant)) => tenant,
+        (Scope::Platform, None) => PLATFORM_TENANT.to_string(),
+        // The table refuses both; a row that has one anyway signs in to
+        // nothing.
+        _ => return Err(AuthError::Rejected),
+    };
     Ok(Principal {
         tenant: TenantId::new(tenant),
         actor,
-        role: Role::parse(&role).ok_or(AuthError::Rejected)?,
+        role,
     })
 }
 
@@ -246,6 +334,19 @@ impl Authenticator for TokenAuthenticator {
                     .map_err(|_| AuthError::Unavailable)?;
             }
             Ok((principal_from(&row)?, row.get("token_id")))
+        })
+    }
+
+    fn tenant_registered<'a>(&'a self, tenant: &'a str) -> TenantFuture<'a> {
+        Box::pin(async move {
+            let client = acquire(&self.pool)
+                .await
+                .map_err(|_| AuthError::Unavailable)?;
+            let row = client
+                .query_one(TENANT_REGISTERED, &[&tenant])
+                .await
+                .map_err(|_| AuthError::Unavailable)?;
+            Ok(row.get(0))
         })
     }
 }
@@ -358,6 +459,24 @@ pub async fn require_principal(
                 }
                 request.extensions_mut().insert(session);
             }
+            let named = request
+                .headers()
+                .get(TENANT_HEADER)
+                .map(|value| value.to_str().map(|text| text.trim().to_string()));
+            let named = match named {
+                None => None,
+                Some(Ok(tenant)) if !tenant.is_empty() => Some(tenant),
+                Some(_) => {
+                    return Problem::new(ErrorCode::InvalidRequest)
+                        .with_detail("the Tidegard-Tenant header is empty or not text")
+                        .into_response()
+                }
+            };
+            let path = request.uri().path().to_string();
+            let principal = match act_in(&auth, principal, named, &path).await {
+                Ok(principal) => principal,
+                Err(refusal) => return refusal,
+            };
             request.extensions_mut().insert(principal);
             next.run(request).await
         }
@@ -369,6 +488,45 @@ pub async fn require_principal(
             tracing::info!(%source, "authentication failed");
             Problem::new(ErrorCode::Unauthenticated).into_response()
         }
+    }
+}
+
+/// The endpoints a platform principal reaches without naming a tenant:
+/// who it is, its session, and the platform's own. The router nests the
+/// API under `/api/v1`, so the middleware sees the path without it.
+fn needs_no_tenant(path: &str) -> bool {
+    let path = path.strip_prefix("/api/v1").unwrap_or(path);
+    matches!(path, "/whoami" | "/session") || path.starts_with("/platform/")
+}
+
+/// The tenant this request acts in (ADR 0060). A tenant principal's is its
+/// own, and naming another is `403`. A platform principal names a
+/// registered tenant, or calls only what needs none.
+async fn act_in(
+    auth: &AuthLayerState,
+    mut principal: Principal,
+    named: Option<String>,
+    path: &str,
+) -> Result<Principal, Response> {
+    match (principal.role.scope(), named) {
+        (Scope::Tenant, Some(tenant)) if tenant != principal.tenant.as_str() => {
+            Err(Problem::new(ErrorCode::Forbidden).into_response())
+        }
+        (Scope::Tenant, _) => Ok(principal),
+        (Scope::Platform, Some(tenant)) => {
+            match auth.authenticator.tenant_registered(&tenant).await {
+                Ok(true) => {
+                    principal.tenant = TenantId::new(tenant);
+                    Ok(principal)
+                }
+                Ok(false) => Err(Problem::new(ErrorCode::TenantUnknown).into_response()),
+                Err(_) => Err(Problem::new(ErrorCode::Unavailable)
+                    .retry_after(5)
+                    .into_response()),
+            }
+        }
+        (Scope::Platform, None) if needs_no_tenant(path) => Ok(principal),
+        (Scope::Platform, None) => Err(Problem::new(ErrorCode::TenantRequired).into_response()),
     }
 }
 
@@ -408,15 +566,33 @@ mod tests {
         assert!(is_well_formed(GOOD));
     }
 
+    /// The roles are the domain's bundles, each in the scope the domain
+    /// gives it.
     #[test]
-    fn platform_admin_is_never_a_token_role() {
-        assert_eq!(Role::parse("platform_admin"), None);
+    fn every_role_parses_and_has_the_domains_scope() {
+        use tidegard_incident::authorization::{PLATFORM_ROLES, TENANT_ROLES};
         for role in Role::ALL {
             assert_eq!(Role::parse(role.as_str()), Some(role));
         }
+        let tenant: Vec<_> = Role::ALL
+            .into_iter()
+            .filter(|role| role.scope() == Scope::Tenant)
+            .map(Role::as_str)
+            .collect();
+        let platform: Vec<_> = Role::ALL
+            .into_iter()
+            .filter(|role| role.scope() == Scope::Platform)
+            .map(Role::as_str)
+            .collect();
+        assert_eq!(tenant, TENANT_ROLES);
+        assert_eq!(platform, PLATFORM_ROLES);
+        assert_eq!(Role::parse("root"), None);
     }
 
-    /// Accepts exactly one token; reports the store down for another.
+    const PLATFORM: &str = "wnm_ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100";
+
+    /// Accepts one tenant token and one platform token; reports the store
+    /// down for another. Knows the tenants `acme` and `globex`.
     struct FakeAuthenticator;
 
     impl Authenticator for FakeAuthenticator {
@@ -430,10 +606,117 @@ mod tests {
                         },
                         role: Role::Operator,
                     }),
+                    PLATFORM => Ok(Principal {
+                        tenant: TenantId::new(PLATFORM_TENANT),
+                        actor: Actor::Operator {
+                            id: "nora".to_string(),
+                        },
+                        role: Role::NocOperator,
+                    }),
                     "down" => Err(AuthError::Unavailable),
                     _ => Err(AuthError::Rejected),
                 }
             })
+        }
+
+        fn tenant_registered<'a>(&'a self, tenant: &'a str) -> TenantFuture<'a> {
+            Box::pin(async move { Ok(matches!(tenant, "acme" | "globex")) })
+        }
+    }
+
+    /// `path` with `token` and an optional `Tidegard-Tenant`: the status, and
+    /// the tenant the handler saw or the problem's code.
+    async fn act(token: &str, path: &str, tenant: Option<&str>) -> (StatusCode, String) {
+        let app = Router::new()
+            .route(
+                "/api/v1/{*rest}",
+                get(|Extension(principal): Extension<Principal>| async move {
+                    principal.tenant.as_str().to_string()
+                }),
+            )
+            .layer(axum::middleware::from_fn_with_state(
+                AuthLayerState::new(Arc::new(FakeAuthenticator)),
+                require_principal,
+            ));
+        let mut request = HttpRequest::builder()
+            .uri(path)
+            .header(header::AUTHORIZATION, format!("Bearer {token}"));
+        if let Some(tenant) = tenant {
+            request = request.header(TENANT_HEADER, tenant);
+        }
+        let response = app
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = axum::body::to_bytes(response.into_body(), 1 << 16)
+            .await
+            .unwrap();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+        match serde_json::from_str::<serde_json::Value>(&body) {
+            Ok(problem) => (status, problem["error"].as_str().unwrap().to_string()),
+            Err(_) => (status, body),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_tenant_principal_acts_only_in_its_own_tenant() {
+        let incidents = "/api/v1/incidents";
+        assert_eq!(
+            act(GOOD, incidents, None).await,
+            (StatusCode::OK, "acme".into())
+        );
+        assert_eq!(
+            act(GOOD, incidents, Some("acme")).await,
+            (StatusCode::OK, "acme".into())
+        );
+        assert_eq!(
+            act(GOOD, incidents, Some("globex")).await,
+            (StatusCode::FORBIDDEN, "api.forbidden".into())
+        );
+        assert_eq!(
+            act(GOOD, incidents, Some("nobody")).await,
+            (StatusCode::FORBIDDEN, "api.forbidden".into()),
+            "a tenant principal learns nothing of other tenants"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_platform_principal_names_a_registered_tenant() {
+        let incidents = "/api/v1/incidents";
+        assert_eq!(
+            act(PLATFORM, incidents, Some("globex")).await,
+            (StatusCode::OK, "globex".into())
+        );
+        assert_eq!(
+            act(PLATFORM, incidents, Some(" acme ")).await,
+            (StatusCode::OK, "acme".into())
+        );
+        assert_eq!(
+            act(PLATFORM, incidents, None).await,
+            (StatusCode::BAD_REQUEST, "api.tenant_required".into())
+        );
+        for unknown in ["nobody", PLATFORM_TENANT] {
+            assert_eq!(
+                act(PLATFORM, incidents, Some(unknown)).await,
+                (StatusCode::BAD_REQUEST, "api.tenant_unknown".into()),
+                "{unknown}"
+            );
+        }
+        assert_eq!(
+            act(PLATFORM, incidents, Some("")).await,
+            (StatusCode::BAD_REQUEST, "api.invalid_request".into())
+        );
+        for path in [
+            "/api/v1/whoami",
+            "/api/v1/session",
+            "/api/v1/platform/tenants",
+        ] {
+            assert_eq!(
+                act(PLATFORM, path, None).await,
+                (StatusCode::OK, PLATFORM_TENANT.into()),
+                "{path} needs no tenant"
+            );
         }
     }
 

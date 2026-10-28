@@ -336,7 +336,7 @@ async fn drill_verify() {
         Actor::Operator {
             id: "platform-admin".to_string(),
         },
-        FixedBundleResolver.permissions_for("platform_admin"),
+        FixedBundleResolver.permissions_for("super_admin"),
     ))
     .expect("platform_admin is a platform authority");
     let stats = outbox_stats(&platform, &client).await.unwrap();

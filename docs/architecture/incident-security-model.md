@@ -105,7 +105,12 @@ permissions are what the code checks.
 | `mitigation.kill_switch.engage` | Turn on the deployment-wide kill switch ([ADR 0049](decisions/0049-phase7d-mitigator-service.md)) |
 | `mitigation.kill_switch.release` | Turn it off again — platform administrators only, and no API token carries it: `tidegard-api kill-switch release` on the host ([ADR 0050](decisions/0050-phase7e-mitigation-api-cli-ui.md)) |
 
-Suggested bundles, deployment-configurable:
+| `platform.tenant.admin` | Register, suspend and reactivate tenants, and their prefixes — platform only ([ADR 0060](decisions/0060-phase8a-tenant-registry.md)) |
+| `tenant.token.admin` | Issue and revoke the API tokens of the tenant acted in |
+
+Suggested bundles, deployment-configurable. The first seven are tenant
+roles; the last five are the provider roles of FR-12.2, which act across
+tenants (BQ-21) and are held only by platform-scoped principals:
 
 | Role | Permissions |
 |---|---|
@@ -113,10 +118,17 @@ Suggested bundles, deployment-configurable:
 | `operator` | viewer + acknowledge, assign, investigate, note.create |
 | `senior_operator` | operator + severity.change, priority.change, resolve, close, reopen, create, mitigation.request, mitigation.withdraw |
 | `noc_lead` | senior_operator + suppress, export, audit.read, config.read, update, note.redact, mitigation.approve, mitigation.kill_switch.engage |
-| `platform_admin` | all, including platform permissions |
+| `customer_admin` | noc_lead + tenant.token.admin |
+| `security_analyst` | viewer + note.create, export, audit.read |
+| `automation` | viewer + create, acknowledge, note.create — for service accounts |
+| `noc_operator` | senior_operator + platform.incident.read_all |
+| `noc_admin` | noc_lead + platform.incident.read_all |
+| `auditor` | viewer + audit.read, config.read, platform.incident.read_all |
+| `platform_admin` | auditor + platform.incident.admin, platform.tenant.admin, tenant.token.admin, mitigation.kill_switch.release — no incident write |
+| `super_admin` | every human permission, including closure_policy.override and note.customer_visible |
 
-`incident.closure_policy.override` appears in **no** default bundle, not
-even `noc_lead`. Turning off manual closure for critical incidents is the
+`incident.closure_policy.override` appears in **no** default bundle but
+`super_admin`'s, not even `noc_lead` or `noc_admin`. Turning off manual closure for critical incidents is the
 single most useful configuration change for an attacker who already has a
 foothold — it makes criticals close themselves — so it is granted
 deliberately or not at all.

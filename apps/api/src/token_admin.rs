@@ -7,7 +7,7 @@
 
 use tokio_postgres::GenericClient;
 
-use crate::auth::{generate_token, token_hash, Role};
+use crate::auth::{generate_token, token_hash, Role, Scope};
 
 /// The longest a token may live; the table enforces the same bound.
 pub const MAX_LIFETIME_DAYS: u32 = 366;
@@ -66,26 +66,48 @@ pub struct TokenSummary {
     pub revoked_at: Option<String>,
 }
 
+/// A platform token is a provider's key to every tenant (R36), so it lives
+/// at most this long; the table enforces the same bound.
+pub const MAX_PLATFORM_LIFETIME_DAYS: u32 = 90;
+
+/// A platform token (ADR 0060): one of the provider roles, no tenant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewPlatformToken {
+    pub actor_type: ActorType,
+    pub actor_id: String,
+    pub role: Role,
+    pub lifetime_days: u32,
+    pub description: String,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AdminError {
     #[error("the lifetime must be 1 to {MAX_LIFETIME_DAYS} days, not {0}")]
     Lifetime(u32),
+    #[error("a platform token's lifetime must be 1 to {MAX_PLATFORM_LIFETIME_DAYS} days, not {0}")]
+    PlatformLifetime(u32),
     #[error("the operating system's random source failed")]
     Random,
     /// A token names a registered tenant (ADR 0060).
     #[error("no tenant {0:?} is registered")]
     UnknownTenant(String),
+    /// A provider role on a tenant token, or a tenant role on a platform
+    /// token.
+    #[error("{} is a {} role", .0.as_str(), .0.scope().as_str())]
+    WrongScope(Role),
+    #[error("the automation role is for service accounts only")]
+    AutomationIsAService,
     #[error(transparent)]
     Database(#[from] tokio_postgres::Error),
 }
 
 const INSERT: &str = "\
 INSERT INTO api_tokens (
-    token_id, tenant_id, actor_type, actor_id, role, token_hash, description, expires_at
+    token_id, tenant_id, actor_type, actor_id, role, token_hash, description, expires_at, scope
 )
 VALUES (
     $1::text::uuid, $2, $3, $4, $5, $6, $7,
-    transaction_timestamp() + $8::integer * interval '1 day'
+    transaction_timestamp() + $8::integer * interval '1 day', $9
 )
 RETURNING expires_at::text AS expires_at";
 
@@ -99,6 +121,14 @@ SELECT token_id::text AS token_id, actor_type, actor_id, role, description,
        revoked_at::text AS revoked_at
 FROM api_tokens WHERE tenant_id = $1 ORDER BY created_at";
 
+const LIST_PLATFORM: &str = "\
+SELECT token_id::text AS token_id, actor_type, actor_id, role, description,
+       created_at::text AS created_at, expires_at::text AS expires_at,
+       revoked_at::text AS revoked_at
+FROM api_tokens WHERE scope = 'platform' ORDER BY created_at";
+
+/// A tenant token. Refuses a provider role, and a tenant nobody
+/// registered.
 pub async fn create(
     client: &impl GenericClient,
     new: &NewToken,
@@ -106,30 +136,84 @@ pub async fn create(
     if !(1..=MAX_LIFETIME_DAYS).contains(&new.lifetime_days) {
         return Err(AdminError::Lifetime(new.lifetime_days));
     }
+    if new.role.scope() != Scope::Tenant {
+        return Err(AdminError::WrongScope(new.role));
+    }
+    insert(
+        client,
+        Some(&new.tenant),
+        new.actor_type,
+        &new.actor_id,
+        new.role,
+        new.lifetime_days,
+        &new.description,
+    )
+    .await
+}
+
+/// A platform token: one of the provider roles, at most
+/// [`MAX_PLATFORM_LIFETIME_DAYS`] days.
+pub async fn create_platform(
+    client: &impl GenericClient,
+    new: &NewPlatformToken,
+) -> Result<IssuedToken, AdminError> {
+    if !(1..=MAX_PLATFORM_LIFETIME_DAYS).contains(&new.lifetime_days) {
+        return Err(AdminError::PlatformLifetime(new.lifetime_days));
+    }
+    if new.role.scope() != Scope::Platform {
+        return Err(AdminError::WrongScope(new.role));
+    }
+    insert(
+        client,
+        None,
+        new.actor_type,
+        &new.actor_id,
+        new.role,
+        new.lifetime_days,
+        &new.description,
+    )
+    .await
+}
+
+async fn insert(
+    client: &impl GenericClient,
+    tenant: Option<&str>,
+    actor_type: ActorType,
+    actor_id: &str,
+    role: Role,
+    lifetime_days: u32,
+    description: &str,
+) -> Result<IssuedToken, AdminError> {
+    if role == Role::Automation && actor_type != ActorType::ServiceAccount {
+        return Err(AdminError::AutomationIsAService);
+    }
     let secret = generate_token().map_err(|_| AdminError::Random)?;
     let token_id = crate::request_id::generate();
-    let lifetime = i32::try_from(new.lifetime_days).expect("bounded above");
+    let lifetime = i32::try_from(lifetime_days).expect("bounded above");
     let row = client
         .query_one(
             INSERT,
             &[
                 &token_id,
-                &new.tenant,
-                &new.actor_type.as_str(),
-                &new.actor_id,
-                &new.role.as_str(),
+                &tenant,
+                &actor_type.as_str(),
+                &actor_id,
+                &role.as_str(),
                 &token_hash(&secret),
-                &new.description,
+                &description,
                 &lifetime,
+                &role.scope().as_str(),
             ],
         )
         .await
-        .map_err(|error| {
-            if error.code() == Some(&tokio_postgres::error::SqlState::FOREIGN_KEY_VIOLATION) {
-                AdminError::UnknownTenant(new.tenant.clone())
-            } else {
-                AdminError::Database(error)
+        .map_err(|error| match tenant {
+            Some(tenant)
+                if error.code()
+                    == Some(&tokio_postgres::error::SqlState::FOREIGN_KEY_VIOLATION) =>
+            {
+                AdminError::UnknownTenant(tenant.to_string())
             }
+            _ => AdminError::Database(error),
         })?;
     Ok(IssuedToken {
         token_id,
@@ -147,9 +231,16 @@ pub async fn list(
     client: &impl GenericClient,
     tenant: &str,
 ) -> Result<Vec<TokenSummary>, AdminError> {
-    Ok(client
-        .query(LIST, &[&tenant])
-        .await?
+    summaries(client.query(LIST, &[&tenant]).await?)
+}
+
+/// Every platform token, live or not.
+pub async fn list_platform(client: &impl GenericClient) -> Result<Vec<TokenSummary>, AdminError> {
+    summaries(client.query(LIST_PLATFORM, &[]).await?)
+}
+
+fn summaries(rows: Vec<tokio_postgres::Row>) -> Result<Vec<TokenSummary>, AdminError> {
+    Ok(rows
         .iter()
         .map(|row| TokenSummary {
             token_id: row.get("token_id"),

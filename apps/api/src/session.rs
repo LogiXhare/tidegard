@@ -27,7 +27,7 @@ use tidegard_incident::authorization::Actor;
 use tidegard_incident_postgres::pool::acquire;
 use utoipa::ToSchema;
 
-use crate::auth::{is_well_formed, token_hash, Principal, Role};
+use crate::auth::{is_well_formed, token_hash, Principal};
 use crate::problem::{ErrorCode, Problem};
 use crate::time::rfc3339;
 use crate::AppState;
@@ -216,11 +216,11 @@ const TOKEN_FOR_SIGN_IN: &str = "\
 SELECT t.token_id::text AS token_id, t.tenant_id, t.actor_type, t.actor_id, t.role,
     least(t.expires_at, transaction_timestamp() + $2::bigint * interval '1 second') AS session_expires
 FROM api_tokens t
-JOIN tenants ON tenants.tenant_id = t.tenant_id
+LEFT JOIN tenants ON tenants.tenant_id = t.tenant_id
 WHERE t.token_hash = $1
   AND t.revoked_at IS NULL
   AND t.expires_at > transaction_timestamp()
-  AND tenants.status = 'active'";
+  AND (t.scope = 'platform' OR tenants.status = 'active')";
 
 const CREATE: &str = "\
 INSERT INTO api_sessions (session_hash, token_id, expires_at)
@@ -318,20 +318,7 @@ pub async fn sign_in(State(state): State<AppState>, request: Request) -> Respons
             .await
             .map_err(|_| Problem::new(ErrorCode::Unavailable).retry_after(5))?
             .ok_or_else(rejected)?;
-        let actor_id: String = row.get("actor_id");
-        let actor = match row.get::<_, String>("actor_type").as_str() {
-            "operator" => Actor::Operator { id: actor_id },
-            "service_account" => Actor::ServiceAccount { id: actor_id },
-            _ => return Err(rejected()),
-        };
-        let role = Role::parse(row.get::<_, &str>("role")).ok_or_else(rejected)?;
-        let principal = Principal {
-            tenant: tidegard_incident::correlation::TenantId::new(
-                row.get::<_, String>("tenant_id"),
-            ),
-            actor,
-            role,
-        };
+        let principal = crate::auth::principal_from(&row).map_err(|_| rejected())?;
         let token_id: String = row.get("token_id");
         let expires: std::time::SystemTime = row.get("session_expires");
         let id = generate_session_id().map_err(|_| Problem::new(ErrorCode::Internal))?;

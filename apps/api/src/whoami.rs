@@ -18,11 +18,17 @@ use crate::AppState;
 /// The caller, as its token identifies it.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct WhoAmI {
+    /// The tenant this request acts in. For a platform principal, the one
+    /// its `Tidegard-Tenant` header named, or `platform` without one.
     pub tenant_id: String,
+    /// `tenant` or `platform` (ADR 0060).
+    pub scope: &'static str,
     /// operator or service_account.
     pub actor_type: &'static str,
     pub actor_id: String,
-    /// viewer, operator, senior_operator or noc_lead.
+    /// A tenant role (viewer, operator, senior_operator, noc_lead,
+    /// customer_admin, security_analyst, automation) or a platform role
+    /// (noc_operator, noc_admin, auditor, platform_admin, super_admin).
     pub role: &'static str,
     /// What the role grants, such as `incident.read`.
     pub permissions: Vec<&'static str>,
@@ -63,6 +69,7 @@ pub async fn whoami(
     permissions.sort_unstable();
     Json(WhoAmI {
         tenant_id: principal.tenant.as_str().to_string(),
+        scope: principal.role.scope().as_str(),
         actor_type,
         actor_id,
         role: principal.role.as_str(),

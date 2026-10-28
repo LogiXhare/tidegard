@@ -128,6 +128,9 @@ unchanged, and a single-tenant install needs no new setting.
   by hand.
 - Suspending a tenant (`tidegard-api tenant suspend --tenant T`) refuses
   its tokens and sessions at once and keeps its data.
+- Migration V23 adds platform tokens. Existing tokens are tenant tokens
+  and keep their role and permissions. A client that sends a
+  `Tidegard-Tenant` header must send its own tenant.
 
 ## From v0.9.0
 

@@ -107,8 +107,14 @@ tidegard-api token revoke --token-id <uuid>
 
 - The token (`wnm_` and 64 hex characters) is printed **once**. Only its
   SHA-256 is stored, and `list` never shows it.
-- The roles are `viewer`, `operator`, `senior_operator` and `noc_lead`.
-  `platform_admin` cannot be given to a token. The table refuses it too.
+- A tenant token carries a tenant role: `viewer`, `operator`,
+  `senior_operator`, `noc_lead`, `customer_admin`, `security_analyst`,
+  or `automation` (service accounts only).
+- A platform token (`token create --platform`, at most 90 days) carries a
+  provider role: `noc_operator`, `noc_admin`, `auditor`, `platform_admin`
+  or `super_admin`. It names the tenant it acts in on each request with
+  the `Tidegard-Tenant` header ([ADR 0060](../../docs/architecture/decisions/0060-phase8a-tenant-registry.md)).
+  The table refuses a role in the wrong scope.
 - Every token expires, after at most 366 days. A revoked or expired
   token is refused like a wrong one: `401 api.unauthenticated`. Thirty
   failures a minute from one address lock that address out with `429`.
