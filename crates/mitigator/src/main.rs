@@ -14,7 +14,7 @@ async fn main() {
         "starting tidegard-mitigator"
     );
     if let Err(error) = tidegard_mitigator::run(config, shutdown_signal()).await {
-        tracing::error!(error = %error, "tidegard-mitigator could not start");
+        tracing::error!(error = %error, "tidegard-mitigator stopped with an error");
         std::process::exit(1);
     }
     tracing::info!("tidegard-mitigator stopped");
