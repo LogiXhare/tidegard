@@ -11,6 +11,7 @@ pub mod config;
 pub mod exit;
 mod mitigations;
 pub mod output;
+mod tenants;
 
 use std::io::{BufRead, Write};
 
@@ -81,7 +82,12 @@ pub async fn run_with(
         _ => {}
     }
     let endpoint = match config::resolve(env, invocation.global.profile.as_deref()) {
-        Ok(endpoint) => endpoint,
+        Ok(mut endpoint) => {
+            if let Some(tenant) = &invocation.global.tenant {
+                endpoint.tenant = Some(tenant.clone());
+            }
+            endpoint
+        }
         Err(message) => {
             let _ = writeln!(io.err, "Error: {message}");
             return exit::USAGE;
@@ -368,6 +374,42 @@ async fn execute(client: &Client, invocation: &Invocation, io: &mut Io<'_>) -> R
         }
         Command::BgpRoutes => mitigations::bgp_routes(client, io, output).await,
         Command::BgpPeers => mitigations::bgp_peers(client, io, output).await,
+        Command::TenantList => tenants::list(client, io, output).await,
+        Command::TenantShow(tenant) => tenants::show(client, tenant, io, output).await,
+        Command::TenantCreate { tenant, name } => {
+            tenants::create(client, tenant, name.as_deref(), io, output).await
+        }
+        Command::TenantStatus {
+            tenant,
+            suspend,
+            yes,
+        } => tenants::set_status(client, tenant, *suspend, *yes, io, output).await,
+        Command::PrefixAdd { tenant, prefix } => {
+            tenants::add_prefix(client, tenant, prefix, io, output).await
+        }
+        Command::PrefixRemove { tenant, prefix } => {
+            tenants::remove_prefix(client, tenant, prefix, io, output).await
+        }
+        Command::TokenList => tenants::tokens(client, io, output).await,
+        Command::TokenCreate {
+            actor_id,
+            role,
+            actor_type,
+            days,
+            description,
+        } => {
+            let new = tenants::NewToken {
+                actor_id,
+                role,
+                actor_type: actor_type.as_deref(),
+                days: *days,
+                description: description.as_deref(),
+            };
+            tenants::issue(client, &new, io, output).await
+        }
+        Command::TokenRevoke { token_id, yes } => {
+            tenants::revoke(client, token_id, *yes, io, output).await
+        }
     }
 }
 

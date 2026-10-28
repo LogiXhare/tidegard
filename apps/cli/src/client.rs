@@ -154,6 +154,9 @@ impl Client {
             .map_err(|_| TransportError::Connection("the token is not a valid header".into()))?;
         bearer.set_sensitive(true);
         builder = builder.header(AUTHORIZATION, bearer);
+        if let Some(tenant) = &self.endpoint.tenant {
+            builder = builder.header("Tidegard-Tenant", tenant.as_str());
+        }
         if let Some(key) = &call.idempotency_key {
             builder = builder.header("Idempotency-Key", key.as_str());
         }

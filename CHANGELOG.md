@@ -35,6 +35,8 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
   tokens are issued on the host only.
 - Every registry and token change through the API is audited on the
   tenant's trail, in the same transaction.
+- `tidegardctl tenants` and `tidegardctl tokens`, and `--tenant` (or
+  `TIDEGARD_TENANT`, or a profile's `tenant`) for a platform token.
 
 ### Changed
 

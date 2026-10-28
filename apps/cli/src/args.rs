@@ -1,7 +1,8 @@
 //! The command line, parsed by hand (ADR 0040).
 //!
 //! `tidegardctl [GLOBAL FLAGS] <noun> <verb> [ARGUMENTS] [FLAGS]`, where
-//! the noun is `incidents`, `mitigations`, `kill-switch` or `bgp`.
+//! the noun is `incidents`, `mitigations`, `kill-switch`, `bgp`, `tenants`
+//! or `tokens`.
 //! Flags may sit anywhere after the program name. An unknown flag, a
 //! missing value, a flag the verb does not take, or a stray argument is a
 //! usage error, never ignored: a misspelled flag must fail loudly, not run
@@ -23,6 +24,9 @@ pub enum Output {
 pub struct Global {
     pub output: Output,
     pub profile: Option<String>,
+    /// The tenant a platform principal acts in (ADR 0060), sent as the
+    /// `Tidegard-Tenant` header. Overrides the environment and the profile.
+    pub tenant: Option<String>,
 }
 
 /// An incident as the operator named it: its UUID or its number.
@@ -243,6 +247,38 @@ pub enum Command {
     },
     BgpRoutes,
     BgpPeers,
+    TenantList,
+    TenantShow(String),
+    TenantCreate {
+        tenant: String,
+        name: Option<String>,
+    },
+    /// Suspends (`true`, asking first) or reactivates a tenant.
+    TenantStatus {
+        tenant: String,
+        suspend: bool,
+        yes: bool,
+    },
+    PrefixAdd {
+        tenant: String,
+        prefix: String,
+    },
+    PrefixRemove {
+        tenant: String,
+        prefix: String,
+    },
+    TokenList,
+    TokenCreate {
+        actor_id: String,
+        role: String,
+        actor_type: Option<String>,
+        days: Option<u32>,
+        description: Option<String>,
+    },
+    TokenRevoke {
+        token_id: String,
+        yes: bool,
+    },
 }
 
 /// `incidents open`, field for field the API request.
@@ -273,7 +309,8 @@ fn usage(text: impl Into<String>) -> UsageError {
 }
 
 pub const USAGE: &str = "\
-Usage: tidegardctl [--output table|wide|json] [--profile NAME] <noun> <verb> ...
+Usage: tidegardctl [--output table|wide|json] [--profile NAME] [--tenant T]
+                   <noun> <verb> ...
 
 Reading:
   incidents list [--state S] [--severity S] [--priority P] [--direction D]
@@ -333,6 +370,23 @@ Mitigations (BGP, ADR 0050):
   announces it. Releasing the kill switch is host-only:
   tidegard-api kill-switch release, on the API host.
 
+Tenants and tokens (ADR 0060):
+  tenants list                                   (platform roles)
+  tenants show TENANT
+  tenants create TENANT [--name TEXT]
+  tenants suspend TENANT                                       (confirms)
+  tenants activate TENANT
+  tenants prefix add TENANT PREFIX
+  tenants prefix remove TENANT PREFIX
+  tokens list                                    (the tenant acted in)
+  tokens create --actor-id ID --role ROLE [--actor-type operator|service_account]
+                [--days N] [--description TEXT]
+  tokens revoke TOKEN_ID                                       (confirms)
+
+  --tenant T names the tenant a platform token acts in, for every command
+  but tenants; TIDEGARD_TENANT or a profile's tenant set it too. A tenant
+  token acts in its own tenant only.
+
 INCIDENT is an incident id or number, such as WNM-2026-000123.
 MITIGATION is a mitigation id, as mitigations list shows it.
 --state, --severity and --priority repeat, or take a comma-separated list.
@@ -378,6 +432,11 @@ const VALUE_FLAGS: &[(&str, &str)] = &[
     ("--source-port", "source_port"),
     ("--destination-port", "destination_port"),
     ("--rate", "rate"),
+    ("--name", "name"),
+    ("--actor-id", "actor_id"),
+    ("--role", "role"),
+    ("--actor-type", "actor_type"),
+    ("--days", "days"),
 ];
 
 /// Flags that take no value, as `(flag, name)`, besides `--yes`.
@@ -510,6 +569,7 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
     let mut global = Global {
         output: Output::Table,
         profile: None,
+        tenant: None,
     };
     let mut words: Vec<String> = Vec::new();
     let mut flags = Flags {
@@ -571,6 +631,7 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
                 }
             }
             "--profile" => global.profile = Some(value(name)?),
+            "--tenant" => global.tenant = Some(value(name)?),
             flag if SWITCH_FLAGS.iter().any(|(f, _)| *f == flag) => {
                 if inline.is_some() {
                     return Err(usage(format!("{flag} takes no value")));
@@ -597,6 +658,11 @@ pub fn parse(args: &[String]) -> Result<Invocation, UsageError> {
     }
 
     let words: Vec<&str> = words.iter().map(String::as_str).collect();
+    if let Some(noun @ ("tenants" | "tokens")) = words.first().copied() {
+        flags.noun = noun.to_string();
+        let command = tenant_command(&words, flags)?;
+        return Ok(Invocation { global, command });
+    }
     if let Some(noun @ ("mitigations" | "kill-switch" | "bgp")) = words.first().copied() {
         flags.noun = noun.to_string();
         let command = mitigation_command(&words, flags)?;
@@ -884,6 +950,91 @@ fn mitigation_command(words: &[&str], mut flags: Flags) -> Result<Command, Usage
         ["bgp", "peers"] => {
             flags.finish("peers", false)?;
             Command::BgpPeers
+        }
+        [noun] => return Err(usage(format!("{noun} needs a verb; see --help"))),
+        [noun, verb, ..] => {
+            return Err(usage(format!(
+                "{noun} {verb}: unknown verb, or the wrong number of arguments; see --help"
+            )))
+        }
+        [] => unreachable!("a noun was matched"),
+    };
+    Ok(command)
+}
+
+/// `tenants` and `tokens` (ADR 0060).
+fn tenant_command(words: &[&str], mut flags: Flags) -> Result<Command, UsageError> {
+    let owned = |text: &&str| (*text).to_string();
+    let command = match words {
+        ["tenants", "list"] => {
+            flags.finish("list", false)?;
+            Command::TenantList
+        }
+        ["tenants", "show", tenant] => {
+            flags.finish("show", false)?;
+            Command::TenantShow(owned(tenant))
+        }
+        ["tenants", "create", tenant] => {
+            let name = flags.take("name")?;
+            flags.finish("create", false)?;
+            Command::TenantCreate {
+                tenant: owned(tenant),
+                name,
+            }
+        }
+        ["tenants", verb @ ("suspend" | "activate"), tenant] => {
+            let suspend = *verb == "suspend";
+            let yes = flags.finish(verb, suspend)?;
+            Command::TenantStatus {
+                tenant: owned(tenant),
+                suspend,
+                yes,
+            }
+        }
+        ["tenants", "prefix", "add", tenant, prefix] => {
+            flags.finish("prefix add", false)?;
+            Command::PrefixAdd {
+                tenant: owned(tenant),
+                prefix: owned(prefix),
+            }
+        }
+        ["tenants", "prefix", "remove", tenant, prefix] => {
+            flags.finish("prefix remove", false)?;
+            Command::PrefixRemove {
+                tenant: owned(tenant),
+                prefix: owned(prefix),
+            }
+        }
+        ["tokens", "list"] => {
+            flags.finish("list", false)?;
+            Command::TokenList
+        }
+        ["tokens", "create"] => {
+            let command = Command::TokenCreate {
+                actor_id: flags.require("actor_id", "create")?,
+                role: flags.require("role", "create")?,
+                actor_type: flags.take("actor_type")?,
+                days: flags.number("days", "a whole number of days")?,
+                description: flags.take("description")?,
+            };
+            flags.finish("create", false)?;
+            command
+        }
+        ["tokens", "revoke", token_id] => {
+            if !is_uuid(token_id) {
+                return Err(usage(format!(
+                    "{:?} is not a token id; tokens list shows them",
+                    token_id
+                        .chars()
+                        .filter(|c| !c.is_control())
+                        .collect::<String>()
+                )));
+            }
+            let yes = flags.finish("revoke", true)?;
+            Command::TokenRevoke {
+                token_id: token_id.to_ascii_lowercase(),
+                yes,
+            }
         }
         [noun] => return Err(usage(format!("{noun} needs a verb; see --help"))),
         [noun, verb, ..] => {

@@ -7,6 +7,9 @@
 //! | endpoint | `TIDEGARD_API_URL` | `url` |
 //! | token | `TIDEGARD_API_TOKEN` | `token` |
 //! | CA bundle | `TIDEGARD_API_CA_FILE` | `ca_file` |
+//! | tenant acted in | `TIDEGARD_TENANT` | `tenant` |
+//!
+//! `--tenant` overrides both, for a platform token (ADR 0060).
 //!
 //! The file is JSON, at `$TIDEGARD_CONFIG` or the platform default,
 //! and holds named profiles; `--profile` picks one, else
@@ -27,6 +30,7 @@ pub const URL_VAR: &str = "TIDEGARD_API_URL";
 pub const TOKEN_VAR: &str = "TIDEGARD_API_TOKEN";
 pub const CA_FILE_VAR: &str = "TIDEGARD_API_CA_FILE";
 pub const CONFIG_VAR: &str = "TIDEGARD_CONFIG";
+pub const TENANT_VAR: &str = "TIDEGARD_TENANT";
 
 /// The process environment, injectable for tests.
 pub trait Environment {
@@ -56,6 +60,7 @@ struct Profile {
     url: Option<String>,
     token: Option<String>,
     ca_file: Option<PathBuf>,
+    tenant: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -151,6 +156,8 @@ pub struct Endpoint {
     pub base: BaseUrl,
     pub token: String,
     pub ca_file: Option<PathBuf>,
+    /// Sent as `Tidegard-Tenant` when set.
+    pub tenant: Option<String>,
 }
 
 impl std::fmt::Debug for Endpoint {
@@ -159,6 +166,7 @@ impl std::fmt::Debug for Endpoint {
             .field("base", &self.base)
             .field("token", &"<redacted>")
             .field("ca_file", &self.ca_file)
+            .field("tenant", &self.tenant)
             .finish()
     }
 }
@@ -245,6 +253,7 @@ pub fn resolve(env: &dyn Environment, profile: Option<&str>) -> Result<Endpoint,
         .or(stored.token)
         .ok_or_else(|| format!("no API token: set {TOKEN_VAR} or a profile's token"))?;
     let ca_file = env.var(CA_FILE_VAR).map(PathBuf::from).or(stored.ca_file);
+    let tenant = env.var(TENANT_VAR).or(stored.tenant);
     match base.scheme {
         Scheme::Http if !base.is_loopback() => {
             return Err(
@@ -265,6 +274,7 @@ pub fn resolve(env: &dyn Environment, profile: Option<&str>) -> Result<Endpoint,
         base,
         token,
         ca_file,
+        tenant,
     })
 }
 
