@@ -182,8 +182,12 @@ def load(args):
         for rate in args.rates:
             before = scrape()
             cpu_before = cpu_seconds(collector.pid)
+            step_began = time.monotonic()
             sent = send(args.replay, rate, args.step_seconds, args.hosts)
             after = settle(before)
+            # The CPU time spans the send and the settling, so it is
+            # divided by both.
+            step_elapsed = time.monotonic() - step_began
             parsed = counter(after, PARSED) - counter(before, PARSED)
             memory = proc_status(collector.pid)
             p99 = quantile(before, after, LATENCY, 0.99)
@@ -199,7 +203,7 @@ def load(args):
                 "latency_p99_seconds": p99,
                 "rss_bytes": memory.get("VmRSS"),
                 "peak_rss_bytes": memory.get("VmHWM"),
-                "cpu_cores": (cpu_seconds(collector.pid) - cpu_before) / args.step_seconds,
+                "cpu_cores": (cpu_seconds(collector.pid) - cpu_before) / step_elapsed,
                 "alive": collector.poll() is None,
             }
             steps.append(step)
@@ -248,6 +252,8 @@ def soak(args):
         while replay.poll() is None:
             time.sleep(args.sample_seconds)
             if collector.poll() is not None:
+                # Do not wait out the rest of the replay's duration.
+                replay.kill()
                 break
             now = scrape()
             memory = proc_status(collector.pid)

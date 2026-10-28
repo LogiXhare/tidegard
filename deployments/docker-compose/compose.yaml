@@ -57,7 +57,7 @@ services:
       retries: 30
 
   clickhouse:
-    image: clickhouse/clickhouse-server:26.8.14.3@sha256:4769eec6a9b9842a7d102c8bdfca0400128bc6edf65dec4e19a7d3a2b25f32db
+    image: clickhouse/clickhouse-server:26.8.24.9@sha256:35b2bc23277259a249af5fbb199ca9ce5042eb249ecbbcbb15b19256a1f41660
     restart: unless-stopped
     environment:
       CLICKHOUSE_USER: tidegard
