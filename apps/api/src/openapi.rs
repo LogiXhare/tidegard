@@ -14,7 +14,7 @@ use utoipa::{OpenApi, ToSchema};
 /// RFC 9457 problem details, as every error response carries them.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ProblemDocument {
-    /// `https://wetechi.com/probs/` and the code, as an identifier.
+    /// `https://logixhare.com/tidegard/problems/` and the code, as an identifier.
     #[serde(rename = "type")]
     pub type_uri: String,
     pub title: String,

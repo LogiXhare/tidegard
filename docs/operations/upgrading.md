@@ -134,7 +134,7 @@ under the product's new name:
   when you can. `tidegardctl` reads its profiles from
   `~/.config/tidegard/cli.json` (`%APPDATA%\tidegard\cli.json` on
   Windows), and still finds the `wetechinetmon` one, with a warning.
-- **Two names inside messages changed with the product**, and a
+- **Three names inside messages changed with the product**, and a
   program that checks them needs the new one:
   - the webhook body's `schema` is `tidegard.notification.v1` and its
     `product` `Tidegard`. The `X-WNM-*` headers and their signature
@@ -144,7 +144,10 @@ under the product's new name:
   - an incident export's `format` is `tidegard.incident-export`, still
     version 1. Bundles exported by v0.9.0 keep
     `wetechinetmon.incident-export`; tooling that reads both should
-    accept both.
+    accept both;
+  - an API error's `type` is `https://logixhare.com/tidegard/problems/`
+    and the code, no longer `https://wetechi.com/probs/`. The `error`
+    code itself is unchanged, and is what a client should match.
 
   A web UI page left open across the upgrade keeps its sign-in and
   keeps working.

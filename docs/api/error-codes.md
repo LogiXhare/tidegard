@@ -54,7 +54,9 @@ status.
 | `mitigation.too_wide` | 422 | The prefix is wider than the configured minimum length. |
 | `mitigation.too_long` | 422 | The duration is over the configured maximum. |
 
-The `type` member is `https://wetechi.com/probs/` followed by the code,
+The `type` member is `https://logixhare.com/tidegard/problems/` followed by the code,
 with `.` and `_` written as `-`, for example
-`https://wetechi.com/probs/incident-version-conflict`. It is an
-identifier, and it need not resolve.
+`https://logixhare.com/tidegard/problems/incident-version-conflict`. It is an
+identifier, and it need not resolve. Before 1.0.0 it was
+`https://wetechi.com/probs/` and the same code; a client that matches
+errors should match the `error` member, which has not changed.

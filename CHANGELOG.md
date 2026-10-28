@@ -8,6 +8,13 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+### Changed — the API's problem type
+
+- An API error's `type` is `https://logixhare.com/tidegard/problems/`
+  and its code, no longer `https://wetechi.com/probs/`: the last of the
+  old name in what the API returns. The `error` code, which clients
+  match, is unchanged ([error codes](docs/api/error-codes.md)).
+
 ## [1.0.0-rc.3] - 2026-10-28
 
 The third release candidate of Tidegard 1.0.0. It carries the fixes from
