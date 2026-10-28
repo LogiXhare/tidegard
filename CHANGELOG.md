@@ -8,6 +8,14 @@ once versioned releases begin (see [ROADMAP.md](ROADMAP.md)).
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - 2026-10-28
+
+The fourth release candidate of Tidegard 1.0.0. One change from rc.3:
+the API's problem type URI, which the owner chose to settle before 1.0.0
+so that 1.x starts with it. Nothing else changes, no setting and no
+database schema. Upgrade from rc.3 by installing over it, as
+[Upgrading](docs/operations/upgrading.md) describes.
+
 ### Changed — the API's problem type
 
 - An API error's `type` is `https://logixhare.com/tidegard/problems/`
@@ -539,7 +547,8 @@ this environment. Property-based tests (`proptest`) cover the same
   out-of-scope list, risk register, roadmap, acceptance criteria, blocking
   questions, and naming/branding decisions under `docs/`.
 
-[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.3...HEAD
+[Unreleased]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.4...HEAD
+[1.0.0-rc.4]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.3...v1.0.0-rc.4
 [1.0.0-rc.3]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.2...v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/LogiXhare/tidegard/compare/v1.0.0-rc.1...v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/LogiXhare/tidegard/releases/tag/v1.0.0-rc.1
