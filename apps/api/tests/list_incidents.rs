@@ -78,6 +78,10 @@ async fn open_incident(service: &IncidentPersistence, client: &mut Client, scope
 }
 
 async fn token(client: &Client, tenant: &str) -> String {
+    // A token names a registered tenant (ADR 0060).
+    tidegard_incident_postgres::tenants::ensure(client, tenant)
+        .await
+        .unwrap();
     token_admin::create(
         client,
         &NewToken {

@@ -113,6 +113,22 @@ above. Everything recorded after the backup, incidents, notes and
 audit entries included, is lost: decide before you roll back whether
 that is worse than the problem.
 
+## From v1.0.0
+
+Migration V22 ([ADR 0060](../architecture/decisions/0060-phase8a-tenant-registry.md))
+adds the tenant registry and registers every tenant your database
+already uses, active and named by its id. Tokens, sessions and data are
+unchanged, and a single-tenant install needs no new setting.
+
+- `tidegard-api tenant list` shows the registered tenants. Give one a
+  display name with `tenant create` only for a new tenant; existing ones
+  keep their id as their name.
+- `tidegard-api token create` still registers a tenant it has not seen
+  before. A token can no longer be inserted for an unregistered tenant
+  by hand.
+- Suspending a tenant (`tidegard-api tenant suspend --tenant T`) refuses
+  its tokens and sessions at once and keeps its data.
+
 ## From v0.9.0
 
 v0.9.0 was a tag, not a release: it had no tarball or units, so it ran

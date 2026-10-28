@@ -33,6 +33,10 @@ const TEST_DATABASE_URL_VAR: &str = "TIDEGARD_INCIDENT_POSTGRES_TEST_URL";
 const MISSING: &str = "0192f3c4-8a7b-7e1f-9c2d-3e4f5a6b7c8d";
 
 async fn token(client: &Client, tenant: &str, role: Role, id: &str) -> String {
+    // A token names a registered tenant (ADR 0060).
+    tidegard_incident_postgres::tenants::ensure(client, tenant)
+        .await
+        .unwrap();
     token_admin::create(
         client,
         &NewToken {

@@ -144,6 +144,15 @@ TLS on any address other than loopback.
 
 ## 5. Tokens and the CLI
 
+Register the tenant first, with the prefixes it owns. `token create`
+registers an unknown tenant by itself, named by its id, but the prefixes
+are yours to add:
+
+```sh
+tidegard-api tenant create --tenant acme --name "Acme Networks"
+tidegard-api tenant prefix add --tenant acme --prefix 192.0.2.0/24
+```
+
 Issue a token per person, with the least role they need:
 
 - `viewer`

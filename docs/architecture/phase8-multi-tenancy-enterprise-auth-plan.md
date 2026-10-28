@@ -94,6 +94,8 @@ release as v1.1.0; 8F to 8H as v1.2.0.
 test; two tenants' overlapping prefixes are refused by PostgreSQL 15 to
 18; an install with v1.0.0 data upgrades with every tenant registered.
 
+**Progress:** 8A-1 ([ADR 0060](decisions/0060-phase8a-tenant-registry.md)) adds V22: `tenants` and `tenant_prefixes`, with an exclusion constraint that refuses overlapping prefixes, floors of `/8` and `/16`, `platform` reserved, and `api_tokens` referencing `tenants`. The migration registers every tenant id already in use, found from the catalog. A suspended tenant's tokens, sessions and sign-ins are refused. `tidegard-api tenant` manages the registry from the host, and `token create` registers a new tenant so v1.0.0 scripts keep working. `crates/incident-postgres/tests/tenant_registry.rs` proves the upgrade and every refusal on PostgreSQL 15 to 18.
+
 ### 8B — Row-level security
 
 FU-21 and R16, the work ADR 0032 prepared for:

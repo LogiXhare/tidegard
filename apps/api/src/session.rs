@@ -211,13 +211,16 @@ pub async fn record(pool: &deadpool_postgres::Pool, event: SessionEvent<'_>) {
     }
 }
 
+/// As the bearer lookup: a suspended tenant's token signs in to nothing.
 const TOKEN_FOR_SIGN_IN: &str = "\
-SELECT token_id::text AS token_id, tenant_id, actor_type, actor_id, role,
-    least(expires_at, transaction_timestamp() + $2::bigint * interval '1 second') AS session_expires
-FROM api_tokens
-WHERE token_hash = $1
-  AND revoked_at IS NULL
-  AND expires_at > transaction_timestamp()";
+SELECT t.token_id::text AS token_id, t.tenant_id, t.actor_type, t.actor_id, t.role,
+    least(t.expires_at, transaction_timestamp() + $2::bigint * interval '1 second') AS session_expires
+FROM api_tokens t
+JOIN tenants ON tenants.tenant_id = t.tenant_id
+WHERE t.token_hash = $1
+  AND t.revoked_at IS NULL
+  AND t.expires_at > transaction_timestamp()
+  AND tenants.status = 'active'";
 
 const CREATE: &str = "\
 INSERT INTO api_sessions (session_hash, token_id, expires_at)

@@ -86,6 +86,9 @@ pub mod retention;
 /// ADR 0032).
 pub mod platform;
 
+/// The tenant registry and prefix ownership (8A, ADR 0060).
+pub mod tenants;
+
 /// Failure injection at each flush commit point, behind the
 /// `fault-injection` feature (5B-5).
 pub mod fault;

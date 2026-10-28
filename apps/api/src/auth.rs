@@ -149,24 +149,30 @@ pub fn is_well_formed(token: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// A token of a suspended tenant is refused like an unknown one
+/// (ADR 0060).
 const LOOKUP: &str = "\
-SELECT tenant_id, actor_type, actor_id, role FROM api_tokens
-WHERE token_hash = $1
-  AND revoked_at IS NULL
-  AND expires_at > transaction_timestamp()";
+SELECT t.tenant_id, t.actor_type, t.actor_id, t.role FROM api_tokens t
+JOIN tenants ON tenants.tenant_id = t.tenant_id
+WHERE t.token_hash = $1
+  AND t.revoked_at IS NULL
+  AND t.expires_at > transaction_timestamp()
+  AND tenants.status = 'active'";
 
-/// A session: live, not idle past the timeout, and its token still valid.
-/// `stale` says `last_seen_at` is due a write.
+/// A session: live, not idle past the timeout, its token still valid and
+/// its tenant active. `stale` says `last_seen_at` is due a write.
 const SESSION_LOOKUP: &str = "\
 SELECT t.token_id::text AS token_id, t.tenant_id, t.actor_type, t.actor_id, t.role,
     s.last_seen_at < transaction_timestamp() - $3::bigint * interval '1 second' AS stale
 FROM api_sessions s
 JOIN api_tokens t ON t.token_id = s.token_id
+JOIN tenants ON tenants.tenant_id = t.tenant_id
 WHERE s.session_hash = $1
   AND s.expires_at > transaction_timestamp()
   AND s.last_seen_at > transaction_timestamp() - $2::bigint * interval '1 second'
   AND t.revoked_at IS NULL
-  AND t.expires_at > transaction_timestamp()";
+  AND t.expires_at > transaction_timestamp()
+  AND tenants.status = 'active'";
 
 const SESSION_TOUCH: &str =
     "UPDATE api_sessions SET last_seen_at = transaction_timestamp() WHERE session_hash = $1";

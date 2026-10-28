@@ -29,6 +29,9 @@ async fn main() {
     if args.first().map(String::as_str) == Some("kill-switch") {
         std::process::exit(kill_switch_command(&pool, &args[1..]).await);
     }
+    if args.first().map(String::as_str) == Some("tenant") {
+        std::process::exit(tenant_command(&pool, &args[1..]).await);
+    }
 
     let listener = bind(config.bind, config.tls.as_ref())
         .await
@@ -244,6 +247,16 @@ async fn token_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
                 eprintln!("--days must be a number\n{TOKEN_USAGE}");
                 return 2;
             };
+            // A tenant named for the first time is registered, as v1.0.0
+            // scripts expect (ADR 0060). The API itself never does this.
+            match tidegard_incident_postgres::tenants::ensure(&**client, &tenant).await {
+                Ok(true) => eprintln!("registered tenant '{tenant}'"),
+                Ok(false) => {}
+                Err(error) => {
+                    eprintln!("{error}");
+                    return 1;
+                }
+            }
             let new = NewToken {
                 tenant,
                 actor_type,
@@ -299,6 +312,109 @@ async fn token_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
         }
         _ => {
             eprintln!("{TOKEN_USAGE}");
+            return 2;
+        }
+    };
+    match result {
+        Ok(()) => 0,
+        Err(error) => {
+            eprintln!("{error}");
+            1
+        }
+    }
+}
+
+const TENANT_USAGE: &str = "\
+usage:
+  tidegard-api tenant create --tenant T [--name NAME]
+  tidegard-api tenant list
+  tidegard-api tenant suspend|activate --tenant T
+  tidegard-api tenant prefix add|remove --tenant T --prefix P
+  tidegard-api tenant prefix list --tenant T";
+
+/// `tidegard-api tenant ...`: the tenant registry from the host (ADR
+/// 0060), for the first tenant and for an install without a platform
+/// token.
+async fn tenant_command(pool: &deadpool_postgres::Pool, args: &[String]) -> i32 {
+    use tidegard_incident_postgres::tenants::{self, TenantStatus};
+    use tidegard_mitigation::Prefix;
+
+    let flag = |name: &str| {
+        args.windows(2)
+            .find(|pair| pair[0] == name)
+            .map(|pair| pair[1].clone())
+    };
+    let words: Vec<&str> = args
+        .iter()
+        .map(String::as_str)
+        .take_while(|word| !word.starts_with("--"))
+        .collect();
+    let tenant = flag("--tenant");
+    let prefix = match flag("--prefix").map(|text| text.parse::<Prefix>()) {
+        Some(Ok(prefix)) => Some(prefix),
+        Some(Err(error)) => {
+            eprintln!("--prefix: {error}");
+            return 2;
+        }
+        None => None,
+    };
+    let client = match tidegard_incident_postgres::pool::acquire(pool).await {
+        Ok(client) => client,
+        Err(error) => {
+            eprintln!("the incident database cannot be reached: {error}");
+            return 1;
+        }
+    };
+    let show = |tenant: &tenants::Tenant| {
+        println!(
+            "{}  {}  {}  created {}",
+            tenant.tenant_id,
+            tenant.status.as_str(),
+            tenant.display_name,
+            tenant.created_at
+        );
+    };
+    let result = match (words.as_slice(), tenant, prefix) {
+        (["create"], Some(tenant), None) => {
+            let name = flag("--name").unwrap_or_else(|| tenant.clone());
+            tenants::create(&**client, &tenant, &name)
+                .await
+                .map(|created| show(&created))
+        }
+        (["list"], None, None) => tenants::list(&**client)
+            .await
+            .map(|all| all.iter().for_each(show)),
+        ([verb @ ("suspend" | "activate")], Some(tenant), None) => {
+            let status = if *verb == "suspend" {
+                TenantStatus::Suspended
+            } else {
+                TenantStatus::Active
+            };
+            tenants::set_status(&**client, &tenant, status)
+                .await
+                .map(|changed| show(&changed))
+        }
+        (["prefix", "add"], Some(tenant), Some(prefix)) => {
+            tenants::add_prefix(&**client, &tenant, prefix)
+                .await
+                .map(|()| println!("{prefix} registered to {tenant}"))
+        }
+        (["prefix", "remove"], Some(tenant), Some(prefix)) => {
+            tenants::remove_prefix(&**client, &tenant, prefix)
+                .await
+                .map(|removed| {
+                    if removed {
+                        println!("{prefix} removed from {tenant}");
+                    } else {
+                        println!("{tenant} has no prefix {prefix}");
+                    }
+                })
+        }
+        (["prefix", "list"], Some(tenant), None) => tenants::prefixes(&**client, &tenant)
+            .await
+            .map(|all| all.iter().for_each(|prefix| println!("{prefix}"))),
+        _ => {
+            eprintln!("{TENANT_USAGE}");
             return 2;
         }
     };

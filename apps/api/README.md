@@ -113,6 +113,27 @@ tidegard-api token revoke --token-id <uuid>
   token is refused like a wrong one: `401 api.unauthenticated`. Thirty
   failures a minute from one address lock that address out with `429`.
 
+## Tenants
+
+Tenants and the prefixes each owns are kept in PostgreSQL (migration
+V22, [ADR 0060](../../docs/architecture/decisions/0060-phase8a-tenant-registry.md)). From the host:
+
+```sh
+tidegard-api tenant create --tenant acme --name "Acme Networks"
+tidegard-api tenant prefix add --tenant acme --prefix 192.0.2.0/24
+tidegard-api tenant prefix list --tenant acme
+tidegard-api tenant suspend --tenant acme
+tidegard-api tenant activate --tenant acme
+tidegard-api tenant list
+```
+
+- No two prefixes overlap, in one tenant or two, and none is wider than
+  `/8` or `/16`; the database refuses them and the command names the
+  prefix and tenant in the way.
+- A suspended tenant's tokens and sessions are refused like unknown
+  ones. Its data is kept.
+- `token create` registers a tenant it has not seen before.
+
 ## Changing the API
 
 Annotate every handler with `#[utoipa::path]` and list it in

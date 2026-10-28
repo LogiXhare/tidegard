@@ -285,6 +285,7 @@ async fn the_outbox_leases_retries_and_dead_letters_and_retention_purges_only_wh
                 ('acme', 'old reviewed', now() - interval '91 days', now() - interval '1 day',
                  'operator', 'op-7'),
                 ('acme', 'old unreviewed', now() - interval '400 days', NULL, NULL, NULL);
+             INSERT INTO tenants (tenant_id, display_name) VALUES ('acme', 'Acme');
              INSERT INTO api_tokens (
                 token_id, tenant_id, actor_type, actor_id, role, token_hash, expires_at
              ) VALUES (
