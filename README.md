@@ -7,13 +7,13 @@ detection, traffic analytics, and policy-controlled mitigation platform
 for ISPs, enterprises, data centers, hosting providers, and managed
 network service providers.
 
-> **Project status: Development Preview.** Phases 0–7 are complete, with
-> real, tested Rust source: collector, aggregator, detector, and incident
+> **Project status: v1.0.0**, released 2026-10-28: the production-ready
+> single-tenant release. Collector, aggregator, detector, and incident
 > management with PostgreSQL persistence, a REST API, a CLI, a web NOC UI,
-> Grafana dashboards, notifications, and an approval-gated BGP mitigation
-> lab (RTBH and FlowSpec through GoBGP), off and in dry-run by default.
-> There is no packaged release. See [Project Status](#project-status)
-> below before evaluating this as a production-ready product.
+> Grafana dashboards, notifications, and approval-gated BGP mitigation
+> (RTBH and FlowSpec through GoBGP), off and in dry-run as shipped. Signed
+> tarballs and public images: see [Getting Started](#getting-started),
+> and [Project Status](#project-status) for its limits.
 
 Built by **WeTechi Solutions**.
 
@@ -37,9 +37,9 @@ Built by **WeTechi Solutions**.
 
 ## Project Status
 
-**Development Preview.** This repository follows an explicit, phased
-delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–7 are merged to
-`main`:
+**v1.0.0.** This repository follows an explicit, phased delivery model
+(see [ROADMAP.md](ROADMAP.md)). Phases 0–7, 9 and 10 are merged to `main`
+and released as v1.0.0:
 
 - **Phase 0–1**: product foundation, clean-room boundary, repository
   governance and documentation/validation tooling.
@@ -66,8 +66,15 @@ delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–7 are merged to
   two-speaker lab in CI proves what an edge router receives. See the
   [RTBH guide](docs/operations/rtbh-guide.md) and the
   [Gate 2 assessment](docs/development/phase7-gate2-assessment.md).
+- **Phase 9**: production hardening. Tarballs with systemd units, images
+  and a Docker Compose stack; load and soak tests; backup, restore,
+  upgrade and rollback proven in CI; a security review with a fuzzing
+  report.
+- **Phase 10**: the signed release pipeline, the
+  [release documents](docs/release/index.md), and an acceptance test of
+  every published release, from flows to a withdrawn route.
 
-**Explicit safety boundaries, current as of this preview:**
+**Explicit safety boundaries, as of v1.0.0:**
 
 - No automated mitigation, ever: every announcement needs a NOC lead's
   approval, and the mitigator may only propose. BGP is off and dry-run is
@@ -75,13 +82,13 @@ delivery model (see [ROADMAP.md](ROADMAP.md)). Phases 0–7 are merged to
   around in the guard file (see [Security](#security) below).
 - Notifications are delivered only to the destinations an operator
   allows, and every incident message says where its mitigation stands.
-- APIs, schemas, and storage architecture may still change.
-- Production use is not yet recommended unless explicitly supported by
-  WeTechi Solutions.
-
-There is no packaged release yet — the first runnable component (the
-IPFIX telemetry collector) shipped in Phase 2, and the repository has
-carried real, tested source code since.
+- v1.0.0 is single-tenant; multi-tenancy is Phase 8. It was tested in
+  CI and in a lab, never against a production network: start with
+  mitigation off, as shipped. [Known issues](docs/release/known-issues.md)
+  lists what it does not do.
+- Every release is signed with cosign keyless and carries build
+  provenance; [Verifying a Release](docs/operations/verifying-a-release.md)
+  shows how to check one before installing it.
 
 ## What Tidegard Is
 
@@ -148,18 +155,19 @@ Full requirement traceability:
 
 ## Getting Started
 
-There is no packaged release or installer yet. The Rust workspace
-(`cargo build --workspace`, `cargo test --workspace`) builds and its 531
-tests pass locally, but there is no HTTP API, web UI, or CLI to run
-against real traffic yet — see
-[docs/development/local-setup.md](docs/development/local-setup.md) for
-what you *can* do today (build the workspace, run the test suite,
-preview documentation, run Markdown/YAML validation). Installation
-guides for Docker Compose, Kubernetes/Helm, and bare-metal Ubuntu will be
-published once the corresponding phase ships a deployable service.
+Install from the
+[latest release](https://github.com/LogiXhare/tidegard/releases/latest),
+after [verifying it](docs/operations/verifying-a-release.md):
 
-*The NOC UI is in [apps/web](apps/web/README.md); screenshots and a
-quick-start walkthrough are not written yet.*
+- **One host with Docker:** the [Quick Start](docs/quick-start.md) runs
+  the Compose reference stack from the public images.
+- **Ubuntu 22.04 or later, with systemd:** the tarball's `install.sh`, as
+  [deployments/systemd](deployments/systemd/README.md) describes.
+- **From source:** [docs/development/local-setup.md](docs/development/local-setup.md).
+
+Then [Customer Onboarding](docs/operations/customer-onboarding.md) takes
+you from your routers' flows to a first incident. The NOC UI, in
+[apps/web](apps/web/README.md), is served by the API.
 
 ## Repository Layout
 
@@ -170,7 +178,7 @@ tidegard/
 ├── crates/           Rust service crates — 13 populated with real,
 │                     tested code (see Cargo.toml); the rest remain
 │                     README-only placeholders for later phases
-├── deployments/       docker-compose, kubernetes, helm, systemd — reserved
+├── deployments/       docker-compose and systemd (Phase 9); kubernetes, helm reserved
 ├── docs/             product, architecture, and operational documentation
 ├── grafana/          dashboards and provisioning (Phase 6)
 ├── database/         reserved; incident migrations live in crates/incident-postgres

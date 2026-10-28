@@ -1,7 +1,7 @@
 # Phases 9 and 10 Plan: Production Hardening and v1.0.0
 
-Status: **Planning, accepted by the owner 2026-10-12.** No Phase 9 code
-exists yet. The decisions this plan rests on are BQ-3 and BQ-16 to BQ-18
+Status: **Complete: v1.0.0 released 2026-10-28.** Planned and accepted
+by the owner 2026-10-12. The decisions this plan rests on are BQ-3 and BQ-16 to BQ-18
 in [blocking questions](../blocking-questions.md). Each milestone records
 its own engineering decisions in an ADR when it starts, as Phases 5 to 7
 did.

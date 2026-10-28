@@ -1,6 +1,6 @@
 # Test Summary
 
-Status: **v1.0.0-rc.3**, 2026-10-28.
+Status: **v1.0.0-rc.4**, 2026-10-28: the candidate released as v1.0.0.
 
 What was tested on Tidegard 1.0.0-rc.3, from the runs themselves. Every
 figure below comes from a run whose link is given; nothing is estimated.
@@ -10,7 +10,10 @@ candidate they are signed against.
 
 rc.3 carries the fixes from the
 [independent review](../security/security-review.md#release-candidate-review)
-of rc.2.
+of rc.2. rc.4 changes one thing, the API's problem type URI, and went
+through the release pipeline ([40654280913](https://github.com/LogiXhare/tidegard/actions/runs/40654280913)) and the release
+acceptance test ([40655575059](https://github.com/LogiXhare/tidegard/actions/runs/40655575059)) again, both passing. The
+figures below are rc.3's: rc.4 changed no other code.
 
 ## The release
 
@@ -106,4 +109,4 @@ Details and links: [capacity planning](../operations/capacity-planning.md).
 - ~~The independent review of the release candidate~~: done
   2026-10-28, 40 findings, the one High fixed in rc.3
   ([security review](../security/security-review.md#release-candidate-review)).
-- The owner's sign-off of both checklists.
+- ~~The owner's sign-off of both checklists~~: signed 2026-10-28.
