@@ -132,7 +132,7 @@ under the product's new name:
   still work through the 1.x series: each service reads the old name
   when the new one is unset or blank, and logs a warning. Rename them
   when you can. `tidegardctl` reads its profiles from
-  `~/.config/tidegard/cli.json` (`%APPDATA%	idegardcli.json` on
+  `~/.config/tidegard/cli.json` (`%APPDATA%\tidegard\cli.json` on
   Windows), and still finds the `wetechinetmon` one, with a warning.
 - **Two names inside messages changed with the product**, and a
   program that checks them needs the new one:
