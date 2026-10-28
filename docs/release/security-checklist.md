@@ -1,6 +1,6 @@
 # Security Checklist
 
-Status: **v1.0.0-rc.2**, 2026-10-26. **Not yet signed off.**
+Status: **v1.0.0-rc.3**, 2026-10-28. **Not yet signed off.**
 
 Signed by the owner with the [production checklist](production-checklist.md)
 before `v1.0.0` is tagged. Every item links to what proves it.
@@ -19,13 +19,13 @@ before `v1.0.0` is tagged. Every item links to what proves it.
 | S-10 | Images carry no fixable Critical or High vulnerability | The `package` job's Trivy scan |
 | S-11 | No secret anywhere in the history the public repository will carry | The `history` job's gitleaks scan of every commit |
 | S-12 | Every third-party licence ships with the binaries and the UI | The `package` job checks the notices (FU-53) |
-| S-13 | An independent adversarial review of the release candidate found nothing Critical or High left open | The [security review](../security/security-review.md) |
+| S-13 | An independent adversarial review of the release candidate found nothing Critical or High left open | The [release candidate review](../security/security-review.md#release-candidate-review): 40 findings on rc.2, the one High fixed in rc.3 |
 | S-14 | How to report a vulnerability is published | [Security policy](../security/security-policy.md) |
 
 ## Sign-off
 
 | | |
 |---|---|
-| Release candidate | v1.0.0-rc.2 ([test summary](test-summary.md)) |
+| Release candidate | v1.0.0-rc.3 ([test summary](test-summary.md)) |
 | Signed off by | |
 | Date | |

@@ -1,6 +1,6 @@
 # Production Checklist
 
-Status: **v1.0.0-rc.2**, 2026-10-26. **Not yet signed off.**
+Status: **v1.0.0-rc.3**, 2026-10-28. **Not yet signed off.**
 
 Phase 10's acceptance criterion: the owner signs this list and the
 [security checklist](security-checklist.md) before `v1.0.0` is tagged.
@@ -50,6 +50,6 @@ runs on each pull request or a measured run with its link.
 
 | | |
 |---|---|
-| Release candidate | v1.0.0-rc.2 ([test summary](test-summary.md)) |
+| Release candidate | v1.0.0-rc.3 ([test summary](test-summary.md)) |
 | Signed off by | |
 | Date | |
