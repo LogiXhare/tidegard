@@ -5,7 +5,9 @@
 //! (ADR 0058). Every setting is `TIDEGARD_...`; one still set under its
 //! old name, `WETECHINETMON_...`, keeps working through the 1.x series,
 //! with a warning, so an upgrade does not stop on a settings file
-//! nobody has renamed yet. The new name wins when both are set.
+//! nobody has renamed yet. The new name wins when both are set, unless
+//! it is blank: a settings template's empty `TIDEGARD_X=` does not hide
+//! an operator's `WETECHINETMON_X`.
 
 use std::env::VarError;
 
@@ -21,8 +23,9 @@ pub fn legacy_name(name: &str) -> Option<String> {
         .map(|rest| format!("{LEGACY_PREFIX}{rest}"))
 }
 
-/// Reads `name`, or failing that its old name, with a warning on standard
-/// error that names both. `Ok(None)` when neither is set.
+/// Reads `name`, or failing that its old name, with a warning that names
+/// both: in the service's log, or on standard error for a program with
+/// no log. `Ok(None)` when neither is set.
 pub fn var(name: &str) -> Result<Option<String>, VarError> {
     var_from(name, |key| std::env::var(key))
 }
@@ -33,21 +36,36 @@ pub fn var_from(
     name: &str,
     lookup: impl Fn(&str) -> Result<String, VarError>,
 ) -> Result<Option<String>, VarError> {
-    match lookup(name) {
-        Ok(value) => return Ok(Some(value)),
-        Err(VarError::NotPresent) => {}
+    let current = match lookup(name) {
+        Ok(value) if !value.trim().is_empty() => return Ok(Some(value)),
+        Ok(blank) => Some(blank),
+        Err(VarError::NotPresent) => None,
         Err(error) => return Err(error),
-    }
+    };
     let Some(legacy) = legacy_name(name) else {
-        return Ok(None);
+        return Ok(current);
     };
     match lookup(&legacy) {
-        Ok(value) => {
-            eprintln!("warning: {legacy} is deprecated; rename it to {name}");
+        Ok(value) if !value.trim().is_empty() => {
+            warn_deprecated(&legacy, name);
             Ok(Some(value))
         }
-        Err(VarError::NotPresent) => Ok(None),
+        Ok(_) | Err(VarError::NotPresent) => Ok(current),
         Err(error) => Err(error),
+    }
+}
+
+/// In the service's JSON log once it has one, so log pipelines keep the
+/// warning; on standard error for a program without, such as the CLI.
+fn warn_deprecated(legacy: &str, name: &str) {
+    if tracing::dispatcher::has_been_set() {
+        tracing::warn!(
+            setting = legacy,
+            rename_to = name,
+            "a setting is set under its deprecated name"
+        );
+    } else {
+        eprintln!("warning: {legacy} is deprecated; rename it to {name}");
     }
 }
 
@@ -71,6 +89,14 @@ mod tests {
         let old = lookup(&[("WETECHINETMON_X", "old")]);
         assert_eq!(var_from("TIDEGARD_X", &old), Ok(Some("old".into())));
         assert_eq!(var_from("TIDEGARD_X", lookup(&[])), Ok(None));
+    }
+
+    #[test]
+    fn a_blank_new_name_does_not_hide_the_old_one() {
+        let blank = lookup(&[("TIDEGARD_X", " "), ("WETECHINETMON_X", "old")]);
+        assert_eq!(var_from("TIDEGARD_X", &blank), Ok(Some("old".into())));
+        let both_blank = lookup(&[("TIDEGARD_X", ""), ("WETECHINETMON_X", "")]);
+        assert_eq!(var_from("TIDEGARD_X", &both_blank), Ok(Some("".into())));
     }
 
     #[test]

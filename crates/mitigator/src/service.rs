@@ -54,6 +54,8 @@ pub struct Report {
     pub refused: usize,
     /// Steps that failed and will be retried.
     pub errors: usize,
+    /// Steps that failed because GoBGP could not be reached.
+    pub unreachable: usize,
     pub kill_switch: bool,
 }
 
@@ -74,6 +76,13 @@ pub enum MitigatorError {
     GoBgp(#[from] GoBgpError),
     #[error("reconciliation needs a GoBGP connection, and BGP is disabled")]
     NoBgp,
+}
+
+impl MitigatorError {
+    /// GoBGP did not answer: no route can be announced or withdrawn.
+    pub fn is_unreachable(&self) -> bool {
+        matches!(self, MitigatorError::GoBgp(GoBgpError::Unreachable(_)))
+    }
 }
 
 pub struct Mitigator {
@@ -140,6 +149,9 @@ impl Mitigator {
                 .await;
             if let Err(error) = outcome {
                 report.errors += 1;
+                if error.is_unreachable() {
+                    report.unreachable += 1;
+                }
                 tracing::warn!(
                     mitigation_id = %item.record.id,
                     state = item.record.state.as_str(),

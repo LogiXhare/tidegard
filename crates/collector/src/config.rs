@@ -372,11 +372,11 @@ fn parse_allowed_exporters(var: &str) -> Result<Vec<AllowedNetwork>, ConfigError
 fn env_value(var: &str) -> Result<Option<String>, ConfigError> {
     match tidegard_common::env::var(var) {
         Ok(value) => Ok(value),
-        Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(std::env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidValue {
+        // Unset is Ok(None); only a value that is not text is left.
+        Err(_) => Err(ConfigError::InvalidValue {
             var: var.to_string(),
             value: "<non-utf8>".to_string(),
-            expected: "a UTF-8 string",
+            expected: "a UTF-8 string, under this name or its deprecated one",
         }),
     }
 }
